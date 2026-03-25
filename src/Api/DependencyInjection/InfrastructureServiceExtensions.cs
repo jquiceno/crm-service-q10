@@ -1,26 +1,35 @@
-using Api.Settings;
 using Infrastructure.Extensions;
+using Infrastructure.Settings;
 
 namespace Api.DependencyInjection;
 
 public static class InfrastructureServiceExtensions
 {
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-        var enablePersistence = configuration.GetValue<bool>("ENABLE_PERSISTENCE");
+        services.AddOptions<PersistenceSettings>()
+            .Bind(configuration.GetSection(PersistenceSettings.SectionName));
 
-        if (enablePersistence)
+        var persistenceSettings = configuration
+            .GetSection(PersistenceSettings.SectionName)
+            .Get<PersistenceSettings>() ?? new PersistenceSettings();
+
+        if (persistenceSettings.Enabled)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-
-            if (string.IsNullOrWhiteSpace(connectionString))
+            if (string.IsNullOrWhiteSpace(persistenceSettings.ConnectionString))
             {
                 throw new InvalidOperationException(
-                    "Critical Error: PERSISTENCE is enabled but ConnectionString is missing. Application startup aborted.");
+                    "Critical Error: PERSISTENCE is enabled but ConnectionString is missing. "
+                    + "Set 'Persistence:ConnectionString' in appsettings.json or "
+                    + "'Persistence__ConnectionString' as an environment variable. "
+                    + "Application startup aborted.");
             }
 
-            services.AddHealthChecks().AddSqlServer(connectionString);
-            services.AddPersistence(connectionString);
+            services.AddHealthChecks()
+                .AddSqlServer(persistenceSettings.ConnectionString);
+            services.AddPersistence(persistenceSettings.ConnectionString);
         }
         else
         {

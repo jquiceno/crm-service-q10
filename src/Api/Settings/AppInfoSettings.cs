@@ -4,6 +4,8 @@ namespace Api.Settings;
 
 public sealed class AppInfoSettings
 {
+    public const string SectionName = "AppInfo";
+
     [Required]
     [MinLength(1)]
     public string ServiceName { get; init; } = string.Empty;

@@ -3,7 +3,7 @@ using WeatherForecast.Domain.Common;
 using WeatherForecast.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Persistence;
+namespace Infrastructure.Persistence.WeatherForecast;
 
 public class Repository<T>(ApplicationDbContext context) : IRepository<T>
     where T : Entity, IAggregateRoot

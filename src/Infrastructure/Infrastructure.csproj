@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Context\WeatherForecast\Application\WeatherForecast.Application.csproj" />
+    <ProjectReference Include="..\Contexts\WeatherForecast\Application\WeatherForecast.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

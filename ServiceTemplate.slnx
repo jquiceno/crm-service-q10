@@ -3,8 +3,8 @@
     <Project Path="src/Infrastructure/Infrastructure.csproj" />
     <Project Path="src/Api/Api.csproj" />
   </Folder>
-  <Folder Name="/src/Context/WeatherForecast/">
-    <Project Path="src/Context/WeatherForecast/Domain/WeatherForecast.Domain.csproj" />
-    <Project Path="src/Context/WeatherForecast/Application/WeatherForecast.Application.csproj" />
+  <Folder Name="/src/Contexts/WeatherForecast/">
+    <Project Path="src/Contexts/WeatherForecast/Domain/WeatherForecast.Domain.csproj" />
+    <Project Path="src/Contexts/WeatherForecast/Application/WeatherForecast.Application.csproj" />
   </Folder>
 </Solution>

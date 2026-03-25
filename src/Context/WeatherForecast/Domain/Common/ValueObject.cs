@@ -1,4 +1,4 @@
-namespace Domain.Common;
+namespace WeatherForecast.Domain.Common;
 
 public abstract class ValueObject : IEquatable<ValueObject>
 {

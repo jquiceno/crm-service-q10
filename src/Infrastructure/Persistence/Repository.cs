@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
-using Domain.Common;
-using Domain.Interfaces;
+using WeatherForecast.Domain.Common;
+using WeatherForecast.Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;

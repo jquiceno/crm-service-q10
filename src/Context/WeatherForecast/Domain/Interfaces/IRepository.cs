@@ -1,7 +1,6 @@
-using System.Linq.Expressions;
-using Domain.Common;
+using WeatherForecast.Domain.Common;
 
-namespace Domain.Interfaces;
+namespace WeatherForecast.Domain.Interfaces;
 
 public interface IRepository<T> where T : Entity, IAggregateRoot
 {

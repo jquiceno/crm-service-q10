@@ -12,7 +12,7 @@ public static class InfrastructureServiceExtensions
         if (enablePersistence)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-           
+
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new InvalidOperationException(
@@ -21,6 +21,10 @@ public static class InfrastructureServiceExtensions
 
             services.AddHealthChecks().AddSqlServer(connectionString);
             services.AddPersistence(connectionString);
+        }
+        else
+        {
+            services.AddInMemoryPersistence();
         }
 
         return services;

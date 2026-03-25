@@ -1,4 +1,4 @@
-﻿using Domain.Interfaces;
+﻿using WeatherForecast.Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +19,16 @@ public static class PersistenceExtensions
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(connectionString, sqlOptions =>
                 sqlOptions.EnableRetryOnFailure(maxRetryCount: 3)));
+
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+        return services;
+    }
+
+    public static IServiceCollection AddInMemoryPersistence(this IServiceCollection services)
+    {
+        services.AddDbContext<ApplicationDbContext>(options =>
+            options.UseInMemoryDatabase("InMemoryDb"));
 
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 

@@ -4,8 +4,8 @@ WORKDIR /src
 
 COPY Directory.Build.props .
 COPY ServiceTemplate.slnx .
-COPY src/Domain/Domain.csproj src/Domain/
-COPY src/Application/Application.csproj src/Application/
+COPY src/Context/WeatherForecast/Domain/WeatherForecast.Domain.csproj src/Context/WeatherForecast/Domain/
+COPY src/Context/WeatherForecast/Application/WeatherForecast.Application.csproj src/Context/WeatherForecast/Application/
 COPY src/Infrastructure/Infrastructure.csproj src/Infrastructure/
 COPY src/Api/Api.csproj src/Api/
 

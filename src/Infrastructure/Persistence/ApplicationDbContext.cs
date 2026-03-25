@@ -1,4 +1,5 @@
-using Domain.Common;
+using WeatherForecast.Domain.Common;
+using WeatherForecast.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence;
@@ -6,6 +7,7 @@ namespace Infrastructure.Persistence;
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : DbContext(options)
 {
+    public DbSet<WeatherForecastEntity> WeatherForecasts => Set<WeatherForecastEntity>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);

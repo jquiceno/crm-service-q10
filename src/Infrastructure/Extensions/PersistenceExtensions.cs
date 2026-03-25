@@ -36,8 +36,7 @@ public static class PersistenceExtensions
 
     private static void AddRepositories(this IServiceCollection services)
     {
-        services.AddScoped(
-            typeof(WeatherForecast.Domain.Interfaces.IRepository<>),
-            typeof(Persistence.WeatherForecast.Repository<>));
+        services.AddScoped<WeatherForecast.Domain.Interfaces.IWeatherForecastRepository,
+            Persistence.WeatherForecast.WeatherForecastRepository>();
     }
 }

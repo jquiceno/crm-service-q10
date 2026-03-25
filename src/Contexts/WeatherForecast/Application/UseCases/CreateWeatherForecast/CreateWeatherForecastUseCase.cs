@@ -1,13 +1,12 @@
 using FluentValidation;
 using WeatherForecast.Domain.Common;
-using WeatherForecast.Domain.Entities;
 using WeatherForecast.Domain.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
 public sealed class CreateWeatherForecastUseCase(
     IValidator<CreateWeatherForecastInputDto> validator,
-    IRepository<WeatherForecastEntity> repository) : ICreateWeatherForecastUseCase
+    IWeatherForecastRepository repository) : ICreateWeatherForecastUseCase
 {
     public async Task<Result<CreateWeatherForecastOutputDto>> ExecuteAsync(
         CreateWeatherForecastInputDto input, CancellationToken cancellationToken = default)

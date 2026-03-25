@@ -1,11 +1,10 @@
 using WeatherForecast.Domain.Common;
-using WeatherForecast.Domain.Entities;
 using WeatherForecast.Domain.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 public sealed class GetWeatherForecastUseCase(
-    IRepository<WeatherForecastEntity> repository) : IGetWeatherForecastUseCase
+    IWeatherForecastRepository repository) : IGetWeatherForecastUseCase
 {
     public async Task<Result<IReadOnlyList<GetWeatherForecastOutputDto>>> ExecuteAsync(
         CancellationToken cancellationToken = default)

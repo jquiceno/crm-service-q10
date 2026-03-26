@@ -2,7 +2,7 @@ using WeatherForecast.Domain.Common;
 using WeatherForecast.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Persistence;
+namespace Infrastructure.Persistence.EntityFramework;
 
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : DbContext(options)

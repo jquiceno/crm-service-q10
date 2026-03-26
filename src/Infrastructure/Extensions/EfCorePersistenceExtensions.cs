@@ -1,13 +1,13 @@
-﻿using Infrastructure.Persistence;
+using Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
 namespace Infrastructure.Extensions;
 
-public static class PersistenceExtensions
+public static class EfCorePersistenceExtensions
 {
-    public static IServiceCollection AddPersistence(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddEfCoreSqlServer(this IServiceCollection services, string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -24,7 +24,7 @@ public static class PersistenceExtensions
         return services;
     }
 
-    public static IServiceCollection AddInMemoryPersistence(this IServiceCollection services)
+    public static IServiceCollection AddEfCoreInMemory(this IServiceCollection services)
     {
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseInMemoryDatabase("InMemoryDb"));
@@ -37,6 +37,6 @@ public static class PersistenceExtensions
     private static void AddRepositories(this IServiceCollection services)
     {
         services.AddScoped<WeatherForecast.Domain.Interfaces.IWeatherForecastRepository,
-            Persistence.WeatherForecast.WeatherForecastRepository>();
+            Persistence.EntityFramework.WeatherForecast.WeatherForecastRepository>();
     }
 }

@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 
-namespace Infrastructure.Persistence.Common;
+namespace Infrastructure.Persistence.EntityFramework.Common;
 
 public abstract class BaseRepository<T>(ApplicationDbContext context) where T : class
 {

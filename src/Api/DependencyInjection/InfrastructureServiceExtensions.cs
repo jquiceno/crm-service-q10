@@ -29,11 +29,11 @@ public static class InfrastructureServiceExtensions
 
             services.AddHealthChecks()
                 .AddSqlServer(persistenceSettings.ConnectionString);
-            services.AddPersistence(persistenceSettings.ConnectionString);
+            services.AddEfCoreSqlServer(persistenceSettings.ConnectionString);
         }
         else
         {
-            services.AddInMemoryPersistence();
+            services.AddEfCoreInMemory();
         }
 
         return services;

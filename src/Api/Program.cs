@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddAzureKeyVault();
-builder.Host.AddLoggingConfiguration(builder.Configuration);
+builder.Host.AddSerilog(builder.Configuration);
 
 builder.Services
     .AddApiSettings(builder.Configuration)

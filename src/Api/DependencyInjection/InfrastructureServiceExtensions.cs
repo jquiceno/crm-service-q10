@@ -9,9 +9,6 @@ public static class InfrastructureServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddOptions<PersistenceSettings>()
-            .Bind(configuration.GetSection(PersistenceSettings.SectionName));
-
         var persistenceSettings = configuration
             .GetSection(PersistenceSettings.SectionName)
             .Get<PersistenceSettings>() ?? new PersistenceSettings();

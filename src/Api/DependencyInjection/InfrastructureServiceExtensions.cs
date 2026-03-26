@@ -16,6 +16,8 @@ public static class InfrastructureServiceExtensions
             .GetSection(PersistenceSettings.SectionName)
             .Get<PersistenceSettings>() ?? new PersistenceSettings();
 
+        var healthChecks = services.AddHealthChecks();
+
         if (persistenceSettings.Enabled)
         {
             if (string.IsNullOrWhiteSpace(persistenceSettings.ConnectionString))
@@ -27,8 +29,7 @@ public static class InfrastructureServiceExtensions
                     + "Application startup aborted.");
             }
 
-            services.AddHealthChecks()
-                .AddSqlServer(persistenceSettings.ConnectionString);
+            healthChecks.AddSqlServer(persistenceSettings.ConnectionString, tags: ["ready"]);
             services.AddEfCoreSqlServer(persistenceSettings.ConnectionString);
         }
         else

@@ -1,7 +1,7 @@
 using Api.DependencyInjection;
 using Api.Middleware;
 using Infrastructure.Extensions;
-using Serilog;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,8 +14,6 @@ builder.Services
     .AddInfrastructureServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddControllers();
-
-builder.Services.AddHealthChecks();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -34,7 +32,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
+
 app.MapControllers();
 
 app.Run();

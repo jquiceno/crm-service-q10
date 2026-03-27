@@ -1,15 +1,13 @@
+# syntax=docker/dockerfile:1
+
 # Stage 1: Restore
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS restore
 WORKDIR /src
 
-COPY Directory.Build.props .
-COPY ServiceTemplate.slnx .
-COPY src/Context/WeatherForecast/Domain/WeatherForecast.Domain.csproj src/Context/WeatherForecast/Domain/
-COPY src/Context/WeatherForecast/Application/WeatherForecast.Application.csproj src/Context/WeatherForecast/Application/
-COPY src/Infrastructure/Infrastructure.csproj src/Infrastructure/
-COPY src/Api/Api.csproj src/Api/
+COPY Directory.Build.props ServiceTemplate.slnx ./
+COPY --parents src/**/*.csproj ./
 
-RUN dotnet restore ServiceTemplate.slnx
+RUN dotnet restore src/Api/Api.csproj
 
 # Stage 2: Publish
 FROM restore AS publish
@@ -20,8 +18,9 @@ RUN dotnet publish src/Api/Api.csproj -c Release -o /app/publish --no-restore
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
+ARG APP_PORT=8080
+ENV ASPNETCORE_URLS=http://+:${APP_PORT}
+EXPOSE ${APP_PORT}
 
 RUN adduser --disabled-password --gecos "" appuser
 USER appuser

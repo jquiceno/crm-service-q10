@@ -1,5 +1,6 @@
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
+using System;
 
 namespace Api.DependencyInjection;
 
@@ -31,6 +32,8 @@ public static class InfrastructureServiceExtensions
         }
         else
         {
+            Console.WriteLine("[Persistence] Persistence is disabled. Using in-memory database.");
+
             services.AddEfCoreInMemory();
         }
 

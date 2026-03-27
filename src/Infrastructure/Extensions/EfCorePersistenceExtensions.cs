@@ -19,8 +19,6 @@ public static class EfCorePersistenceExtensions
             options.UseSqlServer(connectionString, sqlOptions =>
                 sqlOptions.EnableRetryOnFailure(maxRetryCount: 3)));
 
-        services.AddRepositories();
-
         return services;
     }
 
@@ -29,14 +27,6 @@ public static class EfCorePersistenceExtensions
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseInMemoryDatabase("InMemoryDb"));
 
-        services.AddRepositories();
-
         return services;
-    }
-
-    private static void AddRepositories(this IServiceCollection services)
-    {
-        services.AddScoped<WeatherForecast.Domain.Interfaces.IWeatherForecastRepository,
-            Persistence.EntityFramework.WeatherForecast.WeatherForecastRepository>();
     }
 }

@@ -9,10 +9,12 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/health")]
-public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions) : ControllerBase
+public sealed class HealthController(
+    IOptions<AppInfoSettings> appInfoOptions,
+    IWebHostEnvironment hostEnvironment) : ControllerBase
 {
-    [HttpGet("live")]
-    public IActionResult GetLive()
+    [HttpGet("info")]
+    public IActionResult GetInfo()
     {
         var appInfo = appInfoOptions.Value;
 
@@ -20,7 +22,8 @@ public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions) :
         {
             status = "ok",
             serviceName = appInfo.ServiceName,
-            version = appInfo.Version
+            version = appInfo.Version,
+            environment = hostEnvironment.EnvironmentName
         });
     }
 }

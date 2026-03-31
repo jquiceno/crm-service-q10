@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Sentry.Serilog;
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 
 namespace Infrastructure.Extensions;
 
@@ -21,8 +22,16 @@ public static class SerilogExtensions
         {
             loggerConfig
                 .ReadFrom.Configuration(configuration)
-                .Enrich.FromLogContext()
-                .WriteTo.Console();
+                .Enrich.FromLogContext();
+
+            if (context.HostingEnvironment.IsDevelopment())
+            {
+                loggerConfig.WriteTo.Console();
+            }
+            else
+            {
+                loggerConfig.WriteTo.Console(new JsonFormatter(renderMessage: true));
+            }
 
             if (sentrySettings.Enabled)
             {

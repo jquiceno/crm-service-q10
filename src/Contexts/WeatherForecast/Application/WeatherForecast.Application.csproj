@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Domain\WeatherForecast.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Application\Shared.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,6 +4,7 @@ public static class ApplicationServiceExtensions
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        services.AddSharedServices();
         services.AddWeatherForecastServices();
 
         return services;

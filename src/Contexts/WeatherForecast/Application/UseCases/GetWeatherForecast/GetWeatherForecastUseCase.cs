@@ -10,7 +10,7 @@ public sealed class GetWeatherForecastUseCase(
     public async Task<Result<IReadOnlyList<GetWeatherForecastOutputDto>>> ExecuteAsync(
         CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Retrieving all weather forecasts");
+        logger.Info("Retrieving all weather forecasts");
         var entities = await repository.GetAllAsync(cancellationToken);
 
         var dtos = entities.Select(e => e.ToGetDto()).ToList().AsReadOnly();

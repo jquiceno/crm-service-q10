@@ -23,6 +23,7 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
+app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
 

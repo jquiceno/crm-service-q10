@@ -4,7 +4,7 @@ using WeatherForecast.Domain.Interfaces;
 
 namespace Infrastructure.Persistence.EntityFramework.WeatherForecast;
 
-public class WeatherForecastRepository(ApplicationDbContext context)
+public sealed class WeatherForecastRepository(ApplicationDbContext context)
     : BaseRepository<WeatherForecastEntity>(context), IWeatherForecastRepository
 {
 }

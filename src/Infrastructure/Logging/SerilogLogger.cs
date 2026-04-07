@@ -3,7 +3,7 @@ using Shared.Application.Interfaces;
 
 namespace Infrastructure.Logging;
 
-public class SerilogLogger<T> : ILoggerService<T>
+public sealed class SerilogLogger<T> : ILoggerService<T>
 {
     private readonly ILogger _logger = Log.ForContext<T>();
 

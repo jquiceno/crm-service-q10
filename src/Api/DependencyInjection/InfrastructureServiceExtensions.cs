@@ -32,6 +32,7 @@ public static class InfrastructureServiceExtensions
         }
         else
         {
+            // Console.WriteLine is intentional: Serilog is not yet configured during service registration.
             Console.WriteLine("[Persistence] Persistence is disabled. Using in-memory database.");
 
             services.AddEfCoreInMemory();

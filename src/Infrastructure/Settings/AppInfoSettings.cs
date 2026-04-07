@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Api.Settings;
+namespace Infrastructure.Settings;
 
 public sealed class AppInfoSettings
 {

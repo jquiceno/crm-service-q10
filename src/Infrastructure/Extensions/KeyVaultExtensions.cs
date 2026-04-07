@@ -11,6 +11,7 @@ public static class KeyVaultExtensions
 
         if (!enabled)
         {
+            // Console.WriteLine is intentional here: Serilog is not yet configured during the configuration-building phase.
             Console.WriteLine("[KeyVault] ENABLE_SECRETS_VAULT is not enabled. Skipping Azure Key Vault configuration.");
             return configuration;
         }

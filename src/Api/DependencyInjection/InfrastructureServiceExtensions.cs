@@ -1,6 +1,5 @@
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
-using System;
 
 namespace Api.DependencyInjection;
 
@@ -13,6 +12,12 @@ public static class InfrastructureServiceExtensions
         var persistenceSettings = configuration
             .GetSection(PersistenceSettings.SectionName)
             .Get<PersistenceSettings>() ?? new PersistenceSettings();
+
+        var cacheSettings = configuration
+            .GetSection(CacheSettings.SectionName)
+            .Get<CacheSettings>() ?? new CacheSettings();
+
+        services.AddCacheServices(cacheSettings);
 
         var healthChecks = services.AddHealthChecks();
 

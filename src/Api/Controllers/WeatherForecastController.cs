@@ -1,3 +1,4 @@
+using Api.Filters;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using Microsoft.AspNetCore.Mvc;
@@ -9,6 +10,7 @@ namespace Api.Controllers;
 public sealed class WeatherForecastController() : ControllerBase
 {
     [HttpGet]
+    [HttpCache(ttlSeconds: 60)]
     public async Task<IActionResult> GetAll(
         IGetWeatherForecastUseCase getWeatherForecastUseCase,
         CancellationToken cancellationToken)
@@ -22,6 +24,7 @@ public sealed class WeatherForecastController() : ControllerBase
     }
 
     [HttpPost]
+    [InvalidateCache("api/v1/weather-forecasts")]
     public async Task<IActionResult> Create(
         [FromBody] CreateWeatherForecastInputDto input,
         ICreateWeatherForecastUseCase createWeatherForecastUseCase,

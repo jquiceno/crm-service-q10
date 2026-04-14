@@ -3,12 +3,13 @@ using System.Net;
 using System.Text.Json;
 using WeatherForecast.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Application.Interfaces;
 
 namespace Api.Middleware;
 
 public sealed class GlobalExceptionMiddleware(
     RequestDelegate next,
-    ILogger<GlobalExceptionMiddleware> logger)
+    ILoggerService<GlobalExceptionMiddleware> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -27,12 +28,12 @@ public sealed class GlobalExceptionMiddleware(
         }
         catch (DomainException ex)
         {
-            logger.LogWarning(ex, "Domain exception: {Message}", ex.Message);
+            logger.Warning(ex, "Domain exception: {Message}", ex.Message);
             await WriteProblemDetailsAsync(httpContext, HttpStatusCode.BadRequest, ex.Message);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Unhandled exception");
+            logger.Error(ex, "Unhandled exception");
             await WriteProblemDetailsAsync(httpContext, HttpStatusCode.InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -44,7 +45,7 @@ public sealed class GlobalExceptionMiddleware(
     {
         if (httpContext.Response.HasStarted)
         {
-            logger.LogWarning(
+            logger.Warning(
                 "Cannot write ProblemDetails response. Response has already started for {Path}",
                 httpContext.Request.Path);
             return;

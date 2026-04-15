@@ -1,0 +1,112 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        required: true
+        options:
+          - dev
+          - qa
+          - prod
+      ref:
+        description: Branch, tag, or SHA to deploy
+        type: string
+        required: true
+        default: main
+      confirmation:
+        description: Type "DEPLOY" to confirm
+        type: string
+        required: true
+
+concurrency:
+  group: cd-${{ github.event_name == 'workflow_dispatch' && inputs.environment || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate confirmation
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation word
+        run: |
+          if [ "${{ inputs.confirmation }}" != "DEPLOY" ]; then
+            echo "::error::Invalid confirmation word. Please type DEPLOY (uppercase) to proceed."
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+  resolve-context:
+    name: Resolve deployment context
+    needs: validate
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.ctx.outputs.environment }}
+      ref: ${{ steps.ctx.outputs.ref }}
+    steps:
+      - name: Determine environment and ref
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ inputs.ref }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_name }}" == "dev" ]; then
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            echo "environment=qa" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_name }}" == "main" ]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unexpected branch '${{ github.ref_name }}'. No environment mapping defined."
+            exit 1
+          fi
+
+      - name: Print deployment context
+        run: |
+          echo "Environment : ${{ steps.ctx.outputs.environment }}"
+          echo "Ref         : ${{ steps.ctx.outputs.ref }}"
+
+  deploy:
+    name: Deploy to ${{ needs.resolve-context.outputs.environment }}
+    needs: resolve-context
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-context.outputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-context.outputs.ref }}
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ vars.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ vars.IMAGE_NAME }}:${{ needs.resolve-context.outputs.environment }}-latest \
+            .
+
+      - name: Deployment summary
+        run: |
+          echo "### Deployment complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ needs.resolve-context.outputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | \`${{ vars.IMAGE_NAME }}:${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Ref | \`${{ needs.resolve-context.outputs.ref }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Triggered by | \`${{ github.actor }}\` |" >> "$GITHUB_STEP_SUMMARY"

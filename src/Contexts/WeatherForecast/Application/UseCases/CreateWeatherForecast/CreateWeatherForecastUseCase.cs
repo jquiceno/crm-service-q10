@@ -20,7 +20,12 @@ public sealed class CreateWeatherForecastUseCase(
                 new Error("Validation", errors));
         }
 
-        var entity = input.ToEntity();
+        var entityResult = input.ToEntity();
+
+        if (entityResult.IsFailure)
+            return Result<CreateWeatherForecastOutputDto>.Failure(entityResult.Error);
+
+        var entity = entityResult.Value;
 
         await repository.AddAsync(entity, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);

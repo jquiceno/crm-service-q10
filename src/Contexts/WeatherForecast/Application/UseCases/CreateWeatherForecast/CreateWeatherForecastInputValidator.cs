@@ -10,7 +10,7 @@ public sealed class CreateWeatherForecastInputValidator : AbstractValidator<Crea
             .NotEmpty().WithMessage("Date is required.");
 
         RuleFor(x => x.TemperatureC)
-            .InclusiveBetween(-90, 60).WithMessage("TemperatureC must be between -90 and 60.");
+            .InclusiveBetween(-60, 60).WithMessage("TemperatureC must be between -60 and 60.");
 
         RuleFor(x => x.Summary)
             .NotEmpty().WithMessage("Summary is required.")

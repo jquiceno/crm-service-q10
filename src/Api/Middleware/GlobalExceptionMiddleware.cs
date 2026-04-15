@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
-using WeatherForecast.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Middleware;
@@ -24,11 +23,6 @@ public sealed class GlobalExceptionMiddleware(
         catch (OperationCanceledException) when (httpContext.RequestAborted.IsCancellationRequested)
         {
             httpContext.Response.StatusCode = 499;
-        }
-        catch (DomainException ex)
-        {
-            logger.LogWarning(ex, "Domain exception: {Message}", ex.Message);
-            await WriteProblemDetailsAsync(httpContext, HttpStatusCode.BadRequest, ex.Message);
         }
         catch (Exception ex)
         {

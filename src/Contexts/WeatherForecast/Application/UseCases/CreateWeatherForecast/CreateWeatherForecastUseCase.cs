@@ -1,5 +1,6 @@
 using FluentValidation;
-using WeatherForecast.Domain.Common;
+using Shared.Application;
+using Shared.Domain;
 using WeatherForecast.Domain.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
@@ -15,17 +16,15 @@ public sealed class CreateWeatherForecastUseCase(
 
         if (!validationResult.IsValid)
         {
-            var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
+            var details = validationResult.Errors
+                .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation))
+                .ToList<Error>();
+
             return Result<CreateWeatherForecastOutputDto>.Failure(
-                new Error("Validation", errors));
+                ApplicationErrors.ValidationFailed(details));
         }
 
-        var entityResult = input.ToEntity();
-
-        if (entityResult.IsFailure)
-            return Result<CreateWeatherForecastOutputDto>.Failure(entityResult.Error);
-
-        var entity = entityResult.Value;
+        var entity = input.ToEntity();
 
         await repository.AddAsync(entity, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);

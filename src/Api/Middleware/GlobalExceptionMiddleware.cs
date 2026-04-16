@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
-using Microsoft.AspNetCore.Mvc;
+using Api.Responses;
 
 namespace Api.Middleware;
 
@@ -27,45 +27,35 @@ public sealed class GlobalExceptionMiddleware(
         catch (Exception ex)
         {
             logger.LogError(ex, "Unhandled exception");
-            await WriteProblemDetailsAsync(httpContext, HttpStatusCode.InternalServerError, "An unexpected error occurred.");
+            await WriteErrorResponseAsync(httpContext, HttpStatusCode.InternalServerError,
+                "INTERNAL_ERROR", "An unexpected error occurred.", "internal");
         }
     }
 
-    private async Task WriteProblemDetailsAsync(
+    private async Task WriteErrorResponseAsync(
         HttpContext httpContext,
-        HttpStatusCode statusCode,
-        string detail)
+        HttpStatusCode httpStatusCode,
+        string code,
+        string message,
+        string type)
     {
         if (httpContext.Response.HasStarted)
         {
             logger.LogWarning(
-                "Cannot write ProblemDetails response. Response has already started for {Path}",
+                "Cannot write error response. Response has already started for {Path}",
                 httpContext.Request.Path);
             return;
         }
 
-        var problemDetails = new ProblemDetails
-        {
-            Type = statusCode == HttpStatusCode.BadRequest
-                ? "https://tools.ietf.org/html/rfc9110#section-15.5.1"
-                : "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-            Status = (int)statusCode,
-            Title = statusCode switch
-            {
-                HttpStatusCode.BadRequest => "Bad Request",
-                _ => "Internal Server Error"
-            },
-            Detail = detail,
-            Instance = httpContext.Request.Path,
-            Extensions =
-            {
-                ["traceId"] = Activity.Current?.Id ?? httpContext.TraceIdentifier
-            }
-        };
+        var statusCode = (int)httpStatusCode;
 
-        httpContext.Response.StatusCode = (int)statusCode;
-        httpContext.Response.ContentType = "application/problem+json";
+        var response = new ApiErrorResponse(
+            new ErrorDto(code, message, type, []),
+            statusCode);
 
-        await httpContext.Response.WriteAsJsonAsync(problemDetails, JsonOptions);
+        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.ContentType = "application/json";
+
+        await httpContext.Response.WriteAsJsonAsync(response, JsonOptions);
     }
 }

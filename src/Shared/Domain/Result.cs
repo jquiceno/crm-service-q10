@@ -1,9 +1,4 @@
-namespace WeatherForecast.Domain.Common;
-
-public sealed record Error(string Code, string Description)
-{
-    public static readonly Error None = new(string.Empty, string.Empty);
-}
+namespace Shared.Domain;
 
 public class Result
 {
@@ -42,7 +37,11 @@ public class Result<T> : Result
         _value = value;
     }
 
-    public static Result<T> Success(T value) => new(value, true, Error.None);
+    public static Result<T> Success(T value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return new(value, true, Error.None);
+    }
 
     public new static Result<T> Failure(Error error) => new(default, false, error);
 }

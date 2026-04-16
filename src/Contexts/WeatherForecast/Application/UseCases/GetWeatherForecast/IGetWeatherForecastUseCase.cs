@@ -1,4 +1,4 @@
-using WeatherForecast.Domain.Common;
+using Shared.Domain;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 

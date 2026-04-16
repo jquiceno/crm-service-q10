@@ -8,6 +8,7 @@
     <Project Path="src/Contexts/WeatherForecast/Application/WeatherForecast.Application.csproj" />
   </Folder>
   <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Domain/Shared.Domain.csproj" />
     <Project Path="src/Shared/Application/Shared.Application.csproj" />
   </Folder>
 </Solution>

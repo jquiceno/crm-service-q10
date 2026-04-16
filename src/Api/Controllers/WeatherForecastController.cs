@@ -1,3 +1,4 @@
+using Api.Extensions;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,7 @@ public sealed class WeatherForecastController() : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await getWeatherForecastUseCase.ExecuteAsync(cancellationToken);
-
-        if (result.IsFailure)
-            return BadRequest(new { error = result.Error.Description });
-
-        return Ok(result.Value);
+        return result.ToApiResponse(this);
     }
 
     [HttpPost]
@@ -28,10 +25,6 @@ public sealed class WeatherForecastController() : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await createWeatherForecastUseCase.ExecuteAsync(input, cancellationToken);
-
-        if (result.IsFailure)
-            return BadRequest(new { error = result.Error.Description });
-
-        return Created(string.Empty, result.Value);
+        return result.ToCreatedApiResponse(this);
     }
 }

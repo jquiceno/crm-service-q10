@@ -1,4 +1,6 @@
 using FluentValidation;
+using WeatherForecast.Domain.Entities;
+using WeatherForecast.Domain.Errors;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
@@ -7,13 +9,23 @@ public sealed class CreateWeatherForecastInputValidator : AbstractValidator<Crea
     public CreateWeatherForecastInputValidator()
     {
         RuleFor(x => x.Date)
-            .NotEmpty().WithMessage("Date is required.");
+            .NotEmpty()
+            .WithErrorCode(WeatherForecastErrors.DateRequired.Code)
+            .WithMessage(WeatherForecastErrors.DateRequired.Message);
 
         RuleFor(x => x.TemperatureC)
-            .InclusiveBetween(-60, 60).WithMessage("TemperatureC must be between -60 and 60.");
+            .InclusiveBetween(WeatherForecastEntity.MinTemperatureC, WeatherForecastEntity.MaxTemperatureC)
+            .WithErrorCode(WeatherForecastErrors.TemperatureOutOfRange.Code)
+            .WithMessage(WeatherForecastErrors.TemperatureOutOfRange.Message);
 
         RuleFor(x => x.Summary)
-            .NotEmpty().WithMessage("Summary is required.")
-            .MaximumLength(200).WithMessage("Summary must not exceed 200 characters.");
+            .NotEmpty()
+            .WithErrorCode(WeatherForecastErrors.SummaryRequired.Code)
+            .WithMessage(WeatherForecastErrors.SummaryRequired.Message);
+
+        RuleFor(x => x.Summary)
+            .MaximumLength(WeatherForecastEntity.MaxSummaryLength)
+            .WithErrorCode(WeatherForecastErrors.SummaryTooLong.Code)
+            .WithMessage(WeatherForecastErrors.SummaryTooLong.Message);
     }
 }

@@ -1,4 +1,4 @@
-namespace WeatherForecast.Domain.Common;
+namespace Shared.Domain;
 
 public abstract class Entity : IEquatable<Entity>
 {

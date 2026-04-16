@@ -1,4 +1,5 @@
 using Shared.Domain;
+using WeatherForecast.Domain.Aggregates;
 
 namespace WeatherForecast.Domain.Errors;
 
@@ -9,7 +10,7 @@ public static class WeatherForecastErrors
 
     public static readonly Error TemperatureOutOfRange =
         new("WEATHER_FORECAST.TEMPERATURE_OUT_OF_RANGE",
-            $"TemperatureC must be between {Entities.WeatherForecastEntity.MinTemperatureC} and {Entities.WeatherForecastEntity.MaxTemperatureC}.",
+            $"TemperatureC must be between {WeatherForecastAggregate.MinTemperatureC} and {WeatherForecastAggregate.MaxTemperatureC}.",
             ErrorType.Validation);
 
     public static readonly Error SummaryRequired =
@@ -17,6 +18,6 @@ public static class WeatherForecastErrors
 
     public static readonly Error SummaryTooLong =
         new("WEATHER_FORECAST.SUMMARY_TOO_LONG",
-            $"Summary must not exceed {Entities.WeatherForecastEntity.MaxSummaryLength} characters.",
+            $"Summary must not exceed {WeatherForecastAggregate.MaxSummaryLength} characters.",
             ErrorType.Validation);
 }

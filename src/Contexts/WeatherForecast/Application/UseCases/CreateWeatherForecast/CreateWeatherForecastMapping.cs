@@ -1,12 +1,12 @@
-using WeatherForecast.Domain.Entities;
+using WeatherForecast.Domain.Aggregates;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
 public static class CreateWeatherForecastMapping
 {
-    public static WeatherForecastEntity ToEntity(this CreateWeatherForecastInputDto input) =>
-        WeatherForecastEntity.Create(Guid.NewGuid(), input.Date, input.TemperatureC, input.Summary);
+    public static WeatherForecastAggregate ToAggregate(this CreateWeatherForecastInputDto input) =>
+        WeatherForecastAggregate.Create(Guid.NewGuid(), input.Date, input.TemperatureC, input.Summary);
 
-    public static CreateWeatherForecastOutputDto ToCreateDto(this WeatherForecastEntity entity) =>
-        new(entity.Id, entity.Date, entity.TemperatureC, entity.TemperatureF, entity.Summary, entity.CreatedAtUtc);
+    public static CreateWeatherForecastOutputDto ToCreateDto(this WeatherForecastAggregate aggregate) =>
+        new(aggregate.Id, aggregate.Date, aggregate.TemperatureC, aggregate.TemperatureF, aggregate.Summary, aggregate.CreatedAtUtc);
 }

@@ -1,9 +1,9 @@
-using WeatherForecast.Domain.Entities;
+using WeatherForecast.Domain.Aggregates;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 public static class GetWeatherForecastMapping
 {
-    public static GetWeatherForecastOutputDto ToGetDto(this WeatherForecastEntity entity) =>
-        new(entity.Id, entity.Date, entity.TemperatureC, entity.TemperatureF, entity.Summary);
+    public static GetWeatherForecastOutputDto ToGetDto(this WeatherForecastAggregate aggregate) =>
+        new(aggregate.Id, aggregate.Date, aggregate.TemperatureC, aggregate.TemperatureF, aggregate.Summary);
 }

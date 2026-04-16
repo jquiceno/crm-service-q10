@@ -24,11 +24,11 @@ public sealed class CreateWeatherForecastUseCase(
                 ApplicationErrors.ValidationFailed(details));
         }
 
-        var entity = input.ToEntity();
+        var aggregate = input.ToAggregate();
 
-        await repository.AddAsync(entity, cancellationToken);
+        await repository.AddAsync(aggregate, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateWeatherForecastOutputDto>.Success(entity.ToCreateDto());
+        return Result<CreateWeatherForecastOutputDto>.Success(aggregate.ToCreateDto());
     }
 }

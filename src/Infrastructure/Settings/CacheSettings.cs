@@ -8,10 +8,8 @@ public sealed class CacheSettings
 
     public bool Enabled { get; init; }
 
-    public string ConnectionString { get; init; } = string.Empty;
-
     [Range(1, int.MaxValue)]
     public int DefaultTtlSeconds { get; init; } = 300;
 
-    public string KeyPrefix { get; init; } = "api:v1";
+    public string ConnectionString { get; init; } = string.Empty;
 }

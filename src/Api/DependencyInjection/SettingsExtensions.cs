@@ -17,11 +17,6 @@ public static class SettingsExtensions
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        services.AddOptions<CacheSettings>()
-            .Bind(configuration.GetSection(CacheSettings.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
-
         // services.AddOptions<AuthSettings>()...
 
         return services;

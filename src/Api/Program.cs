@@ -12,6 +12,7 @@ builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
+    .ConfigureCache(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddControllers();
 
@@ -26,6 +27,8 @@ var app = builder.Build();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
+
+app.UseCacheMiddleware();
 
 if (app.Environment.IsDevelopment())
 {

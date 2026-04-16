@@ -1,29 +1,39 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using ServiceTemplate.Tests.Api.Doubles;
-using Shared.Application.Interfaces;
+using WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 namespace ServiceTemplate.Tests.Api;
 
 /// <summary>
-/// Spins up the real API with a <see cref="SpyCacheService"/> wired in place of
-/// the real <see cref="ICacheService"/>, so filter behaviour can be asserted
-/// without a live Redis instance.
+/// Spins up the real API and wraps <see cref="IGetWeatherForecastUseCase"/> in a
+/// counting decorator so output-cache behaviour can be asserted end-to-end.
+/// Each test gets its own factory, its own in-memory output-cache store.
 /// </summary>
 internal sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public SpyCacheService CacheService { get; } = new();
+    private CountingGetWeatherForecastUseCase? _counter;
+
+    public CountingGetWeatherForecastUseCase GetUseCase =>
+        _counter ?? throw new InvalidOperationException("Factory not built yet. Call CreateClient() first.");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseSetting("Cache:Enabled", "true");
+
         builder.ConfigureServices(services =>
         {
-            // Replace whatever cache service Program registered (NullCacheService
-            // by default in test config) with the spy.
-            services.RemoveAll<ICacheService>();
-            services.AddSingleton<ICacheService>(CacheService);
+            services.AddScoped<GetWeatherForecastUseCase>();
+
+            var realDescriptor = services.Single(d => d.ServiceType == typeof(IGetWeatherForecastUseCase));
+            services.Remove(realDescriptor);
+
+            services.AddSingleton<IGetWeatherForecastUseCase>(sp =>
+            {
+                _counter = new CountingGetWeatherForecastUseCase(sp.GetRequiredService<IServiceScopeFactory>());
+                return _counter;
+            });
         });
     }
 }

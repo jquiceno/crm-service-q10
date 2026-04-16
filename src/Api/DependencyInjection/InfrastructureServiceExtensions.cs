@@ -13,12 +13,6 @@ public static class InfrastructureServiceExtensions
             .GetSection(PersistenceSettings.SectionName)
             .Get<PersistenceSettings>() ?? new PersistenceSettings();
 
-        var cacheSettings = configuration
-            .GetSection(CacheSettings.SectionName)
-            .Get<CacheSettings>() ?? new CacheSettings();
-
-        services.AddCacheServices(cacheSettings);
-
         var healthChecks = services.AddHealthChecks();
 
         if (persistenceSettings.Enabled)

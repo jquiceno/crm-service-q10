@@ -7,7 +7,6 @@ public sealed record Error
     public string Code { get; }
     public string Message { get; }
     public ErrorType Type { get; }
-    public string? Context { get; init; }
     public IReadOnlyList<Error> Details { get; init; } = [];
 
     public Error(string code, string message, ErrorType type)

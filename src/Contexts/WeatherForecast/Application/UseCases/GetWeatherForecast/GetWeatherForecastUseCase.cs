@@ -15,6 +15,6 @@ public sealed class GetWeatherForecastUseCase(
 
         var dtos = entities.Select(e => e.ToGetDto()).ToList().AsReadOnly();
 
-        return Result<IReadOnlyList<GetWeatherForecastOutputDto>>.Success(dtos);
+        return dtos;
     }
 }

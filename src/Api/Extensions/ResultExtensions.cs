@@ -9,24 +9,24 @@ public static class ResultExtensions
 {
     public static IActionResult ToApiResponse<T>(this Result<T> result, ControllerBase controller)
     {
-        if (result.IsSuccess)
-        {
-            var statusCode = (int)System.Net.HttpStatusCode.OK;
-            return controller.StatusCode(statusCode, new ApiSuccessResponse<T>(result.Value, statusCode));
-        }
-
-        return ToErrorResponse(result.Error, controller);
+        return result.Match(
+            value =>
+            {
+                var statusCode = (int)System.Net.HttpStatusCode.OK;
+                return controller.StatusCode(statusCode, new ApiSuccessResponse<T>(value, statusCode));
+            },
+            error => ToErrorResponse(error, controller));
     }
 
     public static IActionResult ToCreatedApiResponse<T>(this Result<T> result, ControllerBase controller)
     {
-        if (result.IsSuccess)
-        {
-            var statusCode = (int)System.Net.HttpStatusCode.Created;
-            return controller.StatusCode(statusCode, new ApiSuccessResponse<T>(result.Value, statusCode));
-        }
-
-        return ToErrorResponse(result.Error, controller);
+        return result.Match(
+            value =>
+            {
+                var statusCode = (int)System.Net.HttpStatusCode.Created;
+                return controller.StatusCode(statusCode, new ApiSuccessResponse<T>(value, statusCode));
+            },
+            error => ToErrorResponse(error, controller));
     }
 
     private static IActionResult ToErrorResponse(Error error, ControllerBase controller)

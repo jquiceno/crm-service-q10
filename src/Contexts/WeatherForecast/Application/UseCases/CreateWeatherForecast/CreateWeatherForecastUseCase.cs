@@ -20,8 +20,7 @@ public sealed class CreateWeatherForecastUseCase(
                 .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation))
                 .ToList<Error>();
 
-            return Result<CreateWeatherForecastOutputDto>.Failure(
-                ApplicationErrors.ValidationFailed(details));
+            return ApplicationErrors.ValidationFailed(details);
         }
 
         var aggregate = input.ToAggregate();
@@ -29,6 +28,6 @@ public sealed class CreateWeatherForecastUseCase(
         await repository.AddAsync(aggregate, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
-        return Result<CreateWeatherForecastOutputDto>.Success(aggregate.ToCreateDto());
+        return aggregate.ToCreateDto();
     }
 }

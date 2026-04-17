@@ -45,7 +45,7 @@ src/
 │
 └── Infrastructure/
     └── Settings/
-        └── CacheSettings.cs                     ← Configuración tipada (Enabled, DefaultTtlSeconds)
+        └── CacheSettings.cs                     ← Configuración tipada (Enabled, DefaultTtlSeconds, ConnectionString)
 ```
 
 ---
@@ -133,13 +133,16 @@ public sealed class CacheSettings
 
     [Range(1, int.MaxValue)]
     public int DefaultTtlSeconds { get; init; } = 300;
+
+    public string ConnectionString { get; init; } = string.Empty;
 }
 ```
 
-| Propiedad           | Tipo   | Valor por defecto | Descripción                                                                    |
-| ------------------- | ------ | ----------------- | ------------------------------------------------------------------------------ |
-| `Enabled`           | `bool` | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra. |
-| `DefaultTtlSeconds` | `int`  | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado).  |
+| Propiedad           | Tipo     | Valor por defecto | Descripción                                                                        |
+| ------------------- | -------- | ----------------- | ---------------------------------------------------------------------------------- |
+| `Enabled`           | `bool`   | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra.     |
+| `DefaultTtlSeconds` | `int`    | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado).      |
+| `ConnectionString`  | `string` | `""`              | Cadena de conexión para un backend externo (ej. Redis). Vacío = store en memoria.  |
 
 ### appsettings
 
@@ -149,7 +152,8 @@ public sealed class CacheSettings
 {
     "Cache": {
         "Enabled": true,
-        "DefaultTtlSeconds": 300
+        "DefaultTtlSeconds": 300,
+        "ConnectionString": ""
     }
 }
 ```
@@ -159,6 +163,7 @@ public sealed class CacheSettings
 ```bash
 Cache__Enabled=true
 Cache__DefaultTtlSeconds=120
+Cache__ConnectionString=localhost:6379
 ```
 
 ---
@@ -297,10 +302,12 @@ En `OutputCacheExtensions.ConfigureCache`, antes del `AddOutputCache`:
 ```csharp
 services.AddStackExchangeRedisOutputCache(options =>
 {
-    options.Configuration = configuration.GetConnectionString("Redis");
+    options.Configuration = settings.ConnectionString;
     options.InstanceName = "api:v1:";
 });
 ```
+
+Con `Cache:ConnectionString` configurado en `appsettings.json` o vía la variable de entorno `Cache__ConnectionString`.
 
 El registro de `AddStackExchangeRedisOutputCache` reemplaza `IOutputCacheStore`. El resto del código (atributos, filtros, `ConfigureCache`) no cambia.
 

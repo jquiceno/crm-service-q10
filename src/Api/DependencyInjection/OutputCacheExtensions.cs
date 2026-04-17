@@ -24,6 +24,22 @@ public static class OutputCacheExtensions
             return services;
         }
 
+        if (!string.IsNullOrWhiteSpace(settings.ConnectionString))
+        {
+            var serviceName = configuration[$"{AppInfoSettings.SectionName}:ServiceName"] ?? "app";
+
+            services.AddStackExchangeRedisOutputCache(options =>
+            {
+                options.Configuration = settings.ConnectionString;
+                options.InstanceName = $"{serviceName}:";
+            });
+            Console.WriteLine("[Cache] Output caching backend: Redis.");
+        }
+        else
+        {
+            Console.WriteLine("[Cache] Output caching backend: in-memory (no ConnectionString set).");
+        }
+
         services.AddOutputCache(options =>
         {
             options.DefaultExpirationTimeSpan = TimeSpan.FromSeconds(settings.DefaultTtlSeconds);

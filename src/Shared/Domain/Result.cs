@@ -6,6 +6,10 @@ public class Result
     public bool IsFailure => !IsSuccess;
     public Error Error { get; }
 
+    public static Result Success() => new(true, Error.None);
+    public static Result Failure(Error error) => new(false, error);
+    public static implicit operator Result(Error error) => Failure(error);
+
     protected Result(bool isSuccess, Error error)
     {
         if (isSuccess && !ReferenceEquals(error, Error.None))
@@ -39,7 +43,7 @@ public class Result<T> : Result
         return new(value, true, Error.None);
     }
 
-    public static Result<T> Failure(Error error) => new(default, false, error);
+    public new static Result<T> Failure(Error error) => new(default, false, error);
 
     public static implicit operator Result<T>(T value) => Success(value);
 

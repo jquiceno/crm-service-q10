@@ -1,8 +1,9 @@
 using FluentValidation;
+using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.Errors;
 
-namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
+namespace Infrastructure.Validation.FluentValidation.WeatherForecast;
 
 public sealed class CreateWeatherForecastInputValidator : AbstractValidator<CreateWeatherForecastInputDto>
 {

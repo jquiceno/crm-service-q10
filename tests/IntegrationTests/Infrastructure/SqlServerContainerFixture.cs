@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Builders;
 using Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.MsSql;
@@ -8,7 +9,8 @@ namespace IntegrationTests.Infrastructure;
 public sealed class SqlServerContainerFixture : IAsyncLifetime
 {
     private readonly MsSqlContainer _container = new MsSqlBuilder()
-        .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        .WithImage("mcr.microsoft.com/azure-sql-edge:latest")
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
         .Build();
 
     public string ConnectionString => _container.GetConnectionString();

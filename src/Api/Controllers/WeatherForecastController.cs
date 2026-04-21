@@ -1,4 +1,4 @@
-using Api.Extensions;
+using Api.Results;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using Microsoft.AspNetCore.Mvc;
@@ -10,21 +10,19 @@ namespace Api.Controllers;
 public sealed class WeatherForecastController() : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll(
+    public async Task<HttpOkResult<IReadOnlyList<GetWeatherForecastOutputDto>>> GetAll(
         IGetWeatherForecastUseCase getWeatherForecastUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await getWeatherForecastUseCase.ExecuteAsync(cancellationToken);
-        return result.ToApiResponse(this);
+        return await getWeatherForecastUseCase.ExecuteAsync(cancellationToken);
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(
+    public async Task<HttpCreatedResult<CreateWeatherForecastOutputDto>> Create(
         [FromBody] CreateWeatherForecastInputDto input,
         ICreateWeatherForecastUseCase createWeatherForecastUseCase,
         CancellationToken cancellationToken)
     {
-        var result = await createWeatherForecastUseCase.ExecuteAsync(input, cancellationToken);
-        return result.ToCreatedApiResponse(this);
+        return await createWeatherForecastUseCase.ExecuteAsync(input, cancellationToken);
     }
 }

@@ -46,3 +46,5 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapControllers();
 
 app.Run();
+
+public partial class Program;

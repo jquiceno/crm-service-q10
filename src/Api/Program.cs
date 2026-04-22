@@ -1,8 +1,10 @@
 using Api.DependencyInjection;
 using Api.Filters;
 using Api.Middleware;
+using Api.Routing;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,11 @@ builder.Services
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
-    .AddControllers(options => options.Filters.Add<ValidateRequestFilter>());
+    .AddControllers(options =>
+    {
+        options.Conventions.Add(new RouteTokenTransformerConvention(new KebabCaseParameterTransformer()));
+        options.Filters.Add<ValidateRequestFilter>();
+    });
 
 if (builder.Environment.IsDevelopment())
 {

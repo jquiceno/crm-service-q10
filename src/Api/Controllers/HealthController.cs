@@ -8,10 +8,8 @@ namespace Api.Controllers;
 /// Health check endpoints without dependency on the database or other external services, providing basic liveness information about the application.
 /// </summary>
 [ApiController]
-[Route("api/v1/health")]
-public sealed class HealthController(
-    IOptions<AppInfoSettings> appInfoOptions,
-    IWebHostEnvironment hostEnvironment) : ControllerBase
+[Route("api/v1/[controller]")]
+public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions, IWebHostEnvironment hostEnvironment) : ControllerBase
 {
     [HttpGet("info")]
     public IActionResult GetInfo()

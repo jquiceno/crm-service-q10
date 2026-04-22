@@ -1,11 +1,10 @@
-using FluentValidation;
 using Shared.Application;
 using Shared.Application.Interfaces;
 using Shared.Domain;
 
 namespace Infrastructure.Validation.FluentValidation;
 
-public sealed class FluentValidationAdapter<T>(IValidator<T> validator) : IInputValidator<T>
+public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> validator) : IRequestValidator<T>
 {
     public async Task<Result> ValidateAsync(T input, CancellationToken cancellationToken = default)
     {
@@ -20,4 +19,7 @@ public sealed class FluentValidationAdapter<T>(IValidator<T> validator) : IInput
 
         return ApplicationErrors.ValidationFailed(details);
     }
+
+    async Task<Result> IRequestValidator.ValidateAsync(object input, CancellationToken cancellationToken)
+        => await ValidateAsync((T)input, cancellationToken);
 }

@@ -5,7 +5,7 @@ using WeatherForecast.Domain.Errors;
 
 namespace Infrastructure.Validation.FluentValidation.WeatherForecast;
 
-public sealed class CreateWeatherForecastInputValidator : AbstractValidator<CreateWeatherForecastInputDto>
+public class CreateWeatherForecastInputValidator : AbstractValidator<CreateWeatherForecastInputDto>, IStructuralValidator<CreateWeatherForecastInputDto>
 {
     public CreateWeatherForecastInputValidator()
     {

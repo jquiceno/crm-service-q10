@@ -20,4 +20,9 @@ public static class WeatherForecastErrors
         new("WEATHER_FORECAST.SUMMARY_TOO_LONG",
             $"Summary must not exceed {WeatherForecastAggregate.MaxSummaryLength} characters.",
             ErrorType.Validation);
+
+    public static readonly Error DateAlreadyExists =
+        new("WEATHER_FORECAST.DATE_ALREADY_EXISTS",
+            "A forecast for this date already exists.",
+            ErrorType.Conflict);
 }

@@ -19,25 +19,24 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
             response.StatusCode = SuccessStatusCode;
             var body = new ApiSuccessResponse<T>(result.Value, SuccessStatusCode);
             await response.WriteAsJsonAsync(body, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);
+            return;
         }
-        else
-        {
-            var error = result.Error;
-            var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
-            response.StatusCode = statusCode;
 
-            var details = error.Details
-                .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant()))
-                .ToArray();
+        var error = result.Error;
+        var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
+        response.StatusCode = statusCode;
 
-            var errorDto = new ErrorDto(
-                error.Code,
-                error.Message,
-                error.Type.ToString().ToLowerInvariant(),
-                details);
+        var details = error.Details
+            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant()))
+            .ToArray();
 
-            var body = new ApiErrorResponse(errorDto, statusCode);
-            await response.WriteAsJsonAsync(body, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);
-        }
+        var errorDto = new ErrorDto(
+            error.Code,
+            error.Message,
+            error.Type.ToString().ToLowerInvariant(),
+            details);
+
+        var bodyError = new ApiErrorResponse(errorDto, statusCode);
+        await response.WriteAsJsonAsync(bodyError, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);
     }
 }

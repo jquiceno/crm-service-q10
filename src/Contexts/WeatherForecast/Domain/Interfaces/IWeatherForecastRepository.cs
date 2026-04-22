@@ -9,5 +9,6 @@ public interface IWeatherForecastRepository
     Task AddAsync(WeatherForecastAggregate aggregate, CancellationToken cancellationToken = default);
     void Update(WeatherForecastAggregate aggregate);
     void Remove(WeatherForecastAggregate aggregate);
+    Task<bool> ExistsForDateAsync(DateTime date, CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

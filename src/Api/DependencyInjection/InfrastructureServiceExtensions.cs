@@ -1,4 +1,3 @@
-using FluentValidation;
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
 using Infrastructure.Validation.FluentValidation;
@@ -13,8 +12,8 @@ public static class InfrastructureServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddValidatorsFromAssembly(typeof(FluentValidationAdapter<>).Assembly);
         services.AddScoped(typeof(IInputValidator<>), typeof(FluentValidationAdapter<>));
+        services.AddContextValidators();
 
         var persistenceSettings = configuration
             .GetSection(PersistenceSettings.SectionName)

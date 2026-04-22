@@ -1,4 +1,5 @@
 using Api.DependencyInjection;
+using Api.Filters;
 using Api.Middleware;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -13,7 +14,7 @@ builder.Services
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
-    .AddControllers();
+    .AddControllers(options => options.Filters.Add<ValidateRequestFilter>());
 
 if (builder.Environment.IsDevelopment())
 {

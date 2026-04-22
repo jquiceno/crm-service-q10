@@ -1,3 +1,4 @@
+using Api.Attributes;
 using Api.Results;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
@@ -18,6 +19,7 @@ public sealed class WeatherForecastController() : ControllerBase
     }
 
     [HttpPost]
+    [ValidateRequest]
     public async Task<HttpCreatedResult<CreateWeatherForecastOutputDto>> Create(
         [FromBody] CreateWeatherForecastInputDto input,
         ICreateWeatherForecastUseCase createWeatherForecastUseCase,

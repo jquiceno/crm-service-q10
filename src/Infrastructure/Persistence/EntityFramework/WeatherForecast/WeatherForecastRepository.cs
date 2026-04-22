@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.EntityFramework.Common;
+using Microsoft.EntityFrameworkCore;
 using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.Entities;
 using WeatherForecast.Domain.Interfaces;
@@ -14,4 +15,11 @@ public sealed class WeatherForecastRepository(ApplicationDbContext context)
 
     protected override WeatherForecastEntity ToEntity(WeatherForecastAggregate aggregate)
         => aggregate.ToEntity();
+
+    public async Task<bool> ExistsForDateAsync(DateTime date, CancellationToken cancellationToken = default)
+    {
+        var startOfDay = date.Date;
+        var endOfDay = startOfDay.AddDays(1);
+        return await DbSet.AnyAsync(e => e.Date >= startOfDay && e.Date < endOfDay, cancellationToken);
+    }
 }

@@ -50,7 +50,7 @@ public sealed class GlobalExceptionMiddleware(
         var statusCode = (int)httpStatusCode;
 
         var response = new ApiErrorResponse(
-            new ErrorDto(code, message, type, []),
+            new ErrorDto(code, message, type, [], null),
             statusCode);
 
         httpContext.Response.StatusCode = statusCode;

@@ -35,14 +35,15 @@ public static class ResultExtensions
         var statusCode = (int)httpStatus;
 
         var details = error.Details
-            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant()))
+            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant(), d.Context))
             .ToArray();
 
         var errorDto = new ErrorDto(
             error.Code,
             error.Message,
             error.Type.ToString().ToLowerInvariant(),
-            details);
+            details,
+            error.Context);
 
         return controller.StatusCode(statusCode, new ApiErrorResponse(errorDto, statusCode));
     }

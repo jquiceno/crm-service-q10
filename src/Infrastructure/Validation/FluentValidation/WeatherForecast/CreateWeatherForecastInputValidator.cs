@@ -17,7 +17,8 @@ public sealed class CreateWeatherForecastInputValidator : AbstractValidator<Crea
         RuleFor(x => x.TemperatureC)
             .InclusiveBetween(WeatherForecastAggregate.MinTemperatureC, WeatherForecastAggregate.MaxTemperatureC)
             .WithErrorCode(WeatherForecastErrors.TemperatureOutOfRange.Code)
-            .WithMessage(WeatherForecastErrors.TemperatureOutOfRange.Message);
+            .WithMessage(WeatherForecastErrors.TemperatureOutOfRange.Message)
+            .WithState(_ => WeatherForecastErrors.TemperatureOutOfRange.Context);
 
         RuleFor(x => x.Summary)
             .NotEmpty()
@@ -27,6 +28,7 @@ public sealed class CreateWeatherForecastInputValidator : AbstractValidator<Crea
         RuleFor(x => x.Summary)
             .MaximumLength(WeatherForecastAggregate.MaxSummaryLength)
             .WithErrorCode(WeatherForecastErrors.SummaryTooLong.Code)
-            .WithMessage(WeatherForecastErrors.SummaryTooLong.Message);
+            .WithMessage(WeatherForecastErrors.SummaryTooLong.Message)
+            .WithState(_ => WeatherForecastErrors.SummaryTooLong.Context);
     }
 }

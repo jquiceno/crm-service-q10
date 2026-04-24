@@ -14,7 +14,10 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
             return Result.Success();
 
         var details = result.Errors
-            .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation))
+            .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation)
+            {
+                Context = e.CustomState as IReadOnlyDictionary<string, object?>
+            })
             .ToList();
 
         return ApplicationErrors.ValidationFailed(details);

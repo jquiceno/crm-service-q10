@@ -27,14 +27,14 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
         response.StatusCode = statusCode;
 
         var details = error.Details
-            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant()))
+            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant(), d.Context))
             .ToArray();
 
         var errorDto = new ErrorDto(
             error.Code,
             error.Message,
             error.Type.ToString().ToLowerInvariant(),
-            details);
+            details, error.Context);
 
         var bodyError = new ApiErrorResponse(errorDto, statusCode);
         await response.WriteAsJsonAsync(bodyError, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);

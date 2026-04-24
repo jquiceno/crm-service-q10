@@ -15,7 +15,10 @@ public sealed class FluentValidationAdapter<T>(IValidator<T> validator) : IInput
             return Result.Success();
 
         var details = result.Errors
-            .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation))
+            .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation)
+            {
+                Context = e.CustomState as IReadOnlyDictionary<string, object?>
+            })
             .ToList();
 
         return ApplicationErrors.ValidationFailed(details);

@@ -9,6 +9,8 @@ public sealed record Error
     public ErrorType Type { get; }
     public IReadOnlyList<Error> Details { get; init; } = [];
 
+    public IReadOnlyDictionary<string, object?>? Context { get; init; }
+
     public Error(string code, string message, ErrorType type)
     {
         Code = code;

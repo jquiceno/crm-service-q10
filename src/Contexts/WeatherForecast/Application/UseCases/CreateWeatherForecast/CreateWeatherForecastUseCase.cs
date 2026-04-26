@@ -1,3 +1,4 @@
+using Shared.Application;
 using Shared.Application.Interfaces;
 using Shared.Domain;
 using WeatherForecast.Domain.Interfaces;
@@ -15,11 +16,13 @@ public sealed class CreateWeatherForecastUseCase(
         if (validationResult.IsFailure)
             return validationResult.Error;
 
-        var aggregate = input.ToAggregate();
+        var aggregateResult = input.ToAggregate();
+        if (aggregateResult.IsFailure)
+            return ApplicationErrors.ValidationFailed([aggregateResult.Error]);
 
+        var aggregate = aggregateResult.Value;
         await repository.AddAsync(aggregate, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
-
         return aggregate.ToCreateDto();
     }
 }

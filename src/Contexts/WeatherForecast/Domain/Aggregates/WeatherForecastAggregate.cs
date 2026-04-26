@@ -1,25 +1,28 @@
 using Shared.Domain;
 using WeatherForecast.Domain.Entities;
+using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Aggregates;
 
 public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEntity>
 {
-    public const int MinTemperatureC = -60;
-    public const int MaxTemperatureC = 60;
     public const int MaxSummaryLength = 200;
 
     public DateTime Date => _entity.Date;
-    public int TemperatureC => _entity.TemperatureC;
+    public Temperature Temperature => _entity.Temperature;
     public string Summary => _entity.Summary;
-    public int TemperatureF => _entity.TemperatureF;
     public DateTime CreatedAtUtc => _entity.CreatedAtUtc;
 
     private WeatherForecastAggregate(WeatherForecastEntity entity) : base(entity) { }
 
-    public static WeatherForecastAggregate Create(Guid id, DateTime date, int temperatureC, string summary)
+    public static Result<WeatherForecastAggregate> Create(
+        Guid id, DateTime date, int temperatureC, string summary)
     {
-        var entity = new WeatherForecastEntity(id, date, temperatureC, summary);
+        var tempResult = Temperature.Create(temperatureC);
+        if (tempResult.IsFailure)
+            return tempResult.Error;
+
+        var entity = new WeatherForecastEntity(id, date, tempResult.Value, summary);
         return new WeatherForecastAggregate(entity);
     }
 

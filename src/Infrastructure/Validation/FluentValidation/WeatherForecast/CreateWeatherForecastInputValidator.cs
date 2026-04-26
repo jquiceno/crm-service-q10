@@ -14,16 +14,10 @@ public class CreateWeatherForecastInputValidator : AbstractValidator<CreateWeath
             .WithErrorCode(WeatherForecastErrors.DateRequired.Code)
             .WithMessage(WeatherForecastErrors.DateRequired.Message);
 
-        RuleFor(x => x.TemperatureC)
-            .InclusiveBetween(WeatherForecastAggregate.MinTemperatureC, WeatherForecastAggregate.MaxTemperatureC)
-            .WithErrorCode(WeatherForecastErrors.TemperatureOutOfRange.Code)
-            .WithMessage(WeatherForecastErrors.TemperatureOutOfRange.Message)
-            .WithState(_ => WeatherForecastErrors.TemperatureOutOfRange.Context);
-
         RuleFor(x => x.Summary)
             .NotEmpty()
             .WithErrorCode(WeatherForecastErrors.SummaryRequired.Code)
-            .WithMessage(WeatherForecastErrors.SummaryRequired.Message + "KKSKSS");
+            .WithMessage(WeatherForecastErrors.SummaryRequired.Message);
 
         RuleFor(x => x.Summary)
             .MaximumLength(WeatherForecastAggregate.MaxSummaryLength)

@@ -1,21 +1,21 @@
 using Shared.Domain;
+using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Entities;
 
 public sealed class WeatherForecastEntity : Entity
 {
     public DateTime Date { get; private set; }
-    public int TemperatureC { get; private set; }
+    public Temperature Temperature { get; private set; } = null!;
     public string Summary { get; private set; } = null!;
-    public int TemperatureF => 32 + (int)(TemperatureC * 9.0 / 5.0);
 
     private WeatherForecastEntity() { }
 
-    internal WeatherForecastEntity(Guid id, DateTime date, int temperatureC, string summary)
+    internal WeatherForecastEntity(Guid id, DateTime date, Temperature temperature, string summary)
         : base(id)
     {
         Date = date;
-        TemperatureC = temperatureC;
+        Temperature = temperature;
         Summary = summary;
     }
 }

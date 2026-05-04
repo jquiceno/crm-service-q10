@@ -8,7 +8,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public ApiFactory(string connectionString)
     {
-        // In .NET 8 minimal hosting, Program.cs reads configuration eagerly during
+        // In .NET minimal hosting, Program.cs reads configuration eagerly during
         // service registration (AddInfrastructureServices), which runs BEFORE the
         // factory's ConfigureAppConfiguration callback. Env vars are picked up by
         // CreateBuilder's default providers, so they reach config in time.

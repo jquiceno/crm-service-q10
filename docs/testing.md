@@ -8,7 +8,7 @@ tests/
 └── IntegrationTests/      # Boot completo del API contra SQL Server en Testcontainers.
 ```
 
-Ambos proyectos están en `ServiceTemplate.slnx` bajo el folder `/tests/`.
+Ambos proyectos están en `ServiceTemplate.slnx` bajo la carpeta `/tests/`.
 
 ---
 
@@ -18,34 +18,31 @@ Ambos proyectos están en `ServiceTemplate.slnx` bajo el folder `/tests/`.
 # Todo
 dotnet test
 
-# Solo unit (no requiere Docker)
+# Solo unit tests (no requiere Docker)
 dotnet test tests/UnitTests
 
-# Solo integration (requiere Docker corriendo)
+# Solo integration tests (requiere Docker corriendo)
 dotnet test tests/IntegrationTests
 
-# Con cobertura
+# Con cobertura de código
 dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 ```
 
-**Prerrequisitos para integration tests:** Docker Desktop, Colima o Rancher Desktop corriendo. La primera ejecución descarga la imagen de SQL Server (~500 MB).
-
-**Imagen de SQL Server:** El fixture usa `mcr.microsoft.com/azure-sql-edge:latest` en vez de `mcr.microsoft.com/mssql/server:2022-latest`. La razón: la imagen oficial de SQL Server 2022 crashea bajo QEMU en Apple Silicon (arm64). Azure SQL Edge tiene builds nativos arm64 y es compatible a nivel de wire protocol para el subset de features que este template usa. Como Azure SQL Edge no trae `sqlcmd`, el fixture también override-ea la wait strategy de Testcontainers para sondear el puerto 1433 en vez de ejecutar `sqlcmd`.
+**Prerrequisitos para integration tests:** Docker Desktop corriendo. La primera ejecución descarga la imagen de SQL Server (~500 MB).
 
 ---
 
 ## Stack de testing
 
-| Concepto | Librería | Por qué |
-|---|---|---|
-| Test framework | `xunit` | Estándar en .NET moderno |
-| Aserciones | `Shouldly` | MIT, legible. **No usar FluentAssertions v8+** (licencia comercial) |
-| Mocks | `NSubstitute` | Sintaxis limpia, sin SponsorLink |
-| Datos fake | `Bogus` | Datos realistas para DTOs y propiedades primitivas |
-| Builders de entidades | Hand-rolled | Las entidades de dominio tienen invariantes — AutoFixture pelea con eso |
-| Web host de pruebas | `Microsoft.AspNetCore.Mvc.Testing` | Pipeline ASP.NET completo, in-process |
-| Base de datos | `Testcontainers.MsSql` | SQL Server real. **No usar EF InMemory** (ignora constraints y transacciones) |
-| Reset de BD | `Respawn` | Trunca todas las tablas entre tests, ~50ms |
+| Concepto            | Librería                           | Por qué                                                                       |
+| ------------------- | ---------------------------------- | ----------------------------------------------------------------------------- |
+| Test framework      | `xunit`                            | Estándar en .NET moderno                                                      |
+| Aserciones          | `Shouldly`                         | MIT. **No usar FluentAssertions v8+** (licencia comercial)                    |
+| Mocks               | `NSubstitute`                      | Sintaxis limpia, sin SponsorLink                                              |
+| Fake data           | `Bogus`                            | Datos realistas para DTOs y propiedades primitivas                            |
+| Web host de pruebas | `Microsoft.AspNetCore.Mvc.Testing` | Pipeline ASP.NET completo, in-process                                         |
+| Base de datos       | `Testcontainers.MsSql`             | SQL Server real. **No usar EF InMemory** (ignora constraints y transacciones) |
+| Reset de BD         | `Respawn`                          | Trunca todas las tablas entre tests en ~50ms                                  |
 
 ---
 
@@ -118,7 +115,7 @@ public void ToEntity_PreservesInputFields()
 
 ## Escribir integration tests
 
-Heredá de `IntegrationTestBase` y declará la colección:
+Hereda de `IntegrationTestBase` y declara la colección:
 
 ```csharp
 [Collection(IntegrationTestCollection.Name)]
@@ -129,7 +126,7 @@ public sealed class MyEndpointTests : IntegrationTestBase
     [Fact]
     public async Task Endpoint_Scenario_ExpectedOutcome()
     {
-        // Sembrar datos directamente con el DbContext
+        // Hacer seed de datos
         Db.Set<WeatherForecastEntity>().Add(new WeatherForecastEntity(...));
         await Db.SaveChangesAsync();
 
@@ -141,47 +138,54 @@ public sealed class MyEndpointTests : IntegrationTestBase
 }
 ```
 
-### Garantías que da el base class
+### IntegrationTestBase
 
-| Miembro | Qué hace |
-|---|---|
-| `Client` | `HttpClient` apuntando al API in-process |
-| `Db` | `ApplicationDbContext` scoped contra el contenedor SQL Server |
-| `InitializeAsync` (auto) | Resetea todas las tablas vía Respawn antes de cada test |
-| `DisposeAsync` (auto) | Libera scope, client y factory |
+| Miembro                  | Qué hace                                                      |
+| ------------------------ | ------------------------------------------------------------- |
+| `Client`                 | `HttpClient` apuntando al API in-process                      |
+| `Db`                     | `ApplicationDbContext` scoped contra el contenedor SQL Server |
+| `InitializeAsync` (auto) | Resetea todas las tablas vía Respawn antes de cada test       |
+| `DisposeAsync` (auto)    | Libera scope, client y factory                                |
 
 ### Cómo `ApiFactory` apunta al contenedor
 
-`ApiFactory` setea tres variables de entorno en su constructor: `Persistence__Enabled=true`, `Persistence__ConnectionString=<container connection string>` y `Sentry__Dsn=""`. `InfrastructureServiceExtensions` lee esa configuración al registrar servicios y wire-ea el `DbContext` real contra el contenedor — sin reemplazos post-hoc.
+`ApiFactory` establece tres variables de entorno en el constructor: `Persistence__Enabled=true`, `Persistence__ConnectionString=<container connection string>` y `Sentry__Dsn=""`. `InfrastructureServiceExtensions` lee esa configuración al registrar servicios y conecta el `DbContext` real contra el contenedor.
 
-**¿Por qué variables de entorno y no `ConfigureAppConfiguration`?** En .NET 8 minimal hosting, `Program.cs` lee la configuración de forma **eager** durante el registro de servicios (`AddInfrastructureServices(builder.Configuration)`), que corre **antes** del callback `ConfigureAppConfiguration` del `WebApplicationFactory`. Una fuente `AddInMemoryCollection` registrada en la factory llega demasiado tarde — los servicios ya se registraron con la config original. Las variables de entorno sí son leídas por los providers default de `CreateBuilder`, así que llegan a tiempo.
+**¿Por qué variables de entorno y no `ConfigureAppConfiguration`?**
+
+En .NET minimal hosting, `Program.cs` resuelve la configuración de forma **eager**: cuando `AddInfrastructureServices(builder.Configuration)` se ejecuta, la config ya está fija. El callback `ConfigureAppConfiguration` del `WebApplicationFactory` corre después de ese punto, así que cualquier fuente que se añada ahí, como `AddInMemoryCollection`, llega tarde y no tiene efecto sobre los servicios que ya se registraron.
+
+Las variables de entorno, en cambio, son leídas por los providers que `CreateBuilder` inicializa al
+arrancar, antes de que se registre cualquier servicio. Por eso llegan a tiempo.
 
 ---
 
 ## Builders y Bogus
 
 **Cuándo usar un builder (`tests/UnitTests/TestSupport/Builders/`):**
+
 - Entidades de dominio con setters privados, ctors con invariantes, o propiedades calculadas.
 
 **Cuándo usar Bogus directamente:**
+
 - DTOs y records sin invariantes complicadas — `new Faker<MyDto>().RuleFor(...)`.
 
-**No usar AutoFixture.** Pelea con DDD (private setters, ctors estrictos), genera datos no deterministas, y oculta el setup del test.
+**No usar AutoFixture.** No recomendado en DDD (private setters, ctors estrictos), genera datos no determinísticos, y oculta el setup.
 
 ---
 
 ## Migrations en el fixture
 
-El template no incluye migrations. `SqlServerContainerFixture` usa `Database.EnsureCreatedAsync()` para crear el esquema desde el modelo de EF.
+El template no incluye migraciones. `SqlServerContainerFixture` usa `Database.EnsureCreatedAsync()` para crear el esquema desde el modelo de EF.
 
-**Cuando tu servicio agregue migrations**, cambiá esa línea por `await dbContext.Database.MigrateAsync()` para asegurar que las migrations se apliquen en tests igual que en prod.
+**Cuando el servicio tenga migrations**, se debe cambiar esa línea por `await dbContext.Database.MigrateAsync()` para asegurar que las migraciones se apliquen en tests igual que en prod.
 
 ---
 
 ## Convenciones
 
 - **Nombres:** `MethodUnderTest_Scenario_ExpectedOutcome` (`Endpoint_Scenario_ExpectedOutcome` para integration).
-- **Paralelismo:** UnitTests corre en paralelo (default xUnit). IntegrationTests **no** paraleliza — comparten el contenedor SQL.
+- **Paralelismo:** UnitTests corre en paralelo (default xUnit). IntegrationTests **no** paraleliza porque comparten el contenedor SQL.
 - **Aserciones:** una sola librería — Shouldly. No mezclar con `Assert.*` nativo de xUnit.
 - **Cobertura:** excluir `Program.cs`, archivos `*DependencyInjection*`, extensions de DI, migrations. Configurado en `coverlet.runsettings`.
 
@@ -189,14 +193,14 @@ El template no incluye migrations. `SqlServerContainerFixture` usa `Database.Ens
 
 ## FAQ
 
-**¿Por qué no EF InMemory?** Microsoft lo desaconseja explícitamente para integration tests. No respeta constraints, transacciones, ni SQL crudo. Tests que pasan en InMemory rompen en prod.
+**¿Por qué no EF InMemory?** Microsoft lo desaconseja explícitamente para integration tests. No respeta constraints, transacciones, ni raw SQL. Tests que pasan en InMemory rompen en prod.
 
-**¿Por qué no SQLite?** Diferencias de dialecto con SQL Server (identity, JSON, `NEWSEQUENTIALID`) generan falsos positivos y falsos negativos.
+**¿Por qué no SQLite?** Diferencias de lenguaje con SQL Server (identity, JSON, `NEWSEQUENTIALID`) generan falsos positivos y falsos negativos.
 
 **¿Por qué no FluentAssertions?** La versión 8 (2025) cambió a licencia comercial (Xceed). Shouldly cubre el mismo caso de uso, MIT.
 
-**¿Por qué no Moq?** Controversia de SponsorLink. NSubstitute es el reemplazo estándar.
+**¿Por qué no Moq?** [SponsorLink](https://github.com/devlooped/moq/issues/1372).
 
 **¿Cuánto tarda la suite de integration?** Primera corrida ~30–60s (descarga de imagen). Corridas siguientes ~10–15s.
 
-**¿Por qué `azure-sql-edge` y no `mssql/server:2022-latest`?** Ver sección "Prerrequisitos" arriba. Resumen: compatibilidad con Apple Silicon. Si tu servicio usa features exclusivos de SQL Server (Service Broker, Full-Text Search, CLR), cambiá la imagen a `mcr.microsoft.com/mssql/server:2022-latest` — pero vas a necesitar Rosetta 2 o un runner x86_64 en CI.
+**¿Por qué `azure-sql-edge` y no `mssql/server:2022-latest`?** Compatibilidad con Apple Silicon. Si el servicio usa features exclusivos de SQL Server (Service Broker, Full-Text Search, CLR), se debe cambiar la imagen a `mcr.microsoft.com/mssql/server:2022-latest`.

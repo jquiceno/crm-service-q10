@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using IntegrationTests.Infrastructure;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Shouldly;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;

@@ -1,24 +1,26 @@
 using Shared.Application;
-using Shared.Application.Interfaces;
 using Shared.Domain;
+using WeatherForecast.Domain.Errors;
 using WeatherForecast.Domain.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
 public sealed class CreateWeatherForecastUseCase(
-    IInputValidator<CreateWeatherForecastInputDto> validator,
     IWeatherForecastRepository repository) : ICreateWeatherForecastUseCase
 {
+    private const string Origin = nameof(CreateWeatherForecastUseCase);
+
     public async Task<Result<CreateWeatherForecastOutputDto>> ExecuteAsync(
         CreateWeatherForecastInputDto input, CancellationToken cancellationToken = default)
     {
-        var validationResult = await validator.ValidateAsync(input, cancellationToken);
-        if (validationResult.IsFailure)
-            return validationResult.Error;
+        if (await repository.ExistsForDateAsync(input.Date, cancellationToken))
+            return WeatherForecastErrors.DateAlreadyExists with
+                { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         var aggregateResult = input.ToAggregate();
         if (aggregateResult.IsFailure)
-            return ApplicationErrors.ValidationFailed([aggregateResult.Error]);
+            return ApplicationErrors.ValidationFailed(
+                [(ValidationError)aggregateResult.Error], WeatherForecastErrors.Context, Origin);
 
         var aggregate = aggregateResult.Value;
         await repository.AddAsync(aggregate, cancellationToken);

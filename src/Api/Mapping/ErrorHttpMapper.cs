@@ -1,4 +1,5 @@
 using System.Net;
+using Api.Responses;
 using Shared.Domain;
 
 namespace Api.Mapping;
@@ -15,4 +16,12 @@ public static class ErrorHttpMapper
         ErrorType.Internal => HttpStatusCode.InternalServerError,
         _ => HttpStatusCode.InternalServerError
     };
+
+    public static ErrorAttributeDto[] ToErrorAttributeDtos(IReadOnlyList<ErrorAttribute> attributes) =>
+        attributes
+            .Select(a => new ErrorAttributeDto(ToCamelCase(a.Property), a.Messages, a.Details))
+            .ToArray();
+
+    private static string ToCamelCase(string s) =>
+        string.IsNullOrEmpty(s) ? s : char.ToLowerInvariant(s[0]) + s[1..];
 }

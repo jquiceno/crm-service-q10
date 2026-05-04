@@ -26,15 +26,10 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
         var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
         response.StatusCode = statusCode;
 
-        var details = error.Details
-            .Select(d => new ErrorDetailDto(d.Code, d.Message, d.Type.ToString().ToLowerInvariant(), d.Context))
-            .ToArray();
-
         var errorDto = new ErrorDto(
-            error.Code,
             error.Message,
             error.Type.ToString().ToLowerInvariant(),
-            details, error.Context);
+            ErrorHttpMapper.ToErrorAttributeDtos(error.Attributes));
 
         var bodyError = new ApiErrorResponse(errorDto, statusCode);
         await response.WriteAsJsonAsync(bodyError, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);

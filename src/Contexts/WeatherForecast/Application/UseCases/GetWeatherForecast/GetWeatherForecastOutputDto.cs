@@ -1,4 +1,4 @@
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 public sealed record GetWeatherForecastOutputDto(
-    Guid Id, DateTime Date, int TemperatureC, int TemperatureF, string Summary);
+    Guid Id, DateTime Date, int Temperature, int TemperatureFahrenheit, string Summary);

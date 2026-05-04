@@ -9,20 +9,21 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
     public const int MaxSummaryLength = 200;
 
     public DateTime Date => _entity.Date;
-    public Temperature Temperature => _entity.Temperature;
+    public int TemperatureCelsius => _entity.Temperature.Celsius;
+    public int TemperatureFahrenheit => _entity.Temperature.Fahrenheit;
     public string Summary => _entity.Summary;
     public DateTime CreatedAtUtc => _entity.CreatedAtUtc;
 
     private WeatherForecastAggregate(WeatherForecastEntity entity) : base(entity) { }
 
     public static Result<WeatherForecastAggregate> Create(
-        Guid id, DateTime date, int temperatureC, string summary)
+        Guid id, DateTime date, int temperature, string summary)
     {
-        var tempResult = Temperature.Create(temperatureC);
-        if (tempResult.IsFailure)
-            return tempResult.Error;
+        var temperatureResult = Temperature.Create(temperature);
+        if (temperatureResult.IsFailure)
+            return ((ValidationError)temperatureResult.Error) with { Property = nameof(temperature) };
 
-        var entity = new WeatherForecastEntity(id, date, tempResult.Value, summary);
+        var entity = new WeatherForecastEntity(id, date, temperatureResult.Value, summary);
         return new WeatherForecastAggregate(entity);
     }
 

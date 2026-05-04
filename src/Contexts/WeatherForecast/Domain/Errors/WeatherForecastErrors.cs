@@ -1,29 +1,34 @@
 using Shared.Domain;
 using WeatherForecast.Domain.Aggregates;
+using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Errors;
 
 public static class WeatherForecastErrors
 {
-    public static readonly Error DateRequired =
-        new("WEATHER_FORECAST.DATE_REQUIRED", "Date is required.", ErrorType.Validation);
+    public const string Context = "WeatherForecast";
 
-    public static readonly Error SummaryRequired =
-        new("WEATHER_FORECAST.SUMMARY_REQUIRED", "Summary is required.", ErrorType.Validation);
+    public static readonly ValidationError DateRequired =
+        new("Date is required.", ErrorType.Validation);
 
-    public static readonly Error SummaryTooLong =
-        new("WEATHER_FORECAST.SUMMARY_TOO_LONG",
-            $"Summary must not exceed {WeatherForecastAggregate.MaxSummaryLength} characters.",
+    public static readonly ValidationError TemperatureOutOfRange =
+        new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
             ErrorType.Validation)
         {
-            Context = new Dictionary<string, object?>
+            Details = new Dictionary<string, object?>
             {
-                ["maxLength"] = WeatherForecastAggregate.MaxSummaryLength
+                ["min"] = Temperature.MinCelsius,
+                ["max"] = Temperature.MaxCelsius
             }
         };
 
-    public static readonly Error DateAlreadyExists =
-        new("WEATHER_FORECAST.DATE_ALREADY_EXISTS",
-            "A forecast for this date already exists.",
-            ErrorType.Conflict);
+    public static readonly ValidationError SummaryRequired =
+        new("Summary is required.", ErrorType.Validation);
+
+    public static readonly ValidationError SummaryTooLong =
+        new($"Summary must not exceed {WeatherForecastAggregate.MaxSummaryLength} characters.",
+            ErrorType.Validation);
+
+    public static readonly ValidationError DateAlreadyExists =
+        new("A forecast for this date already exists.", ErrorType.Conflict);
 }

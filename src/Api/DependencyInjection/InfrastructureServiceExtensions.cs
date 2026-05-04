@@ -1,8 +1,6 @@
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
 using Infrastructure.Validation.FluentValidation;
-using Shared.Application.Interfaces;
-using System;
 
 namespace Api.DependencyInjection;
 
@@ -12,7 +10,6 @@ public static class InfrastructureServiceExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddScoped(typeof(IInputValidator<>), typeof(FluentValidationAdapter<>));
         services.AddContextValidators();
 
         var persistenceSettings = configuration

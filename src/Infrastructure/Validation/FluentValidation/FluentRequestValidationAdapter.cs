@@ -13,14 +13,19 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
         if (result.IsValid)
             return Result.Success();
 
-        var details = result.Errors
-            .Select(e => new Error(e.ErrorCode, e.ErrorMessage, ErrorType.Validation)
+        var errors = result.Errors
+            .Select(e =>
             {
-                Context = e.CustomState as IReadOnlyDictionary<string, object?>
+                var staticError = e.CustomState as ValidationError;
+                return new ValidationError(e.ErrorMessage, staticError?.Type ?? ErrorType.Validation)
+                {
+                    Property = e.PropertyName,
+                    Details = staticError?.Details
+                };
             })
             .ToList();
 
-        return ApplicationErrors.ValidationFailed(details);
+        return ApplicationErrors.ValidationFailed(errors, context: string.Empty, origin: string.Empty);
     }
 
     async Task<Result> IRequestValidator.ValidateAsync(object input, CancellationToken cancellationToken)

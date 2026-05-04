@@ -1,7 +1,7 @@
-using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
 using Api.Responses;
+using Shared.Domain;
 
 namespace Api.Middleware;
 
@@ -28,14 +28,13 @@ public sealed class GlobalExceptionMiddleware(
         {
             logger.LogError(ex, "Unhandled exception");
             await WriteErrorResponseAsync(httpContext, HttpStatusCode.InternalServerError,
-                "INTERNAL_ERROR", "An unexpected error occurred.", "internal");
+                "An unexpected error occurred.", ErrorType.Internal.ToString().ToLowerInvariant());
         }
     }
 
     private async Task WriteErrorResponseAsync(
         HttpContext httpContext,
         HttpStatusCode httpStatusCode,
-        string code,
         string message,
         string type)
     {
@@ -50,7 +49,7 @@ public sealed class GlobalExceptionMiddleware(
         var statusCode = (int)httpStatusCode;
 
         var response = new ApiErrorResponse(
-            new ErrorDto(code, message, type, [], null),
+            new ErrorDto(message, type, []),
             statusCode);
 
         httpContext.Response.StatusCode = statusCode;

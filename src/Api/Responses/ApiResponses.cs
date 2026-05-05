@@ -9,10 +9,10 @@ public sealed record ApiErrorResponse(ErrorDto Error, int StatusCode);
 public sealed record ErrorDto(
     string Message,
     string Type,
-    IReadOnlyList<ErrorAttributeDto> Attributes);
+    IReadOnlyList<ErrorDetailDto> Details);
 
-public sealed record ErrorAttributeDto(
+public sealed record ErrorDetailDto(
     string Property,
     IReadOnlyList<string> Messages,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyDictionary<string, object?>? Details);
+    IReadOnlyDictionary<string, object?>? Attributes);

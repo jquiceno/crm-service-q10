@@ -17,7 +17,7 @@ internal sealed class ValidationErrorResult(DomainError error) : IActionResult
         var errorDto = new ErrorDto(
             error.Message,
             error.Type.ToString().ToLowerInvariant(),
-            ErrorHttpMapper.ToErrorAttributeDtos(error.Attributes));
+            ErrorHttpMapper.ToErrorDetailDtos(error.Details));
 
         await response.WriteAsJsonAsync(
             new ApiErrorResponse(errorDto, statusCode),

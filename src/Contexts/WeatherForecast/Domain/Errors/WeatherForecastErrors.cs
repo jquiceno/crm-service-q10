@@ -15,7 +15,7 @@ public static class WeatherForecastErrors
         new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
             ErrorType.Validation)
         {
-            Details = new Dictionary<string, object?>
+            Attributes = new Dictionary<string, object?>
             {
                 ["min"] = Temperature.MinCelsius,
                 ["max"] = Temperature.MaxCelsius

@@ -20,7 +20,7 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
                 return new ValidationError(e.ErrorMessage, staticError?.Type ?? ErrorType.Validation)
                 {
                     Property = e.PropertyName,
-                    Details = staticError?.Details
+                    Attributes = staticError?.Attributes
                 };
             })
             .ToList();

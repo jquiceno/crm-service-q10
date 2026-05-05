@@ -17,9 +17,9 @@ public static class ErrorHttpMapper
         _ => HttpStatusCode.InternalServerError
     };
 
-    public static ErrorAttributeDto[] ToErrorAttributeDtos(IReadOnlyList<ErrorAttribute> attributes) =>
-        attributes
-            .Select(a => new ErrorAttributeDto(ToCamelCase(a.Property), a.Messages, a.Details))
+    public static ErrorDetailDto[] ToErrorDetailDtos(IReadOnlyList<ErrorDetail> details) =>
+        details
+            .Select(d => new ErrorDetailDto(ToCamelCase(d.Property), d.Messages, d.Attributes))
             .ToArray();
 
     private static string ToCamelCase(string s) =>

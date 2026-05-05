@@ -29,7 +29,7 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
         var errorDto = new ErrorDto(
             error.Message,
             error.Type.ToString().ToLowerInvariant(),
-            ErrorHttpMapper.ToErrorAttributeDtos(error.Attributes));
+            ErrorHttpMapper.ToErrorDetailDtos(error.Details));
 
         var bodyError = new ApiErrorResponse(errorDto, statusCode);
         await response.WriteAsJsonAsync(bodyError, JsonSerializerOptions.Web, context.HttpContext.RequestAborted);

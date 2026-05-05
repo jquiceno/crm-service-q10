@@ -6,12 +6,12 @@ public static class ApplicationErrors
 {
     public static DomainError ValidationFailed(IReadOnlyList<ValidationError> errors, string context, string origin)
     {
-        var attributes = errors
+        var details = errors
             .GroupBy(e => e.Property)
-            .Select(g => new ErrorAttribute(
+            .Select(g => new ErrorDetail(
                 g.Key,
                 g.Select(e => e.Message).ToList(),
-                g.FirstOrDefault(e => e.Details is not null)?.Details))
+                g.FirstOrDefault(e => e.Attributes is not null)?.Attributes))
             .ToList();
 
         var dominantType = errors.Select(e => e.Type).Distinct().Count() == 1
@@ -29,7 +29,7 @@ public static class ApplicationErrors
         {
             Context = context,
             Origin = origin,
-            Attributes = attributes
+            Details = details
         };
     }
 }

@@ -1,4 +1,3 @@
-using Shared.Application;
 using Shared.Domain;
 using WeatherForecast.Domain.Errors;
 using WeatherForecast.Domain.Interfaces;
@@ -19,8 +18,7 @@ public sealed class CreateWeatherForecastUseCase(
 
         var aggregateResult = input.ToAggregate();
         if (aggregateResult.IsFailure)
-            return ApplicationErrors.ValidationFailed(
-                [(ValidationError)aggregateResult.Error], WeatherForecastErrors.Context, Origin);
+            return aggregateResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         var aggregate = aggregateResult.Value;
         await repository.AddAsync(aggregate, cancellationToken);

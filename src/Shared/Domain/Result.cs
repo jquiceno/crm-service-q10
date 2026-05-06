@@ -49,3 +49,31 @@ public class Result<T> : Result
 
     public static implicit operator Result<T>(DomainError error) => Failure(error);
 }
+
+public sealed class Result<TValue, TError> where TError : DomainError
+{
+    private readonly TValue? _value;
+    private readonly TError? _error;
+
+    public bool IsSuccess { get; }
+    public bool IsFailure => !IsSuccess;
+
+    public TValue Value => IsSuccess
+        ? _value!
+        : throw new InvalidOperationException("Cannot access Value of a failed result.");
+
+    public TError Error => !IsSuccess
+        ? _error!
+        : throw new InvalidOperationException("Cannot access Error of a successful result.");
+
+    private Result(TValue value) { IsSuccess = true; _value = value; }
+    private Result(TError error) { IsSuccess = false; _error = error; }
+
+    public static Result<TValue, TError> Success(TValue value) => new(value);
+    public static Result<TValue, TError> Failure(TError error) => new(error);
+
+    public static implicit operator Result<TValue, TError>(TValue value) => Success(value);
+    public static implicit operator Result<TValue, TError>(TError error) => Failure(error);
+    public static implicit operator Result<TValue>(Result<TValue, TError> r) =>
+        r.IsSuccess ? Result<TValue>.Success(r.Value) : Result<TValue>.Failure(r.Error);
+}

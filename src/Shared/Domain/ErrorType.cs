@@ -8,5 +8,6 @@ public enum ErrorType
     Conflict,
     Unauthorized,
     Forbidden,
-    Internal
+    Internal,
+    DomainError
 }

@@ -13,6 +13,8 @@ public sealed record ErrorDto(
 
 public sealed record ErrorDetailDto(
     string Property,
-    IReadOnlyList<string> Messages,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyDictionary<string, object?>? Attributes);
+    object? Value,
+    IReadOnlyList<string> Errors,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyDictionary<string, object?>? Attributes = null);

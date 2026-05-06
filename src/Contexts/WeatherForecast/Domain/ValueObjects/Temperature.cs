@@ -13,7 +13,7 @@ public sealed class Temperature : ValueObject
 
     private Temperature(int celsius) { Celsius = celsius; }
 
-    public static Result<Temperature> Create(int celsius)
+    public static Result<Temperature, ValidationError> Create(int celsius)
     {
         if (celsius < MinCelsius || celsius > MaxCelsius)
             return WeatherForecastErrors.TemperatureOutOfRange;

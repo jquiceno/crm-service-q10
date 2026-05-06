@@ -14,12 +14,13 @@ public static class ErrorHttpMapper
         ErrorType.Unauthorized => HttpStatusCode.Unauthorized,
         ErrorType.Forbidden => HttpStatusCode.Forbidden,
         ErrorType.Internal => HttpStatusCode.InternalServerError,
+        ErrorType.DomainError => HttpStatusCode.BadRequest,
         _ => HttpStatusCode.InternalServerError
     };
 
     public static ErrorDetailDto[] ToErrorDetailDtos(IReadOnlyList<ErrorDetail> details) =>
         details
-            .Select(d => new ErrorDetailDto(ToCamelCase(d.Property), d.Messages, d.Attributes))
+            .Select(d => new ErrorDetailDto(ToCamelCase(d.Property), d.Value, d.Errors, d.Attributes))
             .ToArray();
 
     private static string ToCamelCase(string s) =>

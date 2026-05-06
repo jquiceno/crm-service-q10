@@ -19,9 +19,14 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
     public static Result<WeatherForecastAggregate> Create(
         Guid id, DateTime date, int temperature, string summary)
     {
+        var errors = new List<ValidationError>();
+
         var temperatureResult = Temperature.Create(temperature);
         if (temperatureResult.IsFailure)
-            return ((ValidationError)temperatureResult.Error) with { Property = nameof(temperature) };
+            errors.Add(temperatureResult.Error with { Property = nameof(Temperature), Value = temperature });
+
+        if (errors.Count > 0)
+            return DomainError.FromValidationDomainErrors(errors);
 
         var entity = new WeatherForecastEntity(id, date, temperatureResult.Value, summary);
         return new WeatherForecastAggregate(entity);

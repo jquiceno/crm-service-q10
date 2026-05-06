@@ -11,7 +11,8 @@ public static class ApplicationErrors
             .Select(g => new ErrorDetail(
                 g.Key,
                 g.Select(e => e.Message).ToList(),
-                g.FirstOrDefault(e => e.Attributes is not null)?.Attributes))
+                g.FirstOrDefault(e => e.Attributes is not null)?.Attributes,
+                g.FirstOrDefault(e => e.Value is not null)?.Value))
             .ToList();
 
         var dominantType = errors.Select(e => e.Type).Distinct().Count() == 1

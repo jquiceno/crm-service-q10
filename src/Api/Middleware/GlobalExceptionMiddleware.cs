@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Api.Mapping;
 using Api.Responses;
 using Shared.Domain;
 
@@ -28,7 +29,7 @@ public sealed class GlobalExceptionMiddleware(
         {
             logger.LogError(ex, "Unhandled exception");
             await WriteErrorResponseAsync(httpContext, HttpStatusCode.InternalServerError,
-                "An unexpected error occurred.", ErrorType.Internal.ToString().ToLowerInvariant());
+                "An unexpected error occurred.", ErrorHttpMapper.ToErrorTypeName(ErrorType.Internal));
         }
     }
 

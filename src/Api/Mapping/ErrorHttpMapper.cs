@@ -1,3 +1,4 @@
+using System.Collections.Frozen;
 using System.Net;
 using Api.Responses;
 using Shared.Domain;
@@ -6,6 +7,19 @@ namespace Api.Mapping;
 
 public static class ErrorHttpMapper
 {
+    private static readonly FrozenDictionary<ErrorType, string> ErrorTypeNames =
+        new Dictionary<ErrorType, string>
+        {
+            [ErrorType.None]         = "NONE",
+            [ErrorType.Validation]   = "VALIDATION",
+            [ErrorType.NotFound]     = "NOT_FOUND",
+            [ErrorType.Conflict]     = "CONFLICT",
+            [ErrorType.Unauthorized] = "UNAUTHORIZED",
+            [ErrorType.Forbidden]    = "FORBIDDEN",
+            [ErrorType.Internal]     = "INTERNAL",
+            [ErrorType.DomainError]  = "DOMAIN_VALIDATION",
+        }.ToFrozenDictionary();
+
     public static HttpStatusCode ToHttpStatusCode(ErrorType errorType) => errorType switch
     {
         ErrorType.Validation => HttpStatusCode.BadRequest,
@@ -17,6 +31,9 @@ public static class ErrorHttpMapper
         ErrorType.DomainError => HttpStatusCode.BadRequest,
         _ => HttpStatusCode.InternalServerError
     };
+
+    public static string ToErrorTypeName(ErrorType errorType) =>
+        ErrorTypeNames.TryGetValue(errorType, out var name) ? name : "INTERNAL";
 
     public static ErrorDetailDto[] ToErrorDetailDtos(IReadOnlyList<ErrorDetail> details) =>
         details.Select(ToErrorDetailDto).ToArray();

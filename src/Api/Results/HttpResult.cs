@@ -27,7 +27,7 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
         response.StatusCode = statusCode;
 
         var errorDto = new ErrorDto(
-            error.Type.ToString().ToLowerInvariant(),
+            ErrorHttpMapper.ToErrorTypeName(error.Type),
             error.Message,
             ErrorHttpMapper.ToErrorDetailDtos(error.Details));
 

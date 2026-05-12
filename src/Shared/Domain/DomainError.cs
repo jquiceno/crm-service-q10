@@ -16,17 +16,31 @@ public record DomainError
         Type = type;
     }
 
-    public static DomainError FromValidationDomainErrors(IReadOnlyList<ValidationError> errors)
-    {
-        var details = errors
+    public static DomainError FromValidationDomainErrors(IReadOnlyList<ValidationError> errors) =>
+        new("Domain validation failed.", ErrorType.DomainError) { Details = BuildDetails(errors) };
+
+    public static IReadOnlyList<ErrorDetail> BuildDetails(IReadOnlyList<ValidationError> errors) =>
+        errors
             .GroupBy(e => e.Property)
-            .Select(g => new ErrorDetail(
-                g.Key,
-                g.Select(e => e.Message).ToList(),
-                g.FirstOrDefault(e => e.Attributes is not null)?.Attributes,
-                g.FirstOrDefault(e => e.Value is not null)?.Value))
+            .Select(g =>
+            {
+                var children = BuildChildren(g);
+                return new ErrorDetail(
+                    g.Key,
+                    children is null ? g.Select(e => e.Message).ToList() : null,
+                    g.FirstOrDefault(e => e.Attributes is not null)?.Attributes,
+                    g.FirstOrDefault(e => e.Value is not null)?.Value,
+                    children);
+            })
             .ToList();
-        return new DomainError("Domain validation failed.", ErrorType.DomainError) { Details = details };
+
+    private static IReadOnlyList<ErrorDetail>? BuildChildren(IEnumerable<ValidationError> group)
+    {
+        var children = group
+            .Where(e => e.Children is { Count: > 0 })
+            .SelectMany(e => e.Children!)
+            .ToList();
+        return children.Count == 0 ? null : BuildDetails(children);
     }
     
     public virtual bool Equals(DomainError? other) =>
@@ -37,6 +51,7 @@ public record DomainError
 
 public sealed record ErrorDetail(
     string Property,
-    IReadOnlyList<string> Errors,
+    IReadOnlyList<string>? Errors,
     IReadOnlyDictionary<string, object?>? Attributes = null,
-    object? Value = null);
+    object? Value = null,
+    IReadOnlyList<ErrorDetail>? Children = null);

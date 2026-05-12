@@ -13,7 +13,7 @@ public sealed class GetWeatherForecastUseCase(
         logger.Info("Retrieving all weather forecasts");
         var entities = await repository.GetAllAsync(cancellationToken);
 
-        var dtos = entities.Select(e => e.ToGetDto()).ToList().AsReadOnly();
+        var dtos = entities.Select(e => e.ToGetDto()).ToList();
 
         return dtos;
     }

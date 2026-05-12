@@ -19,9 +19,14 @@ public static class ErrorHttpMapper
     };
 
     public static ErrorDetailDto[] ToErrorDetailDtos(IReadOnlyList<ErrorDetail> details) =>
-        details
-            .Select(d => new ErrorDetailDto(ToCamelCase(d.Property), d.Value, d.Errors, d.Attributes))
-            .ToArray();
+        details.Select(ToErrorDetailDto).ToArray();
+
+    private static ErrorDetailDto ToErrorDetailDto(ErrorDetail d) =>
+        new(ToCamelCase(d.Property),
+            d.Value,
+            d.Errors,
+            d.Attributes,
+            d.Children is null ? null : d.Children.Select(ToErrorDetailDto).ToArray());
 
     private static string ToCamelCase(string s) =>
         string.IsNullOrEmpty(s) ? s : char.ToLowerInvariant(s[0]) + s[1..];

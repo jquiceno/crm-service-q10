@@ -8,7 +8,7 @@ public sealed class WeatherForecastEntityConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<WeatherForecastEntity> builder)
     {
-        builder.ComplexProperty(e => e.Temperature, t =>
+        builder.OwnsOne(e => e.Temperature, t =>
         {
             t.Property(x => x.Celsius).HasColumnName("TemperatureC");
         });

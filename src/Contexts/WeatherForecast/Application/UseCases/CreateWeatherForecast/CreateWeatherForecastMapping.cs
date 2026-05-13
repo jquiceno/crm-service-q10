@@ -1,4 +1,4 @@
-using Shared.Application.Mapping;
+using Shared.Application.Dtos;
 using Shared.Domain;
 using WeatherForecast.Domain.Aggregates;
 
@@ -18,5 +18,7 @@ public static class CreateWeatherForecastMapping
             aggregate.TemperatureFahrenheit,
             aggregate.Summary,
             aggregate.CreatedAtUtc,
-            aggregate.Address?.ToDto());
+            aggregate.AddressStreet is not null
+                ? new AddressOutputDto(aggregate.AddressStreet, aggregate.AddressCity!, aggregate.AddressZipCode!)
+                : null);
 }

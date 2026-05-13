@@ -5,12 +5,12 @@
     <ProjectReference Include="..\Shared\Domain\Shared.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.*">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="8.*" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.*" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.*" />
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+    </ItemGroup>
 </Project>

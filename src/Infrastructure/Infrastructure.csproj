@@ -1,19 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\Contexts\WeatherForecast\Application\WeatherForecast.Application.csproj" />
-    <ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+        <ProjectReference
+            Include="..\Contexts\WeatherForecast\Application\WeatherForecast.Application.csproj" />
+        <ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
+    </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.*" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.*" />
     <PackageReference Include="Azure.Identity" Version="1.*" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.*" />
-    <PackageReference Include="Serilog.AspNetCore" Version="8.*" />
-    <PackageReference Include="Sentry.Serilog" Version="4.*" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.*" />
+    <PackageReference Include="Sentry.Serilog" Version="6.*" />
   </ItemGroup>
 
 </Project>

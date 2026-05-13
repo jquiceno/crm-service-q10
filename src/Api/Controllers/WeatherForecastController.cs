@@ -9,7 +9,12 @@ namespace Api.Controllers;
 public sealed class WeatherForecastController() : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll(
+    [ProducesResponseType(typeof(IReadOnlyList<GetWeatherForecastOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EndpointSummary("Get all weather forecasts")]
+    [EndpointDescription("Retrieves all weather forecasts from the database.")]
+    [Tags("weather")]
+    public async Task<ActionResult<IReadOnlyList<GetWeatherForecastOutputDto>>> GetAll(
         IGetWeatherForecastUseCase getWeatherForecastUseCase,
         CancellationToken cancellationToken)
     {
@@ -22,7 +27,12 @@ public sealed class WeatherForecastController() : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [EndpointSummary("Create a new weather forecast")]
+    [EndpointDescription("Creates a new weather forecast in the database.")]
+    [Tags("weather")]
+    public async Task<ActionResult<CreateWeatherForecastOutputDto>> Create(
         [FromBody] CreateWeatherForecastInputDto input,
         ICreateWeatherForecastUseCase createWeatherForecastUseCase,
         CancellationToken cancellationToken)

@@ -5,11 +5,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.*" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.*" />
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="10.*" />
+        <PackageReference Include="Swashbuckle.AspNetCore.SwaggerUI" Version="10.*" />
     </ItemGroup>
 </Project>

@@ -7,6 +7,8 @@ namespace Api.Mapping;
 
 public static class ErrorHttpMapper
 {
+    private const string ErrorCodePrefix = "HTTP";
+
     private static readonly FrozenDictionary<ErrorType, string> ErrorTypeNames =
         new Dictionary<ErrorType, string>
         {
@@ -34,6 +36,9 @@ public static class ErrorHttpMapper
 
     public static string ToErrorTypeName(ErrorType errorType) =>
         ErrorTypeNames.TryGetValue(errorType, out var name) ? name : "INTERNAL";
+
+    public static string ToErrorCode(ErrorType errorType) =>
+        $"{ErrorCodePrefix}.{ToErrorTypeName(errorType)}";
 
     public static ErrorDetailDto[] ToErrorDetailDtos(IReadOnlyList<ErrorDetail> details) =>
         details.Select(ToErrorDetailDto).ToArray();

@@ -16,6 +16,7 @@ builder.Services
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
+    .AddApiErrorHandling()
     .AddControllers(options =>
     {
         options.Conventions.Add(new RouteTokenTransformerConvention(new KebabCaseParameterTransformer()));
@@ -30,8 +31,15 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+
+app.Use(async (context, next) =>
+{
+    context.Request.EnableBuffering();
+    await next();
+});
+
 app.UseMiddleware<RequestLoggingMiddleware>();
-app.UseMiddleware<GlobalExceptionMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
 
 if (app.Environment.IsDevelopment())

@@ -28,6 +28,7 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
 
         var errorDto = new ErrorDto(
             ErrorHttpMapper.ToErrorTypeName(error.Type),
+            ErrorHttpMapper.ToErrorCode(error.Type),
             error.Message,
             ErrorHttpMapper.ToErrorDetailDtos(error.Details));
 

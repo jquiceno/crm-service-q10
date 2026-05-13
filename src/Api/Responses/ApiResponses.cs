@@ -8,6 +8,7 @@ public sealed record ApiErrorResponse(ErrorDto Error, int StatusCode);
 
 public sealed record ErrorDto(
     string Type,
+    string Code,
     string Message,
     IReadOnlyList<ErrorDetailDto> Details);
 

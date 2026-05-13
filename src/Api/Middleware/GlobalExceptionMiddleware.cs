@@ -2,60 +2,49 @@ using System.Net;
 using System.Text.Json;
 using Api.Mapping;
 using Api.Responses;
+using Microsoft.AspNetCore.Diagnostics;
 using Shared.Domain;
 
 namespace Api.Middleware;
 
-public sealed class GlobalExceptionMiddleware(
-    RequestDelegate next,
-    ILogger<GlobalExceptionMiddleware> logger)
+internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+    : IExceptionHandler
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    public async ValueTask<bool> TryHandleAsync(
+        HttpContext httpContext,
+        Exception exception,
+        CancellationToken cancellationToken)
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
-    public async Task InvokeAsync(HttpContext httpContext)
-    {
-        try
-        {
-            await next(httpContext);
-        }
-        catch (OperationCanceledException) when (httpContext.RequestAborted.IsCancellationRequested)
+        if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
         {
             httpContext.Response.StatusCode = 499;
+            return true;
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Unhandled exception");
-            await WriteErrorResponseAsync(httpContext, HttpStatusCode.InternalServerError,
-                "An unexpected error occurred.", ErrorHttpMapper.ToErrorTypeName(ErrorType.Internal));
-        }
-    }
 
-    private async Task WriteErrorResponseAsync(
-        HttpContext httpContext,
-        HttpStatusCode httpStatusCode,
-        string message,
-        string type)
-    {
+        logger.LogError(exception, "Unhandled exception");
+
         if (httpContext.Response.HasStarted)
         {
-            logger.LogWarning(
-                "Cannot write error response. Response has already started for {Path}",
+            logger.LogWarning("Cannot write error response — response already started for {Path}",
                 httpContext.Request.Path);
-            return;
+            return false;
         }
 
-        var statusCode = (int)httpStatusCode;
-
-        var response = new ApiErrorResponse(
-            new ErrorDto(type, message, []),
-            statusCode);
-
+        const int statusCode = (int)HttpStatusCode.InternalServerError;
         httpContext.Response.StatusCode = statusCode;
         httpContext.Response.ContentType = "application/json";
 
-        await httpContext.Response.WriteAsJsonAsync(response, JsonOptions);
+        await httpContext.Response.WriteAsJsonAsync(
+            new ApiErrorResponse(
+                new ErrorDto(
+                    ErrorHttpMapper.ToErrorTypeName(ErrorType.Internal),
+                    ErrorHttpMapper.ToErrorCode(ErrorType.Internal),
+                    "An unexpected error occurred.",
+                    []),
+                statusCode),
+            JsonSerializerOptions.Web,
+            cancellationToken);
+
+        return true;
     }
 }

@@ -14,4 +14,7 @@
       <Build Solution="Debug|*" Project="false" />
     </Project>
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ServiceTemplate.Tests/ServiceTemplate.Tests.csproj" />
+  </Folder>
 </Solution>

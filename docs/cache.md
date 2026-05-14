@@ -20,7 +20,7 @@
 
 ## Visión general
 
-El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCore.OutputCaching`). La implementación actual usa el store en memoria por defecto; el mismo código puede apuntar a Redis u otro backend agregando un paquete.
+El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCore.OutputCaching`). El store se elige en tiempo de ejecución: si `Cache:ConnectionString` está definido, se usa **Redis** (`Microsoft.AspNetCore.OutputCaching.StackExchangeRedis`); si está vacío, se usa el store **en memoria** del framework.
 
 Principios:
 
@@ -56,7 +56,7 @@ src/
 
 **Ruta:** `src/Api/DependencyInjection/OutputCacheExtensions.cs`
 
-Método de extensión que lee `CacheSettings`, lo registra en `IOptions<CacheSettings>`, y condicionalmente llama a `AddOutputCache`.
+Método de extensión que lee `CacheSettings`, lo registra en `IOptions<CacheSettings>`, elige el backend según `ConnectionString` (Redis vs. memoria), y llama a `AddOutputCache`.
 
 ```csharp
 services.ConfigureCache(builder.Configuration);
@@ -138,11 +138,11 @@ public sealed class CacheSettings
 }
 ```
 
-| Propiedad           | Tipo     | Valor por defecto | Descripción                                                                        |
-| ------------------- | -------- | ----------------- | ---------------------------------------------------------------------------------- |
-| `Enabled`           | `bool`   | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra.     |
-| `DefaultTtlSeconds` | `int`    | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado).      |
-| `ConnectionString`  | `string` | `""`              | Cadena de conexión para un backend externo (ej. Redis). Vacío = store en memoria.  |
+| Propiedad           | Tipo     | Valor por defecto | Descripción                                                                    |
+| ------------------- | -------- | ----------------- | ------------------------------------------------------------------------------ |
+| `Enabled`           | `bool`   | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra. |
+| `DefaultTtlSeconds` | `int`    | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado).  |
+| `ConnectionString`  | `string` | `""`              | Cadena de conexión a Redis (StackExchange.Redis). Vacío = store en memoria.    |
 
 ### appsettings
 
@@ -289,27 +289,30 @@ dotnet test
 
 ## Cambiar el backend (Redis, SQL, etc.)
 
-Se debe agregar el paquete del backend (si existe) y registrarlo en `OutputCacheExtensions.ConfigureCache`.
+### Redis (integrado)
 
-### Redis
+Redis ya viene implementado en `OutputCacheExtensions.ConfigureCache`. Para activarlo basta con definir la cadena de conexión:
 
-```bash
-dotnet add package Microsoft.AspNetCore.OutputCaching.StackExchangeRedis
-```
-
-En `OutputCacheExtensions.ConfigureCache`, antes del `AddOutputCache`:
-
-```csharp
-services.AddStackExchangeRedisOutputCache(options =>
+```json
 {
-    options.Configuration = settings.ConnectionString;
-    options.InstanceName = "api:v1:";
-});
+    "Cache": {
+        "Enabled": true,
+        "ConnectionString": "localhost:6379"
+    }
+}
 ```
 
-Con `Cache:ConnectionString` configurado en `appsettings.json` o vía la variable de entorno `Cache__ConnectionString`.
+o vía variable de entorno `Cache__ConnectionString`. Cuando `ConnectionString` está vacío, el framework usa por defecto el store de memoria.
 
-El registro de `AddStackExchangeRedisOutputCache` reemplaza `IOutputCacheStore`. El resto del código (atributos, filtros, `ConfigureCache`) no cambia.
+El `InstanceName` usado como prefijo de las llaves de Redis se deriva de `AppInfo:ServiceName` (`"{ServiceName}:"`), lo que aísla de forma natural los keys entre servicios que compartan una misma instancia de Redis.
+
+El paquete ya está declarado en `src/Api/Api.csproj`:
+
+```xml
+<PackageReference Include="Microsoft.AspNetCore.OutputCaching.StackExchangeRedis" Version="8.0.*" />
+```
+
+El registro de `AddStackExchangeRedisOutputCache` reemplaza `IOutputCacheStore`. El resto del código (atributos, filtros, políticas) no cambia.
 
 ### Otros backends
 

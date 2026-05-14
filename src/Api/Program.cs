@@ -15,6 +15,7 @@ builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
+    .ConfigureCache(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddApiErrorHandling()
     .AddControllers(options =>
@@ -42,6 +43,8 @@ app.Use(async (context, next) =>
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
 
+app.UseCacheMiddleware();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -61,3 +64,6 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapControllers();
 
 app.Run();
+
+// Required for WebApplicationFactory<Program> in integration tests.
+public partial class Program { }

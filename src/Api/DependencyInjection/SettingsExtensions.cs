@@ -18,7 +18,6 @@ public static class SettingsExtensions
             .ValidateOnStart();
 
         // services.AddOptions<AuthSettings>()...
-        // services.AddOptions<CacheSettings>()...
 
         return services;
     }

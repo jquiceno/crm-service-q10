@@ -20,6 +20,9 @@ trim_trailing_whitespace = false
 
 [*.cs]
 
+# ─── Analyzer suppressions (Roslynator rules not suppressible via .globalconfig) ─
+dotnet_diagnostic.RCS1194.severity = none
+
 # ─── Variable declarations ───────────────────────────────────────────────────
 csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion

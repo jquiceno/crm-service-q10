@@ -5,7 +5,7 @@ namespace Infrastructure.Persistence.EntityFramework.Common;
 
 public abstract class BaseRepository<T>(ApplicationDbContext context) where T : class
 {
-    protected readonly DbSet<T> DbSet = context.Set<T>();
+    protected DbSet<T> DbSet { get; } = context.Set<T>();
 
     public virtual async Task<T?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
         await DbSet.FindAsync([id], cancellationToken);

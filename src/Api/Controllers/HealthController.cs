@@ -1,3 +1,4 @@
+using Api.Results;
 using Infrastructure.Settings;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -9,19 +10,18 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
-public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions, IWebHostEnvironment hostEnvironment) : ControllerBase
+public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions) : ControllerBase
 {
     [HttpGet("info")]
-    public IActionResult GetInfo()
+    public HttpOkResult<object> GetInfo()
     {
         var appInfo = appInfoOptions.Value;
 
-        return Ok(new
+        return new HttpOkResult<object>(new
         {
             status = "ok",
             serviceName = appInfo.ServiceName,
-            version = appInfo.Version,
-            environment = hostEnvironment.EnvironmentName
+            version = appInfo.Version
         });
     }
 }

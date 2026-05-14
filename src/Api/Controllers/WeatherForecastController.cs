@@ -1,6 +1,6 @@
+using Microsoft.AspNetCore.Mvc;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 

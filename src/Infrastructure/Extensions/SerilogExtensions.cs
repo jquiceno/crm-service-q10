@@ -1,10 +1,10 @@
+using Infrastructure.Logging;
 using Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Sentry.Serilog;
 using Serilog;
 using Serilog.Events;
-using Infrastructure.Logging;
 
 namespace Infrastructure.Extensions;
 

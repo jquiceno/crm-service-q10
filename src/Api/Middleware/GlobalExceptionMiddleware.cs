@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
-using WeatherForecast.Domain.Exceptions;
 using Microsoft.AspNetCore.Mvc;
+using WeatherForecast.Domain.Exceptions;
 
 namespace Api.Middleware;
 

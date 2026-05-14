@@ -46,7 +46,8 @@ public sealed class FlatJsonFormatter : ITextFormatter
         var first = true;
         foreach (var prop in structure.Properties)
         {
-            if (!first) output.Write(',');
+            if (!first)
+                output.Write(',');
             first = false;
             JsonValueFormatter.WriteQuotedJsonString(ToCamelCase(prop.Name), output);
             output.Write(':');
@@ -61,7 +62,8 @@ public sealed class FlatJsonFormatter : ITextFormatter
         var first = true;
         foreach (var element in sequence.Elements)
         {
-            if (!first) output.Write(',');
+            if (!first)
+                output.Write(',');
             first = false;
             WriteValue(element, output);
         }

@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Infrastructure.Logging;
 using Shared.Application.Interfaces;
-using System.Diagnostics;
 
 namespace Api.Middleware;
 

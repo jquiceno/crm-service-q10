@@ -1,6 +1,6 @@
+using System;
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
-using System;
 
 namespace Api.DependencyInjection;
 

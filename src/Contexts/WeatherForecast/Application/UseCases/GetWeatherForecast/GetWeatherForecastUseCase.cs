@@ -1,6 +1,6 @@
+using Shared.Application.Interfaces;
 using WeatherForecast.Domain.Common;
 using WeatherForecast.Domain.Interfaces;
-using Shared.Application.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 

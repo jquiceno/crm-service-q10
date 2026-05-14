@@ -1,8 +1,8 @@
+using FluentValidation;
 using Infrastructure.Persistence.EntityFramework.WeatherForecast;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using WeatherForecast.Domain.Interfaces;
-using FluentValidation;
 
 namespace Api.DependencyInjection;
 

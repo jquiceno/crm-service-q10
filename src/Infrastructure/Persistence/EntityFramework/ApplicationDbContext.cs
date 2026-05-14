@@ -1,6 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using WeatherForecast.Domain.Common;
 using WeatherForecast.Domain.Entities;
-using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Persistence.EntityFramework;
 

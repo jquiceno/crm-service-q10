@@ -1,4 +1,4 @@
-﻿using Infrastructure.Settings;
+using Infrastructure.Settings;
 
 namespace Api.DependencyInjection;
 

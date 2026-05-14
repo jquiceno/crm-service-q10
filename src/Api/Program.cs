@@ -5,6 +5,7 @@ using Api.Routing;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,7 +28,26 @@ builder.Services
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddOpenApi(options =>
+    {
+        options.AddDocumentTransformer((document, context, cancellationToken) =>
+        {
+            document.Info = new()
+            {
+                Title = "Weather Forecast API",
+                Version = "v1",
+                Description = "API for the weather forecast application",
+                Contact = new OpenApiContact
+                {
+                    Name = "Weather Forecast API",
+                    Email = "weatherforecast@example.com",
+                    Url = new Uri("https://www.weatherforecast.com")
+                }
+            };
+            return Task.CompletedTask;
+        });
+
+    });
 }
 
 var app = builder.Build();
@@ -47,8 +67,11 @@ app.UseCacheMiddleware();
 
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapOpenApi();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "v1");
+    });
 }
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

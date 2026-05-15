@@ -95,17 +95,6 @@ if (entity == null) return;
 
 ## Convenciones de arquitectura
 
-### Patrón Result
-
-Usar `Result<T>` como valor de retorno en los casos de uso. Nunca lanzar excepciones entre capas.
-
-```csharp
-public async Task<Result<OutputDto>> ExecuteAsync(...) { ... }
-
-if (result.IsFailure)
-    return BadRequest(new { error = result.Error.Description });
-```
-
 ### Clases selladas
 
 Sellar toda clase concreta que no esté diseñada para herencia:

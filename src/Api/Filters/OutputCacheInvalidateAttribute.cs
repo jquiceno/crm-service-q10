@@ -30,7 +30,10 @@ public sealed class OutputCacheInvalidateAttribute(string tag) : Attribute, IAsy
         if (statusCode >= 400)
             return;
 
-        var store = context.HttpContext.RequestServices.GetRequiredService<IOutputCacheStore>();
+        var store = context.HttpContext.RequestServices.GetService<IOutputCacheStore>();
+        if (store is null)
+            return;
+
         await store.EvictByTagAsync(tag, context.HttpContext.RequestAborted);
     }
 }

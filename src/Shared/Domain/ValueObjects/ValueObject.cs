@@ -1,18 +1,16 @@
 namespace Shared.Domain.ValueObjects;
 
-public abstract class ValueObject : IEquatable<ValueObject>
+public abstract class ValueObject
 {
     protected abstract IEnumerable<object?> GetEqualityComponents();
 
-    public bool Equals(ValueObject? other)
+    public override bool Equals(object? obj)
     {
-        if (other is null || other.GetType() != GetType())
+        if (obj is not ValueObject other || other.GetType() != GetType())
             return false;
 
         return GetEqualityComponents().SequenceEqual(other.GetEqualityComponents());
     }
-
-    public override bool Equals(object? obj) => obj is ValueObject valueObject && Equals(valueObject);
 
     public override int GetHashCode()
     {

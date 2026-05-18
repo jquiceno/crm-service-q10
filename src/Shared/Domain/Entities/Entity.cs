@@ -1,6 +1,6 @@
 namespace Shared.Domain.Entities;
 
-public abstract class Entity : IEquatable<Entity>
+public abstract class Entity
 {
     public Guid Id { get; private init; }
     public DateTime CreatedAtUtc { get; private set; } = DateTime.UtcNow;
@@ -18,9 +18,7 @@ public abstract class Entity : IEquatable<Entity>
 
     public void SetUpdatedAtUtc() => UpdatedAtUtc = DateTime.UtcNow;
 
-    public bool Equals(Entity? other) => other is not null && Id == other.Id;
-
-    public override bool Equals(object? obj) => obj is Entity entity && Equals(entity);
+    public override bool Equals(object? obj) => obj is Entity entity && Id == entity.Id;
 
     public override int GetHashCode() => Id.GetHashCode();
 

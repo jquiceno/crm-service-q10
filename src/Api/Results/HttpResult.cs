@@ -1,7 +1,7 @@
 using Api.Mapping;
 using Api.Responses;
 using Microsoft.AspNetCore.Mvc;
-using Shared.Domain;
+using Shared.Domain.Result;
 using System.Text.Json;
 
 namespace Api.Results;

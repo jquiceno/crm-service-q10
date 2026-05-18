@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Shared.Domain;
+using Shared.Domain.Errors;
 
 namespace Api.Filters;
 

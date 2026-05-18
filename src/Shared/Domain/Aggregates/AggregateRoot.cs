@@ -1,4 +1,7 @@
-namespace Shared.Domain;
+using Shared.Domain.Entities;
+using Shared.Domain.Interfaces;
+
+namespace Shared.Domain.Aggregates;
 
 public abstract class AggregateRoot<TEntity> : IAggregateRoot
     where TEntity : Entity

@@ -1,4 +1,4 @@
-using Shared.Domain;
+using Shared.Domain.Errors;
 using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.ValueObjects;
 

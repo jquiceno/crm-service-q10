@@ -1,4 +1,4 @@
-namespace Shared.Domain;
+namespace Shared.Domain.Errors;
 
 public record DomainError
 {
@@ -42,7 +42,7 @@ public record DomainError
             .ToList();
         return children.Count == 0 ? null : BuildDetails(children);
     }
-    
+
     public virtual bool Equals(DomainError? other) =>
         other is not null && Message == other.Message && Type == other.Type;
 

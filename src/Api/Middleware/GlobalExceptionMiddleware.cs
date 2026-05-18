@@ -3,7 +3,7 @@ using System.Text.Json;
 using Api.Mapping;
 using Api.Responses;
 using Microsoft.AspNetCore.Diagnostics;
-using Shared.Domain;
+using Shared.Domain.Errors;
 
 namespace Api.Middleware;
 

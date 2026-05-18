@@ -1,4 +1,4 @@
-using Shared.Domain;
+using Shared.Domain.Entities;
 using WeatherForecast.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 

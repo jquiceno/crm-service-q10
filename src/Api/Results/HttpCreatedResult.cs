@@ -1,4 +1,4 @@
-using Shared.Domain;
+using Shared.Domain.Result;
 
 namespace Api.Results;
 

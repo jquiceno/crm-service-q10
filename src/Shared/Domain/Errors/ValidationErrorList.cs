@@ -1,4 +1,4 @@
-namespace Shared.Domain;
+namespace Shared.Domain.Errors;
 
 public sealed record ValidationErrorList : DomainError
 {

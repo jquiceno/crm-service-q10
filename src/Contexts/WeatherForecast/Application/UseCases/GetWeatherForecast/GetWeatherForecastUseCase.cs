@@ -1,4 +1,4 @@
-using Shared.Domain;
+using Shared.Domain.Result;
 using WeatherForecast.Domain.Interfaces;
 using Shared.Application.Interfaces;
 

@@ -3,7 +3,8 @@ using System.Reflection;
 using FluentValidation.Results;
 using Shared.Application;
 using Shared.Application.Interfaces;
-using Shared.Domain;
+using Shared.Domain.Errors;
+using Shared.Domain.Result;
 
 namespace Infrastructure.Validation.FluentValidation;
 

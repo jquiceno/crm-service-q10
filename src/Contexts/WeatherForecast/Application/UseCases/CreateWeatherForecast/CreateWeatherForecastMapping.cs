@@ -1,5 +1,5 @@
 using Shared.Application.Dtos;
-using Shared.Domain;
+using Shared.Domain.Result;
 using WeatherForecast.Domain.Aggregates;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;

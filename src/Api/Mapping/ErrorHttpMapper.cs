@@ -1,7 +1,7 @@
 using System.Collections.Frozen;
 using System.Net;
 using Api.Responses;
-using Shared.Domain;
+using Shared.Domain.Errors;
 
 namespace Api.Mapping;
 

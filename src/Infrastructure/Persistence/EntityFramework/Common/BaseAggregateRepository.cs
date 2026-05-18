@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Shared.Domain;
+using Shared.Domain.Aggregates;
+using Shared.Domain.Entities;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 

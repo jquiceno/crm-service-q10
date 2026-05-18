@@ -1,4 +1,4 @@
-namespace Shared.Domain;
+namespace Shared.Domain.Entities;
 
 public abstract class Entity : IEquatable<Entity>
 {

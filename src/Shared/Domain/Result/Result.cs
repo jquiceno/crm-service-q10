@@ -1,4 +1,6 @@
-namespace Shared.Domain;
+using Shared.Domain.Errors;
+
+namespace Shared.Domain.Result;
 
 public class Result
 {

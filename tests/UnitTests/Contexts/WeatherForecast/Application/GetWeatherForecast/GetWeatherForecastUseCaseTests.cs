@@ -1,21 +1,21 @@
 using NSubstitute;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using Shouldly;
 using UnitTests.TestSupport.Builders;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using WeatherForecast.Domain.Entities;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Domain.Ports;
 using Xunit;
 
 namespace UnitTests.Contexts.WeatherForecast.Application.GetWeatherForecast;
 
 public sealed class GetWeatherForecastUseCaseTests
 {
-    private readonly IWeatherForecastRepository _repository =
-        Substitute.For<IWeatherForecastRepository>();
+    private readonly IWeatherForecastRepositoryPort _repository =
+        Substitute.For<IWeatherForecastRepositoryPort>();
 
-    private readonly ILoggerService<GetWeatherForecastUseCase> _logger =
-        Substitute.For<ILoggerService<GetWeatherForecastUseCase>>();
+    private readonly ILoggerPort<GetWeatherForecastUseCase> _logger =
+        Substitute.For<ILoggerPort<GetWeatherForecastUseCase>>();
 
     private readonly GetWeatherForecastUseCase _sut;
 

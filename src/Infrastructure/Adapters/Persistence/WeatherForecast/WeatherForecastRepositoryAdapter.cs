@@ -1,14 +1,15 @@
+using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.EntityFrameworkCore;
 using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.Entities;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Domain.Ports;
 
-namespace Infrastructure.Persistence.EntityFramework.WeatherForecast;
+namespace Infrastructure.Adapters.Persistence.WeatherForecast;
 
-public sealed class WeatherForecastRepository(ApplicationDbContext context)
+public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext context)
     : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity>(context),
-      IWeatherForecastRepository
+      IWeatherForecastRepositoryPort
 {
     protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)
         => WeatherForecastAggregate.FromEntity(entity);

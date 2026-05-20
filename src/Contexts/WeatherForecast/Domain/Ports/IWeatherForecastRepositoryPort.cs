@@ -1,8 +1,8 @@
 using WeatherForecast.Domain.Aggregates;
 
-namespace WeatherForecast.Domain.Interfaces;
+namespace WeatherForecast.Domain.Ports;
 
-public interface IWeatherForecastRepository
+public interface IWeatherForecastRepositoryPort
 {
     Task<WeatherForecastAggregate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<WeatherForecastAggregate>> GetAllAsync(CancellationToken cancellationToken = default);

@@ -1,6 +1,5 @@
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
-using Infrastructure.Validation.FluentValidation;
 
 namespace Api.DependencyInjection;
 

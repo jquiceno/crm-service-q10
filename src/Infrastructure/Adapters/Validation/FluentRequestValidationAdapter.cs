@@ -1,14 +1,15 @@
 using System.Collections;
 using System.Reflection;
 using FluentValidation.Results;
+using Infrastructure.Validation.FluentValidation;
 using Shared.Application;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using Shared.Domain.Errors;
 using Shared.Domain.Result;
 
-namespace Infrastructure.Validation.FluentValidation;
+namespace Infrastructure.Adapters.Validation;
 
-public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> validator) : IRequestValidator<T>
+public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> validator) : IRequestValidatorPort<T>
 {
     // Carries the original failure untouched so no fields (ErrorCode, Severity, etc.) are lost
     // when stripping path segments during recursive tree construction.
@@ -147,6 +148,6 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
         return prop?.GetValue(source);
     }
 
-    async Task<Result> IRequestValidator.ValidateAsync(object input, CancellationToken cancellationToken)
+    async Task<Result> IRequestValidatorPort.ValidateAsync(object input, CancellationToken cancellationToken)
         => await ValidateAsync((T)input, cancellationToken);
 }

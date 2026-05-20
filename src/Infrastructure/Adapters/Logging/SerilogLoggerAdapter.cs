@@ -1,14 +1,13 @@
-using Serilog;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using ILogger = Serilog.ILogger;
 
-namespace Infrastructure.Logging;
+namespace Infrastructure.Adapters.Logging;
 
-public sealed class SerilogLogger<T> : ILoggerService<T>
+public sealed class SerilogLoggerAdapter<T> : ILoggerPort<T>
 {
     private readonly ILogger _logger;
 
-    public SerilogLogger(ILogger logger) => _logger = logger.ForContext<T>();
+    public SerilogLoggerAdapter(ILogger logger) => _logger = logger.ForContext<T>();
 
     public void Debug(string message, params object[] args)
         => _logger.Debug(message, args);

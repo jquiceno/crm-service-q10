@@ -1,11 +1,12 @@
 using Shared.Domain.Result;
+using WeatherForecast.Application.Ports;
 using WeatherForecast.Domain.Errors;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Domain.Ports;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
 public sealed class CreateWeatherForecastUseCase(
-    IWeatherForecastRepository repository) : ICreateWeatherForecastUseCase
+    IWeatherForecastRepositoryPort repository) : ICreateWeatherForecastPort
 {
     private const string Origin = nameof(CreateWeatherForecastUseCase);
 

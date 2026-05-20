@@ -1,15 +1,17 @@
+using Infrastructure.Adapters.Validation;
+using Infrastructure.Validation.FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using System.Reflection;
 
-namespace Infrastructure.Validation.FluentValidation;
+namespace Infrastructure.Extensions;
 
 public static class ValidatorRegistrationExtensions
 {
     /// <summary>
     /// Scans the Infrastructure assembly for types implementing
     /// <see cref="IStructuralValidator{T}"/> and registers them as both the structural
-    /// validator and the <see cref="IRequestValidator{T}"/> consumed by the HTTP filter
+    /// validator and the <see cref="IRequestValidatorPort{T}"/> consumed by the HTTP filter
     /// (via <see cref="FluentRequestValidationAdapter{T}"/>).
     /// </summary>
     public static IServiceCollection AddContextValidators(this IServiceCollection services) =>
@@ -28,7 +30,7 @@ public static class ValidatorRegistrationExtensions
             services.AddScoped(typeof(IStructuralValidator<>).MakeGenericType(dtoType), validatorType);
 
             var adapterType = typeof(FluentRequestValidationAdapter<>).MakeGenericType(dtoType);
-            services.AddScoped(typeof(IRequestValidator<>).MakeGenericType(dtoType), adapterType);
+            services.AddScoped(typeof(IRequestValidatorPort<>).MakeGenericType(dtoType), adapterType);
         }
 
         return services;

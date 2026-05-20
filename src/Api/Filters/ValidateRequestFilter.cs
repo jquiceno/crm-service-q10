@@ -2,7 +2,7 @@ using Api.Attributes;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Shared.Application;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using System.Text.Json;
 
 namespace Api.Filters;
@@ -61,8 +61,8 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
             if (value is null || IsSimpleType(value.GetType()))
                 continue;
 
-            var validatorType = typeof(IRequestValidator<>).MakeGenericType(value.GetType());
-            if (services.GetService(validatorType) is not IRequestValidator validator)
+            var validatorType = typeof(IRequestValidatorPort<>).MakeGenericType(value.GetType());
+            if (services.GetService(validatorType) is not IRequestValidatorPort validator)
                 continue;
 
             var result = await validator.ValidateAsync(value, context.HttpContext.RequestAborted);

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using WeatherForecast.Application.Ports;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 using WeatherForecast.Domain.Common;
 
@@ -9,7 +10,7 @@ namespace ServiceTemplate.Tests.Api.Doubles;
 /// <see cref="GetWeatherForecastUseCase"/> and counts actual executions, so
 /// output-cache hits/misses can be asserted.
 /// </summary>
-internal sealed class CountingGetWeatherForecastUseCase(IServiceScopeFactory scopes) : IGetWeatherForecastUseCase
+internal sealed class CountingGetWeatherForecastUseCase(IServiceScopeFactory scopes) : IGetWeatherForecastPort
 {
     private int _executions;
 

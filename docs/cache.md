@@ -176,7 +176,7 @@ Cache__ConnectionString=localhost:6379
 [HttpGet]
 [OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
 public async Task<IActionResult> GetAll(
-    IGetWeatherForecastUseCase useCase,
+    IGetWeatherForecastPort useCase,
     CancellationToken cancellationToken)
 {
     var result = await useCase.ExecuteAsync(cancellationToken);
@@ -222,7 +222,7 @@ El argumento de `[OutputCacheInvalidate("...")]` debe coincidir con uno de los `
 [OutputCacheInvalidate("weather-forecasts")]
 public async Task<IActionResult> Create(
     [FromBody] CreateWeatherForecastInputDto input,
-    ICreateWeatherForecastUseCase useCase,
+    ICreateWeatherForecastPort useCase,
     CancellationToken cancellationToken)
 {
     var result = await useCase.ExecuteAsync(input, cancellationToken);

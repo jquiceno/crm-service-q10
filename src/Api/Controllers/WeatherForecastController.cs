@@ -3,7 +3,7 @@ using Api.Filters;
 using Api.Results;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
-using System.Collections.Generic;
+using WeatherForecast.Application.Ports;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
 
@@ -21,10 +21,10 @@ public sealed class WeatherForecastController() : ControllerBase
     [EndpointDescription("Retrieves all weather forecasts from the database.")]
     [OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
     public async Task<HttpOkResult<IReadOnlyList<GetWeatherForecastOutputDto>>> GetAll(
-        IGetWeatherForecastUseCase getWeatherForecastUseCase,
+        IGetWeatherForecastPort getWeatherForecastPort,
         CancellationToken cancellationToken)
     {
-        return await getWeatherForecastUseCase.ExecuteAsync(cancellationToken);
+        return await getWeatherForecastPort.ExecuteAsync(cancellationToken);
     }
 
     [HttpPost]
@@ -37,9 +37,9 @@ public sealed class WeatherForecastController() : ControllerBase
     [EndpointDescription("Creates a new weather forecast in the database.")]
     public async Task<HttpCreatedResult<CreateWeatherForecastOutputDto>> Create(
         [FromBody] CreateWeatherForecastInputDto input,
-        ICreateWeatherForecastUseCase createWeatherForecastUseCase,
+        ICreateWeatherForecastPort createWeatherForecastPort,
         CancellationToken cancellationToken)
     {
-        return await createWeatherForecastUseCase.ExecuteAsync(input, cancellationToken);
+        return await createWeatherForecastPort.ExecuteAsync(input, cancellationToken);
     }
 }

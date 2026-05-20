@@ -29,7 +29,7 @@ public record DomainError
                     g.Key,
                     children is null ? g.Select(e => e.Message).ToList() : null,
                     g.FirstOrDefault(e => e.Attributes is not null)?.Attributes,
-                    g.FirstOrDefault(e => e.Value is not null)?.Value,
+                    children is null ? g.FirstOrDefault(e => e.Value is not null)?.Value : null,
                     children);
             })
             .ToList();

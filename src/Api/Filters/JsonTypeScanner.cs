@@ -34,7 +34,8 @@ internal static class JsonTypeScanner
             {
                 errors.Add(new ValidationError(BuildMessage(meta.TargetType), ErrorType.Validation)
                 {
-                    Property = meta.CamelCaseName
+                    Property = meta.CamelCaseName,
+                    Value = ExtractValue(jsonProp)
                 });
             }
             else if (jsonProp.ValueKind == JsonValueKind.Object && IsComplexType(meta.TargetType))
@@ -89,6 +90,18 @@ internal static class JsonTypeScanner
         t != typeof(string) && t != typeof(object) && t != typeof(Uri) &&
         !IsNumeric(t) &&
         !typeof(IEnumerable).IsAssignableFrom(t);
+
+    private static object? ExtractValue(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String => element.GetString(),
+        JsonValueKind.Number when element.TryGetInt64(out var l) => l,
+        JsonValueKind.Number when element.TryGetDecimal(out var d) => d,
+        JsonValueKind.Number => element.GetRawText(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Array or JsonValueKind.Object => element.Clone(),
+        _ => null
+    };
 
     private static string BuildMessage(Type targetType) =>
         $"Expected {GetFriendlyTypeName(targetType)}.";

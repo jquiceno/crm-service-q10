@@ -60,9 +60,6 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
                 var message = firstFlat?.ErrorMessage ?? $"{group.Key} is invalid.";
                 var errorType = staticError?.Type ?? ErrorType.Validation;
 
-                // Resolve the intermediate object (e.g. the Address instance) to populate Value
-                // on the parent node. AttemptedValue on nested failures holds the leaf value,
-                // not the parent object, so reflection on the source is necessary here.
                 var childSource = GetPropertyValue(source, group.Key);
 
                 // Strip the root segment before recursing so each level only sees its own
@@ -74,7 +71,6 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
                 errors.Add(new ValidationError(message, errorType)
                 {
                     Property = group.Key,
-                    Value = childSource,
                     Attributes = staticError?.Attributes,
                     Children = BuildErrors(childPending, childSource)
                 });

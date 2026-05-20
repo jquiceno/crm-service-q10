@@ -1,7 +1,7 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Errors;
 using Shared.Domain.Result;
-using System.Linq.Expressions;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
@@ -18,7 +18,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -34,7 +34,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -49,7 +49,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -62,7 +62,7 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -73,9 +73,9 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
             DbSet.Update(entity);
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -86,21 +86,9 @@ public abstract class BaseRepository<T>(ApplicationDbContext context) where T : 
             DbSet.Remove(entity);
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
-        }
-    }
-
-    public async Task<Result<int>> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)
-        {
-            return DbErrorClassifier.Classify(ex);
+            return PersistenceErrors.Failure();
         }
     }
 }

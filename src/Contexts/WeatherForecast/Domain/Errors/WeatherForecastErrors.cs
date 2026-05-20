@@ -31,7 +31,4 @@ public static class WeatherForecastErrors
 
     public static readonly ValidationError DateAlreadyExists =
         new("A forecast for this date already exists.", ErrorType.Conflict);
-
-    public static DomainError NotFound(Guid id) =>
-        new($"WeatherForecast with id '{id}' was not found.", ErrorType.NotFound);
 }

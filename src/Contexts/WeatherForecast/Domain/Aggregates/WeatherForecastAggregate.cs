@@ -30,7 +30,7 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
 
         var temperatureResult = Temperature.Create(temperature);
         if (temperatureResult.IsFailure)
-            errors.Add(temperatureResult.Error with { Property = nameof(Temperature), Value = temperature });
+            errors.Add(temperatureResult.TypedError with { Property = nameof(Temperature), Value = temperature });
 
         Address? address = null;
         if (street is not null || city is not null || zipCode is not null)
@@ -41,7 +41,7 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
                 {
                     Property = nameof(Address),
                     Value = new { street, city, zipCode },
-                    Children = addressResult.Error.Errors
+                    Children = addressResult.TypedError.Errors
                 });
             else
                 address = addressResult.Value;

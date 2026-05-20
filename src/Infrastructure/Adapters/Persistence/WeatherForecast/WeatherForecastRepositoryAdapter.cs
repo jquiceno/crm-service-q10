@@ -1,11 +1,9 @@
 using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.EntityFrameworkCore;
-using Shared.Domain.Errors;
 using Shared.Domain.Result;
 using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.Entities;
-using WeatherForecast.Domain.Errors;
 using WeatherForecast.Domain.Ports;
 
 namespace Infrastructure.Adapters.Persistence.WeatherForecast;
@@ -20,8 +18,6 @@ public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext contex
     protected override WeatherForecastEntity ToEntity(WeatherForecastAggregate aggregate)
         => aggregate.ToEntity();
 
-    protected override DomainError GetNotFoundError(Guid id) => WeatherForecastErrors.NotFound(id) with { Context = WeatherForecastErrors.Context };
-
     public async Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken cancellationToken = default)
     {
         try
@@ -32,7 +28,7 @@ public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext contex
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 }

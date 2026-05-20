@@ -11,5 +11,4 @@ public interface IWeatherForecastRepositoryPort
     Result Update(WeatherForecastAggregate aggregate);
     Result Remove(WeatherForecastAggregate aggregate);
     Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken cancellationToken = default);
-    Task<Result<int>> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

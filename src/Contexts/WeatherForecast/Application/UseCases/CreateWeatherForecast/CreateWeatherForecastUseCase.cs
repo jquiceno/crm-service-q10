@@ -1,3 +1,4 @@
+using Shared.Application.Ports;
 using Shared.Domain.Result;
 using WeatherForecast.Application.Ports;
 using WeatherForecast.Domain.Errors;
@@ -6,7 +7,8 @@ using WeatherForecast.Domain.Ports;
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
 public sealed class CreateWeatherForecastUseCase(
-    IWeatherForecastRepositoryPort repository) : ICreateWeatherForecastPort
+    IWeatherForecastRepositoryPort repository,
+    IUnitOfWorkPort unitOfWork) : ICreateWeatherForecastPort
 {
     private const string Origin = nameof(CreateWeatherForecastUseCase);
 
@@ -18,7 +20,7 @@ public sealed class CreateWeatherForecastUseCase(
             return existsResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
         if (existsResult.Value)
             return WeatherForecastErrors.DateAlreadyExists with
-            { Context = WeatherForecastErrors.Context, Origin = Origin };
+                { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         var aggregateResult = input.ToAggregate();
         if (aggregateResult.IsFailure)
@@ -30,9 +32,9 @@ public sealed class CreateWeatherForecastUseCase(
         if (addResult.IsFailure)
             return addResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
 
-        var saveResult = await repository.SaveChangesAsync(cancellationToken);
-        if (saveResult.IsFailure)
-            return saveResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
+        var commitResult = await unitOfWork.CommitAsync(cancellationToken);
+        if (commitResult.IsFailure)
+            return commitResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         return aggregate.ToCreateDto();
     }

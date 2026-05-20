@@ -24,11 +24,12 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
-    protected virtual DomainError GetNotFoundError(Guid id) => SharedErrors.NotFound(typeof(TAggregate).Name, id);
+    protected virtual DomainError GetNotFoundError(Guid id) =>
+        SharedErrors.NotFound(typeof(TAggregate).Name, id);
 
     public virtual async Task<Result<IReadOnlyList<TAggregate>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
@@ -40,7 +41,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -53,7 +54,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -64,9 +65,9 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
             DbSet.Update(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
+            return PersistenceErrors.Failure();
         }
     }
 
@@ -77,21 +78,9 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
             DbSet.Remove(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return SharedErrors.PersistenceFailure(ex.Message);
-        }
-    }
-
-    public async Task<Result<int>> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)
-        {
-            return DbErrorClassifier.Classify(ex);
+            return PersistenceErrors.Failure();
         }
     }
 }

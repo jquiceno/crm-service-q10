@@ -1,7 +1,6 @@
 using Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Sentry.Serilog;
 using Serilog;
 using Serilog.Events;
 using Infrastructure.Logging;
@@ -59,10 +58,9 @@ public static class SerilogExtensions
                                 + "Application startup aborted."
                         );
                     }
-
                     loggerConfig.WriteTo.Sentry(options =>
                     {
-                        options.Dsn = sentrySettings.Dsn;
+                        options.InitializeSdk = false; // SDK already initialized by SentryExtensions
                         options.MinimumEventLevel = LogEventLevel.Error;
                         options.MinimumBreadcrumbLevel = LogEventLevel.Warning;
                     });

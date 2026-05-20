@@ -10,6 +10,7 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddAzureKeyVault();
+builder.AddSentry();
 builder.Host.AddSerilog(builder.Configuration);
 
 builder.Services

@@ -1,15 +1,4 @@
-using Api.Filters;
-using FluentAssertions;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Abstractions;
-using Microsoft.AspNetCore.Mvc.Controllers;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.OutputCaching;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using ServiceTemplate.Tests.Api.Doubles;
-using Xunit;
 
 namespace ServiceTemplate.Tests.Api;
 

@@ -1,7 +1,7 @@
-using System.Collections.Frozen;
-using System.Net;
 using Api.Responses;
 using Shared.Domain.Errors;
+using System.Collections.Frozen;
+using System.Net;
 
 namespace Api.Mapping;
 
@@ -12,14 +12,14 @@ public static class ErrorHttpMapper
     private static readonly FrozenDictionary<ErrorType, string> ErrorTypeNames =
         new Dictionary<ErrorType, string>
         {
-            [ErrorType.None]         = "NONE",
-            [ErrorType.Validation]   = "VALIDATION",
-            [ErrorType.NotFound]     = "NOT_FOUND",
-            [ErrorType.Conflict]     = "CONFLICT",
+            [ErrorType.None] = "NONE",
+            [ErrorType.Validation] = "VALIDATION",
+            [ErrorType.NotFound] = "NOT_FOUND",
+            [ErrorType.Conflict] = "CONFLICT",
             [ErrorType.Unauthorized] = "UNAUTHORIZED",
-            [ErrorType.Forbidden]    = "FORBIDDEN",
-            [ErrorType.Internal]     = "INTERNAL",
-            [ErrorType.DomainError]  = "DOMAIN_VALIDATION",
+            [ErrorType.Forbidden] = "FORBIDDEN",
+            [ErrorType.Internal] = "INTERNAL",
+            [ErrorType.DomainError] = "DOMAIN_VALIDATION",
         }.ToFrozenDictionary();
 
     public static HttpStatusCode ToHttpStatusCode(ErrorType errorType) => errorType switch

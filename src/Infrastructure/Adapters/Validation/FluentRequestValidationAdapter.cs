@@ -1,14 +1,15 @@
-using System.Collections;
-using System.Reflection;
 using FluentValidation.Results;
+using Infrastructure.Validation.FluentValidation;
 using Shared.Application;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using Shared.Domain.Errors;
 using Shared.Domain.Result;
+using System.Collections;
+using System.Reflection;
 
-namespace Infrastructure.Validation.FluentValidation;
+namespace Infrastructure.Adapters.Validation;
 
-public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> validator) : IRequestValidator<T>
+public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> validator) : IRequestValidatorPort<T>
 {
     // Carries the original failure untouched so no fields (ErrorCode, Severity, etc.) are lost
     // when stripping path segments during recursive tree construction.
@@ -41,14 +42,14 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
         {
             // A dot in the remaining path means the failure belongs to a deeper level.
             var nested = group.Where(p => p.RemainingPath.Contains('.')).ToList();
-            var flat   = group.Where(p => !p.RemainingPath.Contains('.')).ToList();
+            var flat = group.Where(p => !p.RemainingPath.Contains('.')).ToList();
 
             if (nested.Count > 0)
             {
                 // When the same root has both a direct failure ("Address is required") and nested
                 // failures ("Address.Street is required"), we emit a single parent node instead of
                 // two separate nodes with the same Property — which would be ambiguous for consumers.
-                var firstFlat   = flat.Count > 0 ? flat[0].Original : null;
+                var firstFlat = flat.Count > 0 ? flat[0].Original : null;
 
                 // CustomState holds the domain-typed error set via .WithState() in the validator,
                 // which carries the ErrorType and Attributes defined in the domain error catalog.
@@ -56,8 +57,8 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
 
                 // Prefer the real failure message over the generic fallback so the parent node
                 // conveys the actual rule that was violated when a direct rule exists.
-                var message     = firstFlat?.ErrorMessage ?? $"{group.Key} is invalid.";
-                var errorType   = staticError?.Type ?? ErrorType.Validation;
+                var message = firstFlat?.ErrorMessage ?? $"{group.Key} is invalid.";
+                var errorType = staticError?.Type ?? ErrorType.Validation;
 
                 // Resolve the intermediate object (e.g. the Address instance) to populate Value
                 // on the parent node. AttemptedValue on nested failures holds the leaf value,
@@ -72,10 +73,10 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
 
                 errors.Add(new ValidationError(message, errorType)
                 {
-                    Property   = group.Key,
-                    Value      = childSource,
+                    Property = group.Key,
+                    Value = childSource,
                     Attributes = staticError?.Attributes,
-                    Children   = BuildErrors(childPending, childSource)
+                    Children = BuildErrors(childPending, childSource)
                 });
             }
             else
@@ -93,8 +94,8 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
         var staticError = f.CustomState as ValidationError;
         return new ValidationError(f.ErrorMessage, staticError?.Type ?? ErrorType.Validation)
         {
-            Property   = property,
-            Value      = f.AttemptedValue,
+            Property = property,
+            Value = f.AttemptedValue,
             Attributes = staticError?.Attributes
         };
     }
@@ -147,6 +148,6 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
         return prop?.GetValue(source);
     }
 
-    async Task<Result> IRequestValidator.ValidateAsync(object input, CancellationToken cancellationToken)
+    async Task<Result> IRequestValidatorPort.ValidateAsync(object input, CancellationToken cancellationToken)
         => await ValidateAsync((T)input, cancellationToken);
 }

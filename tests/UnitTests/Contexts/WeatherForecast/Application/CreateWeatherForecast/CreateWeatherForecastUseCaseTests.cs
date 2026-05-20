@@ -4,7 +4,7 @@ using NSubstitute;
 using Shouldly;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Domain.Entities;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Domain.Ports;
 using Xunit;
 
 namespace UnitTests.Contexts.WeatherForecast.Application.CreateWeatherForecast;
@@ -14,8 +14,8 @@ public sealed class CreateWeatherForecastUseCaseTests
     private readonly IValidator<CreateWeatherForecastInputDto> _validator =
         Substitute.For<IValidator<CreateWeatherForecastInputDto>>();
 
-    private readonly IWeatherForecastRepository _repository =
-        Substitute.For<IWeatherForecastRepository>();
+    private readonly IWeatherForecastRepositoryPort _repository =
+        Substitute.For<IWeatherForecastRepositoryPort>();
 
     private readonly CreateWeatherForecastUseCase _sut;
 

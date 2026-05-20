@@ -79,7 +79,7 @@ public void Validate_WithEmptySummary_HasErrorOnSummary()
 ### Use cases — mocks con NSubstitute
 
 ```csharp
-private readonly IWeatherForecastRepository _repository = Substitute.For<IWeatherForecastRepository>();
+private readonly IWeatherForecastRepositoryPort _repository = Substitute.For<IWeatherForecastRepositoryPort>();
 private readonly IValidator<CreateWeatherForecastInputDto> _validator = Substitute.For<IValidator<CreateWeatherForecastInputDto>>();
 
 [Fact]

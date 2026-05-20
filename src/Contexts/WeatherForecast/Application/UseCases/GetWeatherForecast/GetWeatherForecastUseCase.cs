@@ -1,11 +1,12 @@
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using Shared.Domain.Result;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Application.Ports;
+using WeatherForecast.Domain.Ports;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 public sealed class GetWeatherForecastUseCase(
-    IWeatherForecastRepository repository, ILoggerService<GetWeatherForecastUseCase> logger) : IGetWeatherForecastUseCase
+    IWeatherForecastRepositoryPort repository, ILoggerPort<GetWeatherForecastUseCase> logger) : IGetWeatherForecastPort
 {
     public async Task<Result<IReadOnlyList<GetWeatherForecastOutputDto>>> ExecuteAsync(
         CancellationToken cancellationToken = default)

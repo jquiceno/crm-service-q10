@@ -1,10 +1,12 @@
 using Shared.Domain.Result;
+using WeatherForecast.Application.Ports;
 using WeatherForecast.Domain.Errors;
-using WeatherForecast.Domain.Interfaces;
+using WeatherForecast.Domain.Ports;
 
 namespace WeatherForecast.Application.UseCases.CreateWeatherForecast;
 
-public sealed class CreateWeatherForecastUseCase(IWeatherForecastRepository repository) : ICreateWeatherForecastUseCase
+public sealed class CreateWeatherForecastUseCase(
+    IWeatherForecastRepositoryPort repository) : ICreateWeatherForecastPort
 {
     private const string Origin = nameof(CreateWeatherForecastUseCase);
 
@@ -16,7 +18,7 @@ public sealed class CreateWeatherForecastUseCase(IWeatherForecastRepository repo
             return existsResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
         if (existsResult.Value)
             return WeatherForecastErrors.DateAlreadyExists with
-                { Context = WeatherForecastErrors.Context, Origin = Origin };
+            { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         var aggregateResult = input.ToAggregate();
         if (aggregateResult.IsFailure)

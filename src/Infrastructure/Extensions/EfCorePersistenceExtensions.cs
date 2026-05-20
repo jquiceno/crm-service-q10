@@ -1,7 +1,6 @@
 using Infrastructure.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 
 namespace Infrastructure.Extensions;
 

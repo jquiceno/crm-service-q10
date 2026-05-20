@@ -19,11 +19,11 @@ internal static class DbErrorClassifier
     {
         2627 => SharedErrors.UniqueConstraintViolation(NthSingleQuoted(ex.Message, 0)), // PK: first quoted = constraint name
         2601 => SharedErrors.UniqueConstraintViolation(NthSingleQuoted(ex.Message, 1)), // Unique index: second quoted = index name
-        547  => SharedErrors.ForeignKeyViolation(FirstDoubleQuoted(ex.Message)),        // FK: first double-quoted = constraint name
-        515  => SharedErrors.NullConstraintViolation(NthSingleQuoted(ex.Message, 0)),  // NULL: first quoted = column name
+        547 => SharedErrors.ForeignKeyViolation(FirstDoubleQuoted(ex.Message)),        // FK: first double-quoted = constraint name
+        515 => SharedErrors.NullConstraintViolation(NthSingleQuoted(ex.Message, 0)),  // NULL: first quoted = column name
         8152 => SharedErrors.DataTruncation(NthSingleQuoted(ex.Message, 1)),           // Truncation: second quoted = column name
         1205 => SharedErrors.Deadlock(),
-        _    => SharedErrors.PersistenceFailure(ex.Message)
+        _ => SharedErrors.PersistenceFailure(ex.Message)
     };
 
     private static string? NthSingleQuoted(string message, int n)

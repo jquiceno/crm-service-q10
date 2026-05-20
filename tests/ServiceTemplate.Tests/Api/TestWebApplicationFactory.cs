@@ -1,13 +1,9 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using ServiceTemplate.Tests.Api.Doubles;
-using WeatherForecast.Application.UseCases.GetWeatherForecast;
 
 namespace ServiceTemplate.Tests.Api;
 
 /// <summary>
-/// Spins up the real API and wraps <see cref="IGetWeatherForecastUseCase"/> in a
+/// Spins up the real API and wraps <see cref="IGetWeatherForecastPort"/> in a
 /// counting decorator so output-cache behaviour can be asserted end-to-end.
 /// Each test gets its own factory, its own in-memory output-cache store.
 /// </summary>
@@ -26,10 +22,10 @@ internal sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         {
             services.AddScoped<GetWeatherForecastUseCase>();
 
-            var realDescriptor = services.Single(d => d.ServiceType == typeof(IGetWeatherForecastUseCase));
+            var realDescriptor = services.Single(d => d.ServiceType == typeof(IGetWeatherForecastPort));
             services.Remove(realDescriptor);
 
-            services.AddSingleton<IGetWeatherForecastUseCase>(sp =>
+            services.AddSingleton<IGetWeatherForecastPort>(sp =>
             {
                 _counter = new CountingGetWeatherForecastUseCase(sp.GetRequiredService<IServiceScopeFactory>());
                 return _counter;

@@ -1,7 +1,7 @@
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Errors;
 using Shared.Domain.Result;
+using System.Linq.Expressions;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 

@@ -1,9 +1,9 @@
-using System.Net;
-using System.Text.Json;
 using Api.Mapping;
 using Api.Responses;
 using Microsoft.AspNetCore.Diagnostics;
 using Shared.Domain.Errors;
+using System.Net;
+using System.Text.Json;
 
 namespace Api.Middleware;
 

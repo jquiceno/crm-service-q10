@@ -1,12 +1,12 @@
 using Infrastructure.Logging;
-using Shared.Application.Interfaces;
+using Shared.Application.Ports;
 using System.Diagnostics;
 
 namespace Api.Middleware;
 
 public sealed class RequestLoggingMiddleware(
     RequestDelegate next,
-    ILoggerService<RequestLoggingMiddleware> logger)
+    ILoggerPort<RequestLoggingMiddleware> logger)
 {
     public async Task InvokeAsync(HttpContext httpContext)
     {

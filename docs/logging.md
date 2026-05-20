@@ -164,7 +164,7 @@ new Dictionary<string, object?>
 
 ## Niveles de log
 
-Usar `ILoggerService<T>` inyectado por DI en use cases e infraestructura:
+Usar `ILoggerPort<T>` inyectado por DI en use cases e infraestructura:
 
 ```csharp
 _logger.Info("Order created with id {Id}", order.Id);

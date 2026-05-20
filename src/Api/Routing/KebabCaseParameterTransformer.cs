@@ -6,7 +6,7 @@ public sealed partial class KebabCaseParameterTransformer : IOutboundParameterTr
 {
     public string? TransformOutbound(object? value)
     {
-        if (value is null) 
+        if (value is null)
             return null;
 
         return WordBoundaryRegex().Replace(value.ToString()!, "$1-$2").ToLowerInvariant();

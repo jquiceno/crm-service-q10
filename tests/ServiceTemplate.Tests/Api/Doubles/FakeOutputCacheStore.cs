@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.OutputCaching;
-
 namespace ServiceTemplate.Tests.Api.Doubles;
 
 /// <summary>

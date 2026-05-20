@@ -16,8 +16,8 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
     public int TemperatureFahrenheit => _entity.Temperature.Fahrenheit;
     public string Summary => _entity.Summary;
     public DateTime CreatedAtUtc => _entity.CreatedAtUtc;
-    public string? AddressStreet  => _entity.Address?.Street;
-    public string? AddressCity    => _entity.Address?.City;
+    public string? AddressStreet => _entity.Address?.Street;
+    public string? AddressCity => _entity.Address?.City;
     public string? AddressZipCode => _entity.Address?.ZipCode;
 
     private WeatherForecastAggregate(WeatherForecastEntity entity) : base(entity) { }

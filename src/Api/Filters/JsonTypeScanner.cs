@@ -1,9 +1,9 @@
+using Shared.Domain.Errors;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Shared.Domain.Errors;
 
 namespace Api.Filters;
 

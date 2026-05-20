@@ -3,6 +3,8 @@ using Api.Filters;
 using Api.Results;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Shared.Application.Dtos;
+using Shared.Domain.Pagination;
 using WeatherForecast.Application.Ports;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
@@ -15,16 +17,20 @@ public sealed class WeatherForecastController() : ControllerBase
 {
     [HttpGet]
     [Tags("weather")]
-    [ProducesResponseType(typeof(IReadOnlyList<GetWeatherForecastOutputDto>), StatusCodes.Status200OK)]
+    [ValidateRequest]
+    [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [EndpointSummary("Get all weather forecasts")]
-    [EndpointDescription("Retrieves all weather forecasts from the database.")]
+    [EndpointDescription("Retrieves a paginated list of weather forecasts.")]
     [OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
-    public async Task<HttpOkResult<IReadOnlyList<GetWeatherForecastOutputDto>>> GetAll(
-        IGetWeatherForecastPort getWeatherForecastPort,
-        CancellationToken cancellationToken)
+    public async Task<HttpOkPagedResult<GetWeatherForecastOutputDto>> GetAll(
+        [FromQuery] PageQueryInputDto pagination,
+        IGetWeatherForecastPort? getWeatherForecastPort = null,
+        CancellationToken cancellationToken = default)
     {
-        return await getWeatherForecastPort.ExecuteAsync(cancellationToken);
+        return await getWeatherForecastPort!.ExecuteAsync(
+            new PageQuery(pagination.PageIndex, pagination.PageSize),
+            cancellationToken);
     }
 
     [HttpPost]

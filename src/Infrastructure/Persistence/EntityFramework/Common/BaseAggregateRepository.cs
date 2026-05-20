@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
 using Shared.Domain.Errors;
+using Shared.Domain.Pagination;
 using Shared.Domain.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
@@ -31,13 +32,19 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
     protected virtual DomainError GetNotFoundError(Guid id) =>
         SharedErrors.NotFound(typeof(TAggregate).Name, id);
 
-    public virtual async Task<Result<IReadOnlyList<TAggregate>>> GetAllAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<PagedResult<TAggregate>> GetAllAsync(
+        PageQuery page,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var entities = await DbSet.ToListAsync(cancellationToken);
+            var total = await DbSet.CountAsync(cancellationToken);
+            var entities = await DbSet
+                .Skip(page.Skip)
+                .Take(page.PageSize)
+                .ToListAsync(cancellationToken);
             IReadOnlyList<TAggregate> aggregates = entities.Select(ToAggregate).ToList();
-            return Result<IReadOnlyList<TAggregate>>.Success(aggregates);
+            return PagedResult<TAggregate>.Success(aggregates, total);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

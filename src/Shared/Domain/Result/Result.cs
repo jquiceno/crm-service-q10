@@ -6,11 +6,12 @@ public class Result
 {
     public bool IsSuccess { get; }
     public bool IsFailure => !IsSuccess;
-    public DomainError Error { get; }
 
-    public static Result Success() => new(true, DomainError.None);
-    public static Result Failure(DomainError error) => new(false, error);
-    public static implicit operator Result(DomainError error) => Failure(error);
+    private readonly DomainError _error;
+
+    public DomainError Error => IsFailure
+        ? _error
+        : throw new InvalidOperationException("Cannot access Error of a successful result.");
 
     protected Result(bool isSuccess, DomainError error)
     {
@@ -21,8 +22,15 @@ public class Result
             throw new InvalidOperationException("A failed result must have an error.");
 
         IsSuccess = isSuccess;
-        Error = error;
+        _error = error;
     }
+
+    // Factory methods
+    public static Result Success() => new(true, DomainError.None);
+    public static Result Failure(DomainError error) => new(false, error);
+
+    // Implicit conversion
+    public static implicit operator Result(DomainError error) => Failure(error);
 }
 
 public class Result<T> : Result
@@ -33,12 +41,13 @@ public class Result<T> : Result
         ? _value!
         : throw new InvalidOperationException("Cannot access Value of a failed result.");
 
-    private Result(T? value, bool isSuccess, DomainError error)
+    protected Result(T? value, bool isSuccess, DomainError error)
         : base(isSuccess, error)
     {
         _value = value;
     }
 
+    // Factory methods
     public static Result<T> Success(T value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -47,35 +56,34 @@ public class Result<T> : Result
 
     public new static Result<T> Failure(DomainError error) => new(default, false, error);
 
+    // Implicit conversions
     public static implicit operator Result<T>(T value) => Success(value);
-
     public static implicit operator Result<T>(DomainError error) => Failure(error);
 }
 
-public sealed class Result<TValue, TError> where TError : DomainError
+public sealed class Result<TValue, TError> : Result<TValue> where TError : DomainError
 {
-    private readonly TValue? _value;
-    private readonly TError? _error;
+    private readonly TError? _typedError;
 
-    public bool IsSuccess { get; }
-    public bool IsFailure => !IsSuccess;
-
-    public TValue Value => IsSuccess
-        ? _value!
-        : throw new InvalidOperationException("Cannot access Value of a failed result.");
-
-    public TError Error => !IsSuccess
-        ? _error!
+    public new TError Error => IsFailure
+        ? _typedError!
         : throw new InvalidOperationException("Cannot access Error of a successful result.");
 
-    private Result(TValue value) { IsSuccess = true; _value = value; }
-    private Result(TError error) { IsSuccess = false; _error = error; }
+    private Result(TValue value) : base(value, true, DomainError.None)
+    {
+        _typedError = default;
+    }
 
-    public static Result<TValue, TError> Success(TValue value) => new(value);
+    private Result(TError error) : base(default, false, error)
+    {
+        _typedError = error;
+    }
+
+    // Factory methods
+    public new static Result<TValue, TError> Success(TValue value) => new(value);
     public static Result<TValue, TError> Failure(TError error) => new(error);
 
+    // Implicit conversions
     public static implicit operator Result<TValue, TError>(TValue value) => Success(value);
     public static implicit operator Result<TValue, TError>(TError error) => Failure(error);
-    public static implicit operator Result<TValue>(Result<TValue, TError> r) =>
-        r.IsSuccess ? Result<TValue>.Success(r.Value) : Result<TValue>.Failure(r.Error);
 }

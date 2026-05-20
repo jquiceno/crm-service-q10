@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
+using Shared.Domain.Errors;
+using Shared.Domain.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
@@ -13,25 +15,83 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
     protected abstract TAggregate ToAggregate(TEntity entity);
     protected abstract TEntity ToEntity(TAggregate aggregate);
 
-    public virtual async Task<TAggregate?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public virtual async Task<Result<TAggregate>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entity = await DbSet.FindAsync([id], cancellationToken);
-        return entity is null ? null : ToAggregate(entity);
+        try
+        {
+            var entity = await DbSet.FindAsync([id], cancellationToken);
+            return entity is null ? GetNotFoundError(id) : ToAggregate(entity);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return SharedErrors.PersistenceFailure(ex.Message);
+        }
     }
 
-    public virtual async Task<IReadOnlyList<TAggregate>> GetAllAsync(CancellationToken cancellationToken = default)
+    protected virtual DomainError GetNotFoundError(Guid id) => SharedErrors.NotFound(typeof(TAggregate).Name, id);
+
+    public virtual async Task<Result<IReadOnlyList<TAggregate>>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        var entities = await DbSet.ToListAsync(cancellationToken);
-        return entities.Select(ToAggregate).ToList().AsReadOnly();
+        try
+        {
+            var entities = await DbSet.ToListAsync(cancellationToken);
+            IReadOnlyList<TAggregate> aggregates = entities.Select(ToAggregate).ToList();
+            return Result<IReadOnlyList<TAggregate>>.Success(aggregates);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return SharedErrors.PersistenceFailure(ex.Message);
+        }
     }
 
-    public virtual async Task AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default) =>
-        await DbSet.AddAsync(ToEntity(aggregate), cancellationToken);
+    public virtual async Task<Result> AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await DbSet.AddAsync(ToEntity(aggregate), cancellationToken);
+            return Result.Success();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return SharedErrors.PersistenceFailure(ex.Message);
+        }
+    }
 
-    public virtual void Update(TAggregate aggregate) => DbSet.Update(ToEntity(aggregate));
+    public virtual Result Update(TAggregate aggregate)
+    {
+        try
+        {
+            DbSet.Update(ToEntity(aggregate));
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return SharedErrors.PersistenceFailure(ex.Message);
+        }
+    }
 
-    public virtual void Remove(TAggregate aggregate) => DbSet.Remove(ToEntity(aggregate));
+    public virtual Result Remove(TAggregate aggregate)
+    {
+        try
+        {
+            DbSet.Remove(ToEntity(aggregate));
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            return SharedErrors.PersistenceFailure(ex.Message);
+        }
+    }
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
-        context.SaveChangesAsync(cancellationToken);
+    public async Task<Result<int>> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            return DbErrorClassifier.Classify(ex);
+        }
+    }
 }

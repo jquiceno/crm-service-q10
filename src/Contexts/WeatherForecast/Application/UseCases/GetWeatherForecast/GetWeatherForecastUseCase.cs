@@ -1,6 +1,6 @@
+using Shared.Application.Interfaces;
 using Shared.Domain.Result;
 using WeatherForecast.Domain.Interfaces;
-using Shared.Application.Interfaces;
 
 namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
 
@@ -11,10 +11,15 @@ public sealed class GetWeatherForecastUseCase(
         CancellationToken cancellationToken = default)
     {
         logger.Info("Retrieving all weather forecasts");
-        var entities = await repository.GetAllAsync(cancellationToken);
 
-        var dtos = entities.Select(e => e.ToGetDto()).ToList();
+        var forecastsResult = await repository.GetAllAsync(cancellationToken);
+        if (forecastsResult.IsFailure)
+            return forecastsResult.Error;
 
-        return dtos;
+        IReadOnlyList<GetWeatherForecastOutputDto> dtos = forecastsResult.Value
+            .Select(e => e.ToGetDto())
+            .ToList();
+
+        return Result<IReadOnlyList<GetWeatherForecastOutputDto>>.Success(dtos);
     }
 }

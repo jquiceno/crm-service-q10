@@ -10,9 +10,7 @@
   </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Application/Shared.Application.csproj" />
-    <Project Path="src/Shared/Domain/Shared.Domain.csproj">
-      <Build Solution="Debug|*" Project="false" />
-    </Project>
+    <Project Path="src/Shared/Domain/Shared.Domain.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ServiceTemplate.Tests/ServiceTemplate.Tests.csproj">

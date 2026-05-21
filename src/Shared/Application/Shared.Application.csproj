@@ -4,4 +4,8 @@
     <ProjectReference Include="..\Domain\Shared.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Results\" />
+  </ItemGroup>
+
 </Project>

@@ -38,13 +38,27 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
     {
         try
         {
-            var total = await DbSet.CountAsync(cancellationToken);
-            var entities = await DbSet
-                .Skip(page.Skip)
-                .Take(page.PageSize)
-                .ToListAsync(cancellationToken);
-            IReadOnlyList<TAggregate> aggregates = entities.Select(ToAggregate).ToList();
-            return PagedResult<TAggregate>.Success(aggregates, total);
+            var result = await DbSet
+                .AsNoTracking()
+                .GroupBy(x => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Entities = g
+                        .OrderBy(x => x)
+                        .Skip(page.Skip)
+                        .Take(page.PageSize)
+                        .ToList()
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (result is null)
+            {
+                return PagedResult<TAggregate>.Success([], 0);
+            }
+
+            IReadOnlyList<TAggregate> aggregates = [.. result.Entities.Select(ToAggregate)];
+            return PagedResult<TAggregate>.Success(aggregates, result.Total);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

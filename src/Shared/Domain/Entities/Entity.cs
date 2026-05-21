@@ -8,17 +8,9 @@ public abstract class Entity
     public void SetUpdatedAtUtc() => UpdatedAtUtc = DateTime.UtcNow;
 }
 
-public abstract class Entity<TId> : Entity
+public abstract class Entity<TId> : Entity where TId : notnull
 {
-    public TId Id { get; private init; } = default!;
-
-    protected Entity(TId id)
-    {
-        if (EqualityComparer<TId>.Default.Equals(id, default!))
-            throw new ArgumentException("Id cannot be empty.", nameof(id));
-
-        Id = id;
-    }
+    public TId Id { get; set; } = default!;
 
     protected Entity() { }
 

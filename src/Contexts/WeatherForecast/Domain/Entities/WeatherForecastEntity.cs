@@ -14,8 +14,9 @@ public sealed class WeatherForecastEntity : Entity<Guid>
     private WeatherForecastEntity() { }
 
     internal WeatherForecastEntity(Guid id, DateTime date, Temperature temperature, string summary, Address? address = null)
-        : base(id)
+        : base()
     {
+        Id = id;
         Date = date;
         Temperature = temperature;
         Summary = summary;

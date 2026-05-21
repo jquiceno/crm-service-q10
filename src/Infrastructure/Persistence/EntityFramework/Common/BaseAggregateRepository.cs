@@ -10,6 +10,7 @@ namespace Infrastructure.Persistence.EntityFramework.Common;
 public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context)
     where TAggregate : AggregateRoot<TEntity, TId>
     where TEntity : Entity<TId>
+    where TId : notnull
 {
     protected readonly DbSet<TEntity> DbSet = context.Set<TEntity>();
 
@@ -20,7 +21,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            var entity = await DbSet.FindAsync([id], cancellationToken);
+            var entity = await DbSet.FindAsync(new object[] { id }, cancellationToken);
             return entity is null ? GetNotFoundError(id) : ToAggregate(entity);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

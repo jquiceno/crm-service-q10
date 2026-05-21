@@ -1,6 +1,4 @@
-using Infrastructure.Adapters.Persistence;
 using Infrastructure.Adapters.Persistence.WeatherForecast;
-using Shared.Application.Ports;
 using WeatherForecast.Application.Ports;
 using WeatherForecast.Application.UseCases.CreateWeatherForecast;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
@@ -15,7 +13,6 @@ public static class WeatherForecastServiceExtensions
         services.AddScoped<IGetWeatherForecastPort, GetWeatherForecastUseCase>();
         services.AddScoped<ICreateWeatherForecastPort, CreateWeatherForecastUseCase>();
         services.AddScoped<IWeatherForecastRepositoryPort, WeatherForecastRepositoryAdapter>();
-        services.AddScoped<IUnitOfWorkPort, UnitOfWorkAdapter>();
 
         return services;
     }

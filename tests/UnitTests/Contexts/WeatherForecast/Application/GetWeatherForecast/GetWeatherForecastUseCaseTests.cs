@@ -1,9 +1,11 @@
 using NSubstitute;
 using Shared.Application.Ports;
+using Shared.Domain.Pagination;
+using Shared.Domain.Result;
 using Shouldly;
 using UnitTests.TestSupport.Builders;
 using WeatherForecast.Application.UseCases.GetWeatherForecast;
-using WeatherForecast.Domain.Entities;
+using WeatherForecast.Domain.Aggregates;
 using WeatherForecast.Domain.Ports;
 using Xunit;
 
@@ -25,35 +27,46 @@ public sealed class GetWeatherForecastUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenRepositoryReturnsEntities_ReturnsMappedDtos()
+    public async Task ExecuteAsync_WhenRepositoryReturnsAggregates_ReturnsMappedDtos()
     {
-        var entities = new List<WeatherForecastEntity>
+        var page = new PageQuery(0, 20);
+        var aggregates = new List<WeatherForecastAggregate>
         {
-            new WeatherForecastEntityBuilder().WithSummary("Sunny").WithTemperatureC(25).Build(),
-            new WeatherForecastEntityBuilder().WithSummary("Cold").WithTemperatureC(-5).Build(),
+            WeatherForecastAggregate.FromEntity(
+                new WeatherForecastEntityBuilder().WithSummary("Sunny").WithTemperatureC(25).Build()),
+            WeatherForecastAggregate.FromEntity(
+                new WeatherForecastEntityBuilder().WithSummary("Cold").WithTemperatureC(-5).Build()),
         };
-        _repository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(entities);
+        _repository.GetAllAsync(page, Arg.Any<CancellationToken>())
+            .Returns(PagedResult<WeatherForecastAggregate>.Success(aggregates, aggregates.Count));
 
-        var result = await _sut.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(page, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Count.ShouldBe(2);
-        result.Value[0].Summary.ShouldBe("Sunny");
-        result.Value[0].TemperatureC.ShouldBe(25);
-        result.Value[1].Summary.ShouldBe("Cold");
-        result.Value[1].TemperatureC.ShouldBe(-5);
+        result.Items.Count.ShouldBe(2);
+        result.TotalCount.ShouldBe(2);
+        result.Items[0].Summary.ShouldBe("Sunny");
+        result.Items[0].Temperature.ShouldBe(25);
+        result.Items[1].Summary.ShouldBe("Cold");
+        result.Items[1].Temperature.ShouldBe(-5);
 
-        _logger.Received(1).Info("Retrieving all weather forecasts");
+        _logger.Received(1).Info(
+            "Retrieving weather forecasts (page {PageIndex}, size {PageSize})",
+            page.PageIndex,
+            page.PageSize);
     }
 
     [Fact]
     public async Task ExecuteAsync_WhenRepositoryReturnsEmpty_ReturnsEmptySuccess()
     {
-        _repository.GetAllAsync(Arg.Any<CancellationToken>()).Returns(new List<WeatherForecastEntity>());
+        var page = new PageQuery(0, 20);
+        _repository.GetAllAsync(page, Arg.Any<CancellationToken>())
+            .Returns(PagedResult<WeatherForecastAggregate>.Success([], 0));
 
-        var result = await _sut.ExecuteAsync(CancellationToken.None);
+        var result = await _sut.ExecuteAsync(page, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBeEmpty();
+        result.Items.ShouldBeEmpty();
+        result.TotalCount.ShouldBe(0);
     }
 }

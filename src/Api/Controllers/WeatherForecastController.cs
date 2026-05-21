@@ -18,14 +18,14 @@ public sealed class WeatherForecastController() : ControllerBase
     [HttpGet]
     [Tags("weather")]
     [ValidateRequest]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(HttpOkPagedResult<GetWeatherForecastOutputDto>),StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [EndpointSummary("Get all weather forecasts")]
     [EndpointDescription("Retrieves a paginated list of weather forecasts.")]
     [OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
     public async Task<HttpOkPagedResult<GetWeatherForecastOutputDto>> GetAll(
         [FromQuery] PageQueryInputDto pagination,
-        IGetWeatherForecastPort? getWeatherForecastPort = null,
+        IGetWeatherForecastPort getWeatherForecastPort,
         CancellationToken cancellationToken = default)
     {
         return await getWeatherForecastPort!.ExecuteAsync(

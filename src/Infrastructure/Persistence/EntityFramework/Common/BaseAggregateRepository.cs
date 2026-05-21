@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Shared.Application.Ports;
 using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
 using Shared.Domain.Errors;
@@ -7,7 +8,9 @@ using Shared.Domain.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
-public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDbContext context)
+public abstract class BaseAggregateRepository<TAggregate, TEntity>(
+    ApplicationDbContext context,
+    ILoggerPort<object> logger)
     where TAggregate : AggregateRoot<TEntity>
     where TEntity : Entity
 {
@@ -25,6 +28,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.Error(ex, "Error retrieving {AggregateType} with id {Id}", typeof(TAggregate).Name, id);
             return PersistenceErrors.Failure();
         }
     }
@@ -38,16 +42,31 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
     {
         try
         {
-            var total = await DbSet.CountAsync(cancellationToken);
-            var entities = await DbSet
-                .Skip(page.Skip)
-                .Take(page.PageSize)
-                .ToListAsync(cancellationToken);
-            IReadOnlyList<TAggregate> aggregates = entities.Select(ToAggregate).ToList();
-            return PagedResult<TAggregate>.Success(aggregates, total);
+            var result = await DbSet
+                .AsNoTracking()
+                .GroupBy(x => 1)
+                .Select(g => new
+                {
+                    Total = g.Count(),
+                    Entities = g
+                        .OrderBy(x => x)
+                        .Skip(page.Skip)
+                        .Take(page.PageSize)
+                        .ToList()
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (result is null)
+            {
+                return PagedResult<TAggregate>.Success([], 0);
+            }
+
+            IReadOnlyList<TAggregate> aggregates = [.. result.Entities.Select(ToAggregate)];
+            return PagedResult<TAggregate>.Success(aggregates, result.Total);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.Error(ex, "Error retrieving all {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();
         }
     }
@@ -61,6 +80,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.Error(ex, "Error adding {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();
         }
     }
@@ -72,8 +92,9 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
             DbSet.Update(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.Error(ex, "Error updating {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();
         }
     }
@@ -85,8 +106,9 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
             DbSet.Remove(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            logger.Error(ex, "Error removing {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();
         }
     }

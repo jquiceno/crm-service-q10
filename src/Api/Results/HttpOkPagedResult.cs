@@ -24,19 +24,9 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
             return;
         }
 
-        var error = result.Error;
-        var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
-        response.StatusCode = statusCode;
-
-        var errorDto = new ErrorDto(
-            ErrorHttpMapper.ToErrorTypeName(error.Type),
-            ErrorHttpMapper.ToErrorCode(error.Type),
-            error.Message,
-            ErrorHttpMapper.ToErrorDetailDtos(error.Details));
-
-        await response.WriteAsJsonAsync(
-            new ApiErrorResponse(errorDto, statusCode),
-            JsonSerializerOptions.Web,
+        await ActionResultHelper.WriteErrorResponseAsync(
+            response,
+            result.Error,
             context.HttpContext.RequestAborted);
     }
 }

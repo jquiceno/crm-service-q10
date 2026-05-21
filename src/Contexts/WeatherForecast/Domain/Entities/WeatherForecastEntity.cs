@@ -4,7 +4,7 @@ using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Entities;
 
-public sealed class WeatherForecastEntity : Entity
+public sealed class WeatherForecastEntity : Entity<Guid>
 {
     public DateTime Date { get; private set; }
     public Temperature Temperature { get; private set; } = null!;

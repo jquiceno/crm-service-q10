@@ -7,7 +7,7 @@ using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Aggregates;
 
-public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEntity>
+public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEntity, Guid>
 {
     public const int MaxSummaryLength = 200;
 

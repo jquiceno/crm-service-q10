@@ -7,16 +7,16 @@ using Shared.Domain.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
-public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDbContext context)
-    where TAggregate : AggregateRoot<TEntity>
-    where TEntity : Entity
+public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context)
+    where TAggregate : AggregateRoot<TEntity, TId>
+    where TEntity : Entity<TId>
 {
     protected readonly DbSet<TEntity> DbSet = context.Set<TEntity>();
 
     protected abstract TAggregate ToAggregate(TEntity entity);
     protected abstract TEntity ToEntity(TAggregate aggregate);
 
-    public virtual async Task<Result<TAggregate>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public virtual async Task<Result<TAggregate>> GetByIdAsync(TId id, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -29,8 +29,8 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity>(ApplicationDb
         }
     }
 
-    protected virtual DomainError GetNotFoundError(Guid id) =>
-        SharedErrors.NotFound(typeof(TAggregate).Name, id);
+    protected virtual DomainError GetNotFoundError(TId id) =>
+        SharedErrors.NotFound(typeof(TAggregate).Name, id!);
 
     public virtual async Task<PagedResult<TAggregate>> GetAllAsync(
         PageQuery page,

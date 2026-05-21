@@ -9,7 +9,7 @@ using WeatherForecast.Domain.Ports;
 namespace Infrastructure.Adapters.Persistence.WeatherForecast;
 
 public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext context)
-    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity>(context),
+    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity, Guid>(context),
       IWeatherForecastRepositoryPort
 {
     protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)

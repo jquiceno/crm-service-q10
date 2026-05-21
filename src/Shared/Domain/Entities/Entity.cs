@@ -2,13 +2,19 @@ namespace Shared.Domain.Entities;
 
 public abstract class Entity
 {
-    public Guid Id { get; private init; }
     public DateTime CreatedAtUtc { get; private set; } = DateTime.UtcNow;
     public DateTime? UpdatedAtUtc { get; private set; }
 
-    protected Entity(Guid id)
+    public void SetUpdatedAtUtc() => UpdatedAtUtc = DateTime.UtcNow;
+}
+
+public abstract class Entity<TId> : Entity
+{
+    public TId Id { get; private init; } = default!;
+
+    protected Entity(TId id)
     {
-        if (id == Guid.Empty)
+        if (EqualityComparer<TId>.Default.Equals(id, default!))
             throw new ArgumentException("Id cannot be empty.", nameof(id));
 
         Id = id;
@@ -16,13 +22,12 @@ public abstract class Entity
 
     protected Entity() { }
 
-    public void SetUpdatedAtUtc() => UpdatedAtUtc = DateTime.UtcNow;
+    public override bool Equals(object? obj) =>
+        obj is Entity<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);
 
-    public override bool Equals(object? obj) => obj is Entity entity && Id == entity.Id;
+    public override int GetHashCode() => Id?.GetHashCode() ?? 0;
 
-    public override int GetHashCode() => Id.GetHashCode();
+    public static bool operator ==(Entity<TId>? left, Entity<TId>? right) => Equals(left, right);
 
-    public static bool operator ==(Entity? left, Entity? right) => Equals(left, right);
-
-    public static bool operator !=(Entity? left, Entity? right) => !Equals(left, right);
+    public static bool operator !=(Entity<TId>? left, Entity<TId>? right) => !Equals(left, right);
 }

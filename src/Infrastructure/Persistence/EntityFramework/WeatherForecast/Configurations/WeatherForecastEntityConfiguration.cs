@@ -11,6 +11,7 @@ public sealed class WeatherForecastEntityConfiguration : IEntityTypeConfiguratio
         builder.OwnsOne(e => e.Temperature, t =>
         {
             t.Property(x => x.Celsius).HasColumnName("TemperatureC");
+            t.Ignore(x => x.Fahrenheit);
         });
 
         builder.OwnsOne(e => e.Address, a =>
@@ -19,5 +20,7 @@ public sealed class WeatherForecastEntityConfiguration : IEntityTypeConfiguratio
             a.Property(x => x.City).HasColumnName("AddressCity");
             a.Property(x => x.ZipCode).HasColumnName("AddressZipCode");
         });
+
+        //Here would go the Fluent API (EF) configuration.
     }
 }

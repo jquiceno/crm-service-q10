@@ -9,7 +9,7 @@ public interface IRepositoryBase<TAggregate, TId>
 {
     Task<Result<TAggregate>> GetByIdAsync(TId id, CancellationToken cancellationToken = default);
     Task<PagedResult<TAggregate>> GetAllAsync(PageQuery page, CancellationToken cancellationToken = default);
-    Task<global::Shared.Domain.Result.Result> AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    global::Shared.Domain.Result.Result Update(TAggregate aggregate);
-    global::Shared.Domain.Result.Result Remove(TAggregate aggregate);
+    Task<Result.Result> AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
+    Result.Result Update(TAggregate aggregate);
+    Result.Result Remove(TAggregate aggregate);
 }

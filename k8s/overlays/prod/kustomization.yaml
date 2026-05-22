@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: service-template
+
+resources:
+  - ../../base
+
+images:
+  - name: q10-service-template
+    newName: 764283926096.dkr.ecr.us-east-1.amazonaws.com/q10-service-template
+    newTag: prod-latest   # overridden in CD with the commit SHA
+
+patches:
+  # --- ConfigMap: prod values (base already has the correct defaults) ---
+  - target:
+      kind: ConfigMap
+      name: service-template-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: service-template-config
+        namespace: service-template
+      data:
+        ASPNETCORE_ENVIRONMENT: "Production"
+        Sentry__Enabled: "true"
+        Cors__AllowedOrigins__0: "https://app.q10.com"
+
+  # --- ExternalSecret: Secrets Manager path for prod ---
+  - patch: |-
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: /platform/prod/service-template
+    target:
+      kind: ExternalSecret
+      name: service-template-secrets
+
+  # --- Deployment: 2 replicas in prod (base default, explicit for clarity) ---
+  - target:
+      kind: Deployment
+      name: service-template
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: service-template
+        namespace: service-template
+      spec:
+        replicas: 2
+
+  # --- HPA: base values (min=2, max=10) apply for prod ---

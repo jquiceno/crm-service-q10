@@ -3,12 +3,14 @@ using Shared.Application.Ports;
 using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
 using Shared.Domain.Errors;
+using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
 using Shared.Domain.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
 public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context, ILoggerPort<object> logger)
+    : IRepositoryBase<TAggregate, TId>
     where TAggregate : AggregateRoot<TEntity, TId>
     where TEntity : Entity<TId>
     where TId : notnull

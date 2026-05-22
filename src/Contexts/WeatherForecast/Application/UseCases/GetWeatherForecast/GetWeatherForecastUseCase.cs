@@ -13,9 +13,11 @@ public sealed class GetWeatherForecastUseCase(
         PageQuery page,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(page);
+
         logger.Info("Retrieving weather forecasts (page {PageIndex}, size {PageSize})", page.PageIndex, page.PageSize);
 
-        var result = await repository.GetAllAsync(page, cancellationToken);
+        var result = await repository.GetAllAsync(page, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
             return result.Error;
 

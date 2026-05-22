@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Infrastructure.Logging;
 using Shared.Application.Ports;
-using System.Diagnostics;
 
 namespace Api.Middleware;
 
@@ -10,6 +10,8 @@ public sealed class RequestLoggingMiddleware(
 {
     public async Task InvokeAsync(HttpContext httpContext)
     {
+        ArgumentNullException.ThrowIfNull(httpContext);
+
         var startTimestamp = Stopwatch.GetTimestamp();
 
         // Enriquece todos los logs del pipeline con el bloque http parcial (sin status/latency).
@@ -18,7 +20,7 @@ public sealed class RequestLoggingMiddleware(
 
         try
         {
-            await next(httpContext);
+            await next(httpContext).ConfigureAwait(false);
         }
         finally
         {

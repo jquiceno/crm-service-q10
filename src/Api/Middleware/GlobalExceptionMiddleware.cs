@@ -43,7 +43,7 @@ internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log
                     []),
                 statusCode),
             JsonSerializerOptions.Web,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return true;
     }

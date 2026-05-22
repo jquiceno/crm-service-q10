@@ -1,6 +1,6 @@
+using System.Diagnostics;
 using Serilog.Core;
 using Serilog.Events;
-using System.Diagnostics;
 
 namespace Infrastructure.Logging;
 

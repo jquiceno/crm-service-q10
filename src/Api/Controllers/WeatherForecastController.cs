@@ -18,7 +18,7 @@ public sealed class WeatherForecastController() : ControllerBase
     [HttpGet]
     [Tags("weather")]
     [ValidateRequest]
-    [ProducesResponseType(typeof(HttpOkPagedResult<GetWeatherForecastOutputDto>),StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(HttpOkPagedResult<GetWeatherForecastOutputDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [EndpointSummary("Get all weather forecasts")]
     [EndpointDescription("Retrieves a paginated list of weather forecasts.")]
@@ -28,9 +28,12 @@ public sealed class WeatherForecastController() : ControllerBase
         IGetWeatherForecastPort getWeatherForecastPort,
         CancellationToken cancellationToken = default)
     {
-        return await getWeatherForecastPort!.ExecuteAsync(
+        ArgumentNullException.ThrowIfNull(getWeatherForecastPort);
+        ArgumentNullException.ThrowIfNull(pagination);
+
+        return await getWeatherForecastPort.ExecuteAsync(
             new PageQuery(pagination.PageIndex, pagination.PageSize),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPost]
@@ -46,6 +49,11 @@ public sealed class WeatherForecastController() : ControllerBase
         ICreateWeatherForecastPort createWeatherForecastPort,
         CancellationToken cancellationToken)
     {
-        return await createWeatherForecastPort.ExecuteAsync(input, cancellationToken);
+        ArgumentNullException.ThrowIfNull(createWeatherForecastPort);
+        ArgumentNullException.ThrowIfNull(input);
+
+        return await createWeatherForecastPort
+            .ExecuteAsync(input, cancellationToken)
+            .ConfigureAwait(false);
     }
 }

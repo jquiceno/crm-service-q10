@@ -52,9 +52,9 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
 ```csharp
 [Fact]
-public void Constructor_WithEmptyGuid_ThrowsArgumentException()
+public void Create_WithEmptyGuid_ThrowsArgumentException()
 {
-    var act = () => new WeatherForecastEntity(Guid.Empty, DateTime.UtcNow, 20, "Sunny");
+    var act = () => WeatherForecastAggregate.Create(Guid.Empty, DateTime.UtcNow, 20, "Sunny");
 
     act.ShouldThrow<ArgumentException>();
 }
@@ -68,7 +68,7 @@ private readonly CreateWeatherForecastInputValidator _validator = new();
 [Fact]
 public void Validate_WithEmptySummary_HasErrorOnSummary()
 {
-    var input = new CreateWeatherForecastInputDto(DateTime.UtcNow, 20, "");
+    var input = new CreateWeatherForecastInputDto(DateTime.UtcNow, 20, "", null);
 
     var result = _validator.TestValidate(input);
 
@@ -79,21 +79,31 @@ public void Validate_WithEmptySummary_HasErrorOnSummary()
 ### Use cases — mocks con NSubstitute
 
 ```csharp
-private readonly IWeatherForecastRepositoryPort _repository = Substitute.For<IWeatherForecastRepositoryPort>();
-private readonly IValidator<CreateWeatherForecastInputDto> _validator = Substitute.For<IValidator<CreateWeatherForecastInputDto>>();
+private readonly IWeatherForecastRepositoryPort _repository =
+        Substitute.For<IWeatherForecastRepositoryPort>();
+
+private readonly IUnitOfWorkPort _unitOfWork =
+    Substitute.For<IUnitOfWorkPort>();
 
 [Fact]
-public async Task ExecuteAsync_WithValidInput_PersistsEntity()
+public async Task ExecuteAsync_WithValidInput_PersistsAggregateAndReturnsSuccess()
 {
-    _validator.ValidateAsync(Arg.Any<CreateWeatherForecastInputDto>(), Arg.Any<CancellationToken>())
-        .Returns(new ValidationResult());
+    var input = new CreateWeatherForecastInputDto(new DateTime(2026, 4, 21), 25, "Sunny", null);
+    _repository.ExistsForDateAsync(input.Date, Arg.Any<CancellationToken>()).Returns(false);
+    _repository.AddAsync(Arg.Any<WeatherForecastAggregate>(), Arg.Any<CancellationToken>())
+        .Returns(Result.Success());
+    _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(Result.Success());
 
-    var sut = new CreateWeatherForecastUseCase(_validator, _repository);
-
-    var result = await sut.ExecuteAsync(input);
+    var result = await _sut.ExecuteAsync(input, CancellationToken.None);
 
     result.IsSuccess.ShouldBeTrue();
-    await _repository.Received(1).AddAsync(Arg.Any<WeatherForecastEntity>(), Arg.Any<CancellationToken>());
+    result.Value.Date.ShouldBe(input.Date);
+    result.Value.Temperature.ShouldBe(input.Temperature);
+    result.Value.Summary.ShouldBe(input.Summary);
+
+    await _repository.Received(1).ExistsForDateAsync(input.Date, Arg.Any<CancellationToken>());
+    await _repository.Received(1).AddAsync(Arg.Any<WeatherForecastAggregate>(), Arg.Any<CancellationToken>());
+    await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
 }
 ```
 
@@ -101,13 +111,18 @@ public async Task ExecuteAsync_WithValidInput_PersistsEntity()
 
 ```csharp
 [Fact]
-public void ToEntity_PreservesInputFields()
+public void ToAggregate_PreservesInputFields_AndAssignsId()
 {
-    var input = new CreateWeatherForecastInputDto(DateTime.UtcNow, 25, "Sunny");
+    var input = new CreateWeatherForecastInputDto(new DateTime(2026, 4, 21), 25, "Sunny", null);
 
-    var entity = input.ToEntity();
+    var result = input.ToAggregate();
 
-    entity.Summary.ShouldBe(input.Summary);
+    result.IsSuccess.ShouldBeTrue();
+    var aggregate = result.Value;
+    aggregate.Id.ShouldNotBe(Guid.Empty);
+    aggregate.Date.ShouldBe(input.Date);
+    aggregate.TemperatureCelsius.ShouldBe(input.Temperature);
+    aggregate.Summary.ShouldBe(input.Summary);
 }
 ```
 
@@ -131,7 +146,7 @@ public sealed class MyEndpointTests : IntegrationTestBase
         await Db.SaveChangesAsync();
 
         // Llamar al endpoint con HttpClient pre-configurado
-        var response = await Client.GetAsync("/api/v1/weather-forecasts");
+        var response = await Client.GetAsync("/api/v1/weather-forecast");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

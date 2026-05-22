@@ -8,9 +8,8 @@ namespace IntegrationTests.Infrastructure;
 
 public sealed class SqlServerContainerFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container = new MsSqlBuilder()
-        .WithImage("mcr.microsoft.com/azure-sql-edge:latest")
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilPortIsAvailable(1433))
+    private readonly MsSqlContainer _container = new MsSqlBuilder("mcr.microsoft.com/azure-sql-edge:latest")
+        .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(1433))
         .Build();
 
     public string ConnectionString => _container.GetConnectionString();

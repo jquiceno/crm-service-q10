@@ -1,37 +1,34 @@
 using Azure.Identity;
+using Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure.Extensions;
 
 public static class KeyVaultExtensions
 {
-    public static ConfigurationManager AddAzureKeyVault(this ConfigurationManager configuration)
+    public static void AddAzureKeyVault(this ConfigurationManager configuration, IHostEnvironment environment)
     {
-        var enabled = configuration.GetValue<bool>("ENABLE_SECRETS_VAULT");
+        var tempConfig = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json")
+            .AddJsonFile($"appsettings.{environment.EnvironmentName}.json", optional: true)
+            .AddEnvironmentVariables()
+            .Build();
 
-        if (!enabled)
-        {
-            // Console.WriteLine is intentional here: Serilog is not yet configured during the configuration-building phase.
-            Console.WriteLine("[KeyVault] ENABLE_SECRETS_VAULT is not enabled. Skipping Azure Key Vault configuration.");
-            return configuration;
-        }
+        var options = new KeyVaultSettings();
+        tempConfig.GetSection("Azure:KeyVault").Bind(options);
 
-        var keyVaultEndpoint = configuration["AZURE_KEYVAULT_ENDPOINT"];
+        if (string.IsNullOrEmpty(options.Endpoint))
+            return;
 
-        if (string.IsNullOrWhiteSpace(keyVaultEndpoint))
-        {
-            Console.WriteLine("[KeyVault] WARNING: ENABLE_SECRETS_VAULT is true but AZURE_KEYVAULT_ENDPOINT is not set. Skipping Azure Key Vault configuration.");
-            return configuration;
-        }
+        if (!Uri.TryCreate(options.Endpoint, UriKind.Absolute, out var keyVaultUri))
+            return;
 
-        if (!Uri.TryCreate(keyVaultEndpoint, UriKind.Absolute, out var keyVaultUri))
-        {
-            Console.WriteLine($"[KeyVault] WARNING: AZURE_KEYVAULT_ENDPOINT value '{keyVaultEndpoint}' is not a valid URI. Skipping Azure Key Vault configuration.");
-            return configuration;
-        }
+        var credential = new ClientSecretCredential(
+            options.TenantId,
+            options.ClientId,
+            options.ClientSecret);
 
-        configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
-
-        return configuration;
+        configuration.AddAzureKeyVault(keyVaultUri, credential);
     }
 }

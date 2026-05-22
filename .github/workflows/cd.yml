@@ -1,0 +1,263 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - dev
+      - qa
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        required: true
+        options:
+          - dev
+          - qa
+          - prod
+      ref:
+        description: Branch, tag, or SHA to deploy
+        type: string
+        required: true
+        default: main
+      confirmation:
+        description: Type "DEPLOY" to confirm
+        type: string
+        required: true
+
+concurrency:
+  group: cd-${{ github.event_name == 'workflow_dispatch' && inputs.environment || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate confirmation
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation word
+        run: |
+          if [ "${{ inputs.confirmation }}" != "DEPLOY" ]; then
+            echo "::error::Invalid confirmation word. Please type DEPLOY (uppercase) to proceed."
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+  resolve-context:
+    name: Resolve deployment context
+    needs: validate
+    if: always() && (needs.validate.result == 'success' || needs.validate.result == 'skipped')
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.ctx.outputs.environment }}
+      ref: ${{ steps.ctx.outputs.ref }}
+      image_tag: ${{ steps.ctx.outputs.image_tag }}
+      kustomize_overlay: ${{ steps.ctx.outputs.kustomize_overlay }}
+      eks_cluster: ${{ steps.ctx.outputs.eks_cluster }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine environment and ref
+        id: ctx
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ inputs.environment }}"
+            REF="${{ inputs.ref }}"
+          elif [ "${{ github.ref_name }}" == "dev" ]; then
+            ENV="dev"
+            REF="${{ github.sha }}"
+          elif [ "${{ github.ref_name }}" == "qa" ]; then
+            ENV="qa"
+            REF="${{ github.sha }}"
+          elif [ "${{ github.ref_name }}" == "main" ]; then
+            ENV="prod"
+            REF="${{ github.sha }}"
+          else
+            echo "::error::Unexpected branch '${{ github.ref_name }}'. No environment mapping defined."
+            exit 1
+          fi
+
+          # For workflow_dispatch, resolve branch name to the actual SHA being checked out
+          # so the image tag is always an immutable reference
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            SHA=$(git ls-remote origin "$REF" | awk '{print substr($1,1,12)}')
+            [ -n "$SHA" ] && REF="$SHA"
+          fi
+
+          case "$ENV" in
+            dev)  CLUSTER="q10-dev-eks"  ;;
+            qa)   CLUSTER="q10-qa-eks"   ;;
+            prod) CLUSTER="q10-prod-eks" ;;
+          esac
+
+          echo "environment=$ENV"                      >> "$GITHUB_OUTPUT"
+          echo "ref=$REF"                              >> "$GITHUB_OUTPUT"
+          echo "image_tag=${ENV}-${REF}"               >> "$GITHUB_OUTPUT"
+          echo "kustomize_overlay=k8s/overlays/$ENV"   >> "$GITHUB_OUTPUT"
+          echo "eks_cluster=$CLUSTER"                  >> "$GITHUB_OUTPUT"
+
+      - name: Print deployment context
+        run: |
+          echo "Environment  : ${{ steps.ctx.outputs.environment }}"
+          echo "Ref          : ${{ steps.ctx.outputs.ref }}"
+          echo "Image tag    : ${{ steps.ctx.outputs.image_tag }}"
+          echo "K8s overlay  : ${{ steps.ctx.outputs.kustomize_overlay }}"
+          echo "EKS cluster  : ${{ steps.ctx.outputs.eks_cluster }}"
+
+  build-push:
+    name: Build & push to ECR
+    needs: resolve-context
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-context.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-context.outputs.ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          IMAGE_TAG: ${{ needs.resolve-context.outputs.image_tag }}
+          ENV: ${{ needs.resolve-context.outputs.environment }}
+        run: |
+          docker build \
+            -t "$IMAGE_NAME:$IMAGE_TAG" \
+            -t "$IMAGE_NAME:${ENV}-latest" \
+            .
+          docker push "$IMAGE_NAME:$IMAGE_TAG"
+          docker push "$IMAGE_NAME:${ENV}-latest"
+          echo "image=$IMAGE_NAME:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build summary
+        run: |
+          echo "### Build complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ needs.resolve-context.outputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | \`${{ steps.build.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Ref | \`${{ needs.resolve-context.outputs.ref }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Triggered by | \`${{ github.actor }}\` |" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy to ${{ needs.resolve-context.outputs.environment }}
+    needs: [resolve-context, build-push]
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-context.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve-context.outputs.ref }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # -------------------------------------------------------------------------
+      # The EKS cluster has a private-only API endpoint. We reach it by opening
+      # an SSM port-forward tunnel through the bastion in the VPC.
+      # Required GitHub environment variables:
+      #   BASTION_INSTANCE_ID — EC2 instance ID of the SSM bastion (e.g. i-0abc123)
+      # -------------------------------------------------------------------------
+      - name: Install AWS Session Manager plugin
+        run: |
+          curl -sSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
+            -o /tmp/session-manager-plugin.deb
+          sudo dpkg -i /tmp/session-manager-plugin.deb
+
+      - name: Open SSM tunnel to EKS API
+        env:
+          EKS_CLUSTER: ${{ needs.resolve-context.outputs.eks_cluster }}
+          BASTION_ID: ${{ vars.BASTION_INSTANCE_ID }}
+        run: |
+          EKS_ENDPOINT=$(aws eks describe-cluster \
+            --name "$EKS_CLUSTER" \
+            --query "cluster.endpoint" \
+            --output text)
+          EKS_HOST=$(echo "$EKS_ENDPOINT" | sed 's|https://||')
+
+          aws ssm start-session \
+            --target "$BASTION_ID" \
+            --document-name AWS-StartPortForwardingSessionToRemoteHost \
+            --parameters "{\"host\":[\"${EKS_HOST}\"],\"portNumber\":[\"443\"],\"localPortNumber\":[\"6443\"]}" &
+          echo $! > /tmp/ssm-tunnel.pid
+
+          # Wait up to 30s for tunnel to be ready
+          for i in $(seq 1 10); do
+            curl -sk https://localhost:6443 > /dev/null 2>&1 && echo "Tunnel ready." && break
+            echo "Waiting for tunnel ($i/10)..."
+            sleep 3
+          done
+
+      - name: Configure kubectl
+        env:
+          EKS_CLUSTER: ${{ needs.resolve-context.outputs.eks_cluster }}
+        run: |
+          EKS_HOST=$(aws eks describe-cluster \
+            --name "$EKS_CLUSTER" \
+            --query "cluster.endpoint" \
+            --output text | sed 's|https://||')
+
+          aws eks update-kubeconfig \
+            --name "$EKS_CLUSTER" \
+            --region us-east-1 \
+            --alias "$EKS_CLUSTER"
+
+          # Redirect traffic through the SSM tunnel while keeping TLS SNI intact
+          kubectl config set-cluster "$EKS_CLUSTER" \
+            --server=https://localhost:6443 \
+            --tls-server-name="$EKS_HOST"
+
+      - name: Set image tag in kustomize overlay
+        env:
+          OVERLAY: ${{ needs.resolve-context.outputs.kustomize_overlay }}
+          IMAGE: ${{ needs.build-push.outputs.image }}
+        run: |
+          cd "$OVERLAY"
+          kustomize edit set image q10-service-template="$IMAGE"
+
+      - name: Apply manifests
+        env:
+          OVERLAY: ${{ needs.resolve-context.outputs.kustomize_overlay }}
+        run: |
+          kubectl apply -k "$OVERLAY"
+          kubectl rollout status deployment/service-template \
+            -n service-template \
+            --timeout=5m
+
+      - name: Close SSM tunnel
+        if: always()
+        run: kill "$(cat /tmp/ssm-tunnel.pid)" 2>/dev/null || true
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "### Deploy complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Environment | \`${{ needs.resolve-context.outputs.environment }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Image | \`${{ needs.build-push.outputs.image }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Cluster | \`${{ needs.resolve-context.outputs.eks_cluster }}\` |" >> "$GITHUB_STEP_SUMMARY"

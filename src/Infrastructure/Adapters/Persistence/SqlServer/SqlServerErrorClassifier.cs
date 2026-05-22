@@ -5,7 +5,11 @@ using Shared.Domain.Errors;
 
 namespace Infrastructure.Adapters.Persistence.SqlServer;
 
-// https://learn.microsoft.com/sql/relational-databases/errors-events/database-engine-events-and-errors
+/// <summary>
+/// Classifies SQL Server errors by error code. This approach is locale-independent,
+/// unlike parsing error messages which vary based on server language settings.
+/// Reference: https://learn.microsoft.com/sql/relational-databases/errors-events/database-engine-events-and-errors
+/// </summary>
 internal static class SqlServerErrorClassifier
 {
     internal static DomainError Classify(DbUpdateException ex)
@@ -18,49 +22,25 @@ internal static class SqlServerErrorClassifier
 
     private static DomainError ClassifySqlException(SqlException ex) => ex.Number switch
     {
-        2627 => new DomainError(ForDuplicate("primary key", NthSingleQuoted(ex.Message, 0)), ErrorType.Conflict),
-        2601 => new DomainError(ForDuplicate("unique index", NthSingleQuoted(ex.Message, 1)), ErrorType.Conflict),
-        547  => new DomainError(ForForeignKey(FirstDoubleQuoted(ex.Message)), ErrorType.Conflict),
-        515  => new DomainError(ForNullField(NthSingleQuoted(ex.Message, 0)), ErrorType.Validation),
-        8152 => new DomainError(ForTruncation(NthSingleQuoted(ex.Message, 1)), ErrorType.Validation),
+        // Primary key violation
+        2627 => new DomainError("A record with this value already exists.", ErrorType.Conflict),
+        
+        // Unique index violation
+        2601 => new DomainError("A record with this value already exists.", ErrorType.Conflict),
+        
+        // Foreign key constraint violation
+        547 => new DomainError("The operation conflicts with a related record.", ErrorType.Conflict),
+        
+        // NOT NULL constraint violation
+        515 => new DomainError("A required field cannot be null.", ErrorType.Validation),
+        
+        // String or binary data would be truncated
+        8152 => new DomainError("A value exceeds the maximum allowed length.", ErrorType.Validation),
+        
+        // Deadlock
         1205 => new DomainError("The operation was aborted due to a deadlock. Please retry.", ErrorType.Internal),
-        _    => PersistenceErrors.Failure()
+        
+        // Default: log the error but don't expose implementation details
+        _ => PersistenceErrors.Failure()
     };
-
-    private static string ForDuplicate(string type, string? name) =>
-        name is not null ? $"Duplicate {type} '{name}'." : "A duplicate record already exists.";
-
-    private static string ForForeignKey(string? name) =>
-        name is not null ? $"Foreign key violation: '{name}'." : "The operation conflicts with a related record.";
-
-    private static string ForNullField(string? column) =>
-        column is not null ? $"Required field '{column}' cannot be null." : "A required field cannot be null.";
-
-    private static string ForTruncation(string? column) =>
-        column is not null ? $"Value for '{column}' exceeds the maximum allowed length." : "A value exceeds the maximum allowed length.";
-
-    private static string? NthSingleQuoted(string message, int n)
-    {
-        var count = 0;
-        var pos = 0;
-        while (true)
-        {
-            var start = message.IndexOf('\'', pos);
-            if (start < 0) return null;
-            var end = message.IndexOf('\'', start + 1);
-            if (end < 0) return null;
-            if (count == n) return message[(start + 1)..end];
-            count++;
-            pos = end + 1;
-        }
-    }
-
-    private static string? FirstDoubleQuoted(string message)
-    {
-        var start = message.IndexOf('"');
-        if (start < 0) return null;
-        var end = message.IndexOf('"', start + 1);
-        if (end < 0) return null;
-        return message[(start + 1)..end];
-    }
 }

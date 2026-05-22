@@ -1,0 +1,27 @@
+# -----------------------------------------------------------------------------
+# ConfigMap — non-sensitive application configuration.
+# Sensitive values (connection strings, API keys) go in External Secrets.
+# Each overlay overrides environment-specific keys.
+# -----------------------------------------------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-template-config
+  namespace: service-template
+data:
+  # ASP.NET Core
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ASPNETCORE_URLS: "http://+:8080"
+
+  # Service info
+  AppInfo__ServiceName: "ServiceTemplate"
+  AppInfo__Version: "1.0.0"
+
+  # Persistence — connection string goes in secret, only the feature flag here
+  Persistence__Enabled: "true"
+
+  # Sentry — DSN goes in secret, only the feature flag here
+  Sentry__Enabled: "true"
+
+  # CORS
+  Cors__AllowedOrigins__0: "https://app.q10.com"

@@ -8,6 +8,9 @@ public static class WeatherForecastErrors
 {
     public const string Context = "WeatherForecast";
 
+    public static DomainError NotFound(Guid id) =>
+        new($"Weather forecast with id '{id}' was not found.", ErrorType.NotFound);
+
     public static readonly ValidationError DateRequired =
         new("Date is required.", ErrorType.Validation);
 

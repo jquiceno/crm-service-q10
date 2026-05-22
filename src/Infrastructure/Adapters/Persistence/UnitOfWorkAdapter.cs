@@ -7,7 +7,9 @@ using Shared.Domain.Result;
 
 namespace Infrastructure.Adapters.Persistence;
 
-public sealed class UnitOfWorkAdapter(ApplicationDbContext context) : IUnitOfWorkPort
+public sealed class UnitOfWorkAdapter(
+    ApplicationDbContext context,
+    ILoggerPort<UnitOfWorkAdapter> logger) : IUnitOfWorkPort
 {
     public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
     {
@@ -18,10 +20,12 @@ public sealed class UnitOfWorkAdapter(ApplicationDbContext context) : IUnitOfWor
         }
         catch (DbUpdateException ex)
         {
+            logger.Error(ex, "Database update error during commit");
             return SqlServerErrorClassifier.Classify(ex);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            logger.Error(ex, "Unexpected error during commit");
             return PersistenceErrors.Failure();
         }
     }

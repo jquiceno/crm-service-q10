@@ -1,6 +1,6 @@
 namespace Shared.Application.Ports;
 
-public interface ILoggerPort<T>
+public interface ILoggerPort<out T>
 {
     void Debug(string message, params object[] args);
     void Info(string message, params object[] args);

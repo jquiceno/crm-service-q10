@@ -11,10 +11,8 @@ using Shared.Domain.Errors;
 
 namespace Infrastructure.Adapters.Persistence.WeatherForecast;
 
-public sealed class WeatherForecastRepositoryAdapter(
-    ApplicationDbContext context,
-    ILoggerPort<WeatherForecastRepositoryAdapter> logger)
-    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity>(context, logger),
+public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext context, ILoggerPort<WeatherForecastRepositoryAdapter> logger)
+    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity, Guid>(context, logger),
       IWeatherForecastRepositoryPort
 {
     protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)

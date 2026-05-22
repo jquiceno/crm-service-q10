@@ -4,7 +4,7 @@ using WeatherForecast.Domain.ValueObjects;
 
 namespace WeatherForecast.Domain.Entities;
 
-public sealed class WeatherForecastEntity : Entity
+public sealed class WeatherForecastEntity : Entity<Guid>
 {
     public DateTime Date { get; private set; }
     public Temperature Temperature { get; private set; } = null!;
@@ -14,8 +14,9 @@ public sealed class WeatherForecastEntity : Entity
     private WeatherForecastEntity() { }
 
     internal WeatherForecastEntity(Guid id, DateTime date, Temperature temperature, string summary, Address? address = null)
-        : base(id)
+        : base()
     {
+        Id = id;
         Date = date;
         Temperature = temperature;
         Summary = summary;

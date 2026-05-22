@@ -15,7 +15,7 @@ public sealed class UnitOfWorkAdapter(
     {
         try
         {
-            await context.SaveChangesAsync(cancellationToken);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return Result.Success();
         }
         catch (DbUpdateException ex)

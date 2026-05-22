@@ -9,6 +9,9 @@ public static class KeyVaultExtensions
 {
     public static void AddAzureKeyVault(this ConfigurationManager configuration, IHostEnvironment environment)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
+
         var tempConfig = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json")
             .AddJsonFile($"appsettings.{environment.EnvironmentName}.json", optional: true)

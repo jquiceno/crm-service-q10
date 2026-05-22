@@ -7,18 +7,20 @@ internal static class ModelStateValidationAdapter
 {
     public static List<ValidationError> Build(ModelStateDictionary modelState)
     {
+        ArgumentNullException.ThrowIfNull(modelState);
+
         var all = modelState.Where(kvp => kvp.Value?.Errors.Count > 0).ToList();
-        var hasJsonPathErrors = all.Any(kvp => kvp.Key.StartsWith("$"));
+        var hasJsonPathErrors = all.Any(kvp => kvp.Key.StartsWith('$'));
 
         var relevant = hasJsonPathErrors
-            ? all.Where(kvp => kvp.Key.StartsWith("$")).ToList()
+            ? all.Where(kvp => kvp.Key.StartsWith('$')).ToList()
             : all;
 
         var entries = relevant
             .Select(kvp => new Entry(
                 ParsePath(kvp.Key),
                 kvp.Value!.Errors
-                    .Select(e => ExtractMessage(e, kvp.Key.StartsWith("$")))
+                    .Select(e => ExtractMessage(e, kvp.Key.StartsWith('$')))
                     .ToList()))
             .ToList();
 
@@ -60,7 +62,7 @@ internal static class ModelStateValidationAdapter
         if (string.IsNullOrEmpty(key) || key == "$")
             return ["input"];
 
-        var stripped = key.StartsWith("$.") ? key[2..] : key;
+        var stripped = key.StartsWith("$.", StringComparison.Ordinal) ? key[2..] : key;
         return stripped.Split('.')
                        .Select(s => char.ToLowerInvariant(s[0]) + s[1..])
                        .ToList();
@@ -73,5 +75,5 @@ internal static class ModelStateValidationAdapter
                 ? error.ErrorMessage
                 : "Invalid value.";
 
-    private record Entry(List<string> Path, List<string> Messages);
+    private sealed record Entry(List<string> Path, List<string> Messages);
 }

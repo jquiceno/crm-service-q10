@@ -11,9 +11,12 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
 {
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(next);
+
         if (!context.ModelState.IsValid)
         {
-            var hasJsonErrors = context.ModelState.Keys.Any(k => k.StartsWith("$"));
+            var hasJsonErrors = context.ModelState.Keys.Any(k => k.StartsWith('$'));
 
             if (hasJsonErrors)
             {
@@ -27,7 +30,7 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
                     {
                         using var doc = await JsonDocument.ParseAsync(
                             context.HttpContext.Request.Body,
-                            cancellationToken: context.HttpContext.RequestAborted);
+                            cancellationToken: context.HttpContext.RequestAborted).ConfigureAwait(false);
                         var scanned = JsonTypeScanner.Scan(doc.RootElement, bodyParam.ParameterType);
                         if (scanned.Count > 0)
                         {
@@ -50,7 +53,7 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
 
         if (!hasAttribute)
         {
-            await next();
+            await next().ConfigureAwait(false);
             return;
         }
 
@@ -65,7 +68,7 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
             if (services.GetService(validatorType) is not IRequestValidatorPort validator)
                 continue;
 
-            var result = await validator.ValidateAsync(value, context.HttpContext.RequestAborted);
+            var result = await validator.ValidateAsync(value, context.HttpContext.RequestAborted).ConfigureAwait(false);
             if (result.IsFailure)
             {
                 context.Result = new ValidationErrorResult(result.Error);
@@ -73,7 +76,7 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
             }
         }
 
-        await next();
+        await next().ConfigureAwait(false);
     }
 
     private static bool IsSimpleType(Type type) => type.IsPrimitive || type == typeof(string) || type == typeof(Guid) || type == typeof(DateTime);

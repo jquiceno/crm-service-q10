@@ -10,7 +10,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).globalconfig" />
         <PackageReference Include="Roslynator.Analyzers" Version="4.*">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>analyzers</IncludeAssets>

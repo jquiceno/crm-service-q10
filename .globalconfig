@@ -100,6 +100,11 @@ dotnet_diagnostic.CA1000.severity = none
 # Roslynator version of CA1032 — DomainException primary constructor is sufficient
 dotnet_diagnostic.RCS1194.severity = none
 
+dotnet_diagnostic.CA2225.severity = none
+
+dotnet_diagnostic.CA1307.severity = none
+
+dotnet_diagnostic.CA1024.severity = none
 # ═══════════════════════════════════════════════════════════════════════════════
 # Roslynator — warning (promoted to error by TreatWarningsAsErrors)
 # ═══════════════════════════════════════════════════════════════════════════════

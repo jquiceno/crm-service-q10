@@ -18,21 +18,21 @@ public sealed class SqlServerContainerFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await _container.StartAsync();
+        await _container.StartAsync().ConfigureAwait(false);
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer(ConnectionString)
             .Options;
 
-        await using var dbContext = new ApplicationDbContext(options);
-        await dbContext.Database.EnsureCreatedAsync();
+        using var dbContext = new ApplicationDbContext(options);
+        await dbContext.Database.EnsureCreatedAsync().ConfigureAwait(false);
 
         DatabaseResetter = new DatabaseResetter(ConnectionString);
-        await DatabaseResetter.InitializeAsync();
+        await DatabaseResetter.InitializeAsync().ConfigureAwait(false);
     }
 
     public async Task DisposeAsync()
     {
-        await _container.DisposeAsync();
+        await _container.DisposeAsync().ConfigureAwait(false);
     }
 }

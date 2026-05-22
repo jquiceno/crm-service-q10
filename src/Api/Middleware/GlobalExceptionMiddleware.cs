@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Api.Mapping;
 using Api.Responses;
 using Microsoft.AspNetCore.Diagnostics;
@@ -7,6 +8,10 @@ using System.Text.Json;
 
 namespace Api.Middleware;
 
+[SuppressMessage(
+    "Performance",
+    "CA1812:AvoidUninstantiatedInternalClasses",
+    Justification = "Instantiated by ASP.NET Core when registered via AddExceptionHandler<T>().")]
 internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
     : IExceptionHandler
 {

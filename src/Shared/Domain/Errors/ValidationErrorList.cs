@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Shared.Domain.Errors;
 
 public sealed record ValidationErrorList : DomainError
@@ -10,5 +12,5 @@ public sealed record ValidationErrorList : DomainError
         Errors = errors;
     }
 
-    public static implicit operator ValidationErrorList(List<ValidationError> errors) => new((IReadOnlyList<ValidationError>)errors);
+    public static implicit operator ValidationErrorList(ReadOnlyCollection<ValidationError> errors) => new((IReadOnlyList<ValidationError>)errors);
 }

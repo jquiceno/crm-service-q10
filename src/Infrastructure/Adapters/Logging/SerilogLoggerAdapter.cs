@@ -7,7 +7,11 @@ public sealed class SerilogLoggerAdapter<T> : ILoggerPort<T>
 {
     private readonly ILogger _logger;
 
-    public SerilogLoggerAdapter(ILogger logger) => _logger = logger.ForContext<T>();
+    public SerilogLoggerAdapter(ILogger logger)
+    {
+        ArgumentNullException.ThrowIfNull(logger);
+        _logger = logger.ForContext<T>();
+    }
 
     public void Debug(string message, params object[] args)
         => _logger.Debug(message, args);

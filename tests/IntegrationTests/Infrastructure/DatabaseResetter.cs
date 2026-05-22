@@ -15,12 +15,16 @@ public sealed class DatabaseResetter
 
     public async Task InitializeAsync()
     {
-        await using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync();
-        _respawner = await Respawner.CreateAsync(connection, new RespawnerOptions
+        ArgumentNullException.ThrowIfNull(_connectionString);
+        var connection = new SqlConnection(_connectionString);
+        await using (connection.ConfigureAwait(false))
         {
-            DbAdapter = DbAdapter.SqlServer
-        });
+            await connection.OpenAsync().ConfigureAwait(false);
+            _respawner = await Respawner.CreateAsync(connection, new RespawnerOptions
+            {
+                DbAdapter = DbAdapter.SqlServer
+            }).ConfigureAwait(false);
+        }
     }
 
     public async Task ResetAsync()
@@ -29,8 +33,11 @@ public sealed class DatabaseResetter
             throw new InvalidOperationException(
                 "DatabaseResetter not initialized. Call InitializeAsync() first.");
 
-        await using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync();
-        await _respawner.ResetAsync(connection);
+        var connection = new SqlConnection(_connectionString);
+        await using (connection.ConfigureAwait(false))
+        {
+            await connection.OpenAsync().ConfigureAwait(false);
+            await _respawner.ResetAsync(connection).ConfigureAwait(false);
+        }
     }
 }

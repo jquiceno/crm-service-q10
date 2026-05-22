@@ -8,6 +8,8 @@ public sealed class WeatherForecastEntityConfiguration : IEntityTypeConfiguratio
 {
     public void Configure(EntityTypeBuilder<WeatherForecastEntity> builder)
     {
+        ArgumentNullException.ThrowIfNull(builder);
+
         builder.OwnsOne(e => e.Temperature, t =>
         {
             t.Property(x => x.Celsius).HasColumnName("TemperatureC");

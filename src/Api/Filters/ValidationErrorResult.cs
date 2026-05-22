@@ -23,6 +23,6 @@ internal sealed class ValidationErrorResult(DomainError error) : IActionResult
         await response.WriteAsJsonAsync(
             new ApiErrorResponse(errorDto, statusCode),
             JsonSerializerOptions.Web,
-            context.HttpContext.RequestAborted);
+            context.HttpContext.RequestAborted).ConfigureAwait(false);
     }
 }

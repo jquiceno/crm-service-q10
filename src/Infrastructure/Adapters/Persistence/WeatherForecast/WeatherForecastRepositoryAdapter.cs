@@ -30,7 +30,7 @@ public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext contex
         {
             var startOfDay = date.Date;
             var endOfDay = startOfDay.AddDays(1);
-            return await DbSet.AnyAsync(e => e.Date >= startOfDay && e.Date < endOfDay, cancellationToken);
+            return await DbSet.AnyAsync(e => e.Date >= startOfDay && e.Date < endOfDay, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

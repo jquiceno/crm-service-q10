@@ -11,6 +11,7 @@ public static class SentryExtensions
 
     public static WebApplicationBuilder AddSentry(this WebApplicationBuilder builder)
     {
+        ArgumentNullException.ThrowIfNull(builder);
         var sentrySettings =
             builder.Configuration.GetSection(SentrySettings.SectionName).Get<SentrySettings>()
             ?? new SentrySettings();

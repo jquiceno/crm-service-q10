@@ -47,7 +47,6 @@ if (builder.Environment.IsDevelopment())
             };
             return Task.CompletedTask;
         });
-
     });
 }
 
@@ -58,7 +57,7 @@ app.UseExceptionHandler();
 app.Use(async (context, next) =>
 {
     context.Request.EnableBuffering();
-    await next();
+    await next().ConfigureAwait(false);
 });
 
 app.UseMiddleware<RequestLoggingMiddleware>();

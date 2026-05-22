@@ -14,6 +14,8 @@ public static class SerilogExtensions
         IConfiguration configuration
     )
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+
         var sentrySettings =
             configuration.GetSection(SentrySettings.SectionName).Get<SentrySettings>()
             ?? new SentrySettings();

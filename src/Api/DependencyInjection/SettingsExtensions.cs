@@ -12,6 +12,8 @@ public static class SettingsExtensions
     /// </summary>
     public static IServiceCollection AddApiSettings(this IServiceCollection services, IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(configuration);
+
         services.AddOptions<AppInfoSettings>()
             .Bind(configuration.GetSection(AppInfoSettings.SectionName))
             .ValidateDataAnnotations()

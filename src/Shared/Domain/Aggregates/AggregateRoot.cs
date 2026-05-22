@@ -7,12 +7,12 @@ public abstract class AggregateRoot<TEntity, TId> : IAggregateRoot
     where TEntity : Entity<TId>
     where TId : notnull
 {
-    protected readonly TEntity _entity;
+    protected TEntity Entity { get; }
 
     protected AggregateRoot(TEntity entity)
     {
-        _entity = entity ?? throw new ArgumentNullException(nameof(entity));
+        Entity = entity ?? throw new ArgumentNullException(nameof(entity));
     }
 
-    public TId Id => _entity.Id;
+    public TId Id => Entity.Id;
 }

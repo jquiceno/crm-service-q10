@@ -15,7 +15,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     where TEntity : Entity<TId>
     where TId : notnull
 {
-    protected readonly DbSet<TEntity> DbSet = context.Set<TEntity>();
+    protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();
 
     protected abstract TAggregate ToAggregate(TEntity entity);
     protected abstract TEntity ToEntity(TAggregate aggregate);
@@ -24,7 +24,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            var entity = await DbSet.FindAsync(new object[] { id }, cancellationToken);
+            var entity = await DbSet.FindAsync(new object[] { id }, cancellationToken).ConfigureAwait(false);
             return entity is null ? GetNotFoundError(id) : ToAggregate(entity);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -55,7 +55,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
                         .Take(page.PageSize)
                         .ToList()
                 })
-                .FirstOrDefaultAsync(cancellationToken);
+                .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
             if (result is null)
             {
@@ -76,7 +76,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            await DbSet.AddAsync(ToEntity(aggregate), cancellationToken);
+            await DbSet.AddAsync(ToEntity(aggregate), cancellationToken).ConfigureAwait(false);
             return Result.Success();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -93,7 +93,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
             DbSet.Update(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error updating {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();
@@ -107,7 +107,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
             DbSet.Remove(ToEntity(aggregate));
             return Result.Success();
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error removing {AggregateType}", typeof(TAggregate).Name);
             return PersistenceErrors.Failure();

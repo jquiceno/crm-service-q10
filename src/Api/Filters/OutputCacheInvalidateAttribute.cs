@@ -19,9 +19,13 @@ namespace Api.Filters;
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class OutputCacheInvalidateAttribute(string tag) : Attribute, IAsyncActionFilter
 {
+    public string Tag { get; } = tag;
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        var executed = await next();
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(next);
+
+        var executed = await next().ConfigureAwait(false);
 
         if (executed.Exception is not null)
             return;
@@ -34,6 +38,6 @@ public sealed class OutputCacheInvalidateAttribute(string tag) : Attribute, IAsy
         if (store is null)
             return;
 
-        await store.EvictByTagAsync(tag, context.HttpContext.RequestAborted);
+        await store.EvictByTagAsync(Tag, context.HttpContext.RequestAborted).ConfigureAwait(false);
     }
 }

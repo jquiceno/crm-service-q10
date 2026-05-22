@@ -9,6 +9,9 @@ public static class OutputCacheExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
         var settings = configuration
             .GetSection(CacheSettings.SectionName)
             .Get<CacheSettings>() ?? new CacheSettings();
@@ -55,6 +58,7 @@ public static class OutputCacheExtensions
 
     public static WebApplication UseCacheMiddleware(this WebApplication app)
     {
+        ArgumentNullException.ThrowIfNull(app);
         var settings = app.Services.GetRequiredService<IOptions<CacheSettings>>().Value;
 
         if (settings.Enabled)

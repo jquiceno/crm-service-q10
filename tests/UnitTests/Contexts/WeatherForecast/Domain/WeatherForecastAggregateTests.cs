@@ -10,11 +10,12 @@ namespace UnitTests.Contexts.WeatherForecast.Domain;
 public sealed class WeatherForecastAggregateTests
 {
     [Fact]
-    public void Create_WithEmptyGuid_ThrowsArgumentException()
+    public void Create_WithEmptyGuid_ReturnsDomainValidationFailure()
     {
-        var act = () => WeatherForecastAggregate.Create(Guid.Empty, DateTime.UtcNow, 20, "Sunny");
+        var result = WeatherForecastAggregate.Create(Guid.Empty, DateTime.UtcNow, 20, "Sunny");
 
-        act.ShouldThrow<ArgumentException>();
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.DomainError);
     }
 
     [Fact]

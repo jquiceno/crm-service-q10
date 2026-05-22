@@ -15,12 +15,14 @@ public sealed class CreateWeatherForecastUseCase(
     public async Task<Result<CreateWeatherForecastOutputDto>> ExecuteAsync(
         CreateWeatherForecastInputDto input, CancellationToken cancellationToken = default)
     {
-        var existsResult = await repository.ExistsForDateAsync(input.Date, cancellationToken);
+        ArgumentNullException.ThrowIfNull(input);
+
+        var existsResult = await repository.ExistsForDateAsync(input.Date, cancellationToken).ConfigureAwait(false);
         if (existsResult.IsFailure)
             return existsResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
         if (existsResult.Value)
             return WeatherForecastErrors.DateAlreadyExists with
-                { Context = WeatherForecastErrors.Context, Origin = Origin };
+            { Context = WeatherForecastErrors.Context, Origin = Origin };
 
         var aggregateResult = input.ToAggregate();
         if (aggregateResult.IsFailure)
@@ -28,11 +30,11 @@ public sealed class CreateWeatherForecastUseCase(
 
         var aggregate = aggregateResult.Value;
 
-        var addResult = await repository.AddAsync(aggregate, cancellationToken);
+        var addResult = await repository.AddAsync(aggregate, cancellationToken).ConfigureAwait(false);
         if (addResult.IsFailure)
             return addResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
 
-        var commitResult = await unitOfWork.CommitAsync(cancellationToken);
+        var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
         if (commitResult.IsFailure)
             return commitResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
 

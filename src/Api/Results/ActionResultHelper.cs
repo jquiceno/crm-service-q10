@@ -1,8 +1,6 @@
 using Api.Mapping;
 using Api.Responses;
-using Microsoft.AspNetCore.Http;
 using Shared.Domain.Errors;
-using Shared.Domain.Result;
 using System.Text.Json;
 
 namespace Api.Results;
@@ -26,6 +24,6 @@ internal static class ActionResultHelper
         await response.WriteAsJsonAsync(
             new ApiErrorResponse(errorDto, statusCode),
             JsonSerializerOptions.Web,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 }

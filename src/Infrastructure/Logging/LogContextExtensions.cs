@@ -16,6 +16,7 @@ public static class LogContextExtensions
 
     public static IDisposable PushFlatProperties(this ILogProperties properties)
     {
+        ArgumentNullException.ThrowIfNull(properties);
         var disposables = properties
             .GetProperties()
             .Select(p => LogContext.PushProperty(p.Key, p.Value))

@@ -17,7 +17,7 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
 
     public async Task<Result> ValidateAsync(T input, CancellationToken cancellationToken = default)
     {
-        var result = await validator.ValidateAsync(input, cancellationToken);
+        var result = await validator.ValidateAsync(input, cancellationToken).ConfigureAwait(false);
 
         if (result.IsValid)
             return Result.Success();
@@ -115,7 +115,8 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
     // "Items[0]" as a property name, so bracket notation is handled explicitly.
     private static object? GetPropertyValue(object? source, string propertyName)
     {
-        if (source is null || string.IsNullOrEmpty(propertyName)) return null;
+        if (source is null || string.IsNullOrEmpty(propertyName))
+            return null;
 
         var bracketStart = propertyName.IndexOf('[');
         if (bracketStart >= 0)
@@ -145,5 +146,5 @@ public sealed class FluentRequestValidationAdapter<T>(IStructuralValidator<T> va
     }
 
     async Task<Result> IRequestValidatorPort.ValidateAsync(object input, CancellationToken cancellationToken)
-        => await ValidateAsync((T)input, cancellationToken);
+        => await ValidateAsync((T)input, cancellationToken).ConfigureAwait(false);
 }

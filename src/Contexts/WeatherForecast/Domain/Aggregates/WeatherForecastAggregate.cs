@@ -11,14 +11,14 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
 {
     public const int MaxSummaryLength = 200;
 
-    public DateTime Date => _entity.Date;
-    public int TemperatureCelsius => _entity.Temperature.Celsius;
-    public int TemperatureFahrenheit => _entity.Temperature.Fahrenheit;
-    public string Summary => _entity.Summary;
-    public DateTime CreatedAtUtc => _entity.CreatedAtUtc;
-    public string? AddressStreet => _entity.Address?.Street;
-    public string? AddressCity => _entity.Address?.City;
-    public string? AddressZipCode => _entity.Address?.ZipCode;
+    public DateTime Date => Entity.Date;
+    public int TemperatureCelsius => Entity.Temperature.Celsius;
+    public int TemperatureFahrenheit => Entity.Temperature.Fahrenheit;
+    public string Summary => Entity.Summary;
+    public DateTime CreatedAtUtc => Entity.CreatedAtUtc;
+    public string? AddressStreet => Entity.Address?.Street;
+    public string? AddressCity => Entity.Address?.City;
+    public string? AddressZipCode => Entity.Address?.ZipCode;
 
     private WeatherForecastAggregate(WeatherForecastEntity entity) : base(entity) { }
 
@@ -31,6 +31,15 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
         var temperatureResult = Temperature.Create(temperature);
         if (temperatureResult.IsFailure)
             errors.Add(temperatureResult.TypedError with { Property = nameof(Temperature), Value = temperature });
+
+        if (id == Guid.Empty)
+        {
+            errors.Add(new ValidationError("Id is required.", ErrorType.Validation)
+            {
+                Property = nameof(id),
+                Value = id
+            });
+        }
 
         Address? address = null;
         if (street is not null || city is not null || zipCode is not null)
@@ -54,7 +63,7 @@ public sealed class WeatherForecastAggregate : AggregateRoot<WeatherForecastEnti
         return new WeatherForecastAggregate(entity);
     }
 
-    public WeatherForecastEntity ToEntity() => _entity;
+    public WeatherForecastEntity ToEntity() => Entity;
 
     public static WeatherForecastAggregate FromEntity(WeatherForecastEntity entity)
         => new(entity);

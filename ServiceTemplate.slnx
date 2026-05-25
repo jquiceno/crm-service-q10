@@ -3,6 +3,9 @@
     <Project Path="src/Infrastructure/Infrastructure.csproj" />
     <Project Path="src/Api/Api.csproj" />
   </Folder>
+  <Folder Name="/src/Contexts/Health/">
+    <Project Path="src/Contexts/Health/Application/Health.Application.csproj" />
+  </Folder>
   <Folder Name="/src/Contexts/WeatherForecast/">
     <Project Path="src/Contexts/WeatherForecast/Domain/WeatherForecast.Domain.csproj" />
     <Project Path="src/Contexts/WeatherForecast/Application/WeatherForecast.Application.csproj" />

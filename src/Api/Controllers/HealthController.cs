@@ -1,7 +1,7 @@
 using Api.Results;
-using Infrastructure.Settings;
+using Health.Application.Ports;
+using Health.Application.UseCases.GetHealthInfo;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace Api.Controllers;
 
@@ -10,18 +10,18 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/[controller]")]
-public sealed class HealthController(IOptions<AppInfoSettings> appInfoOptions) : ControllerBase
+public sealed class HealthController() : ControllerBase
 {
     [HttpGet("info")]
-    public HttpOkResult<object> GetInfo()
+    [Tags("health")]
+    [ProducesResponseType(typeof(HttpOkResult<GetHealthInfoOutputDto>), StatusCodes.Status200OK)]
+    [EndpointSummary("Get service health info")]
+    [EndpointDescription("Returns basic liveness information: status, service name, and version.")]
+    public async Task<HttpOkResult<GetHealthInfoOutputDto>> GetInfo(
+        IGetHealthInfoPort getHealthInfoPort,
+        CancellationToken cancellationToken = default)
     {
-        var appInfo = appInfoOptions.Value;
-
-        return new HttpOkResult<object>(new
-        {
-            status = "ok",
-            serviceName = appInfo.ServiceName,
-            version = appInfo.Version
-        });
+        ArgumentNullException.ThrowIfNull(getHealthInfoPort);
+        return await getHealthInfoPort.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 }

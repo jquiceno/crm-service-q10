@@ -6,6 +6,7 @@ public static class ApplicationServiceExtensions
     {
         services.AddSharedServices();
         services.AddWeatherForecastServices();
+        services.AddHealthServices();
 
         return services;
     }

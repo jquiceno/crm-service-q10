@@ -1,13 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Domain.Entities;
-using WeatherForecast.Domain.Entities;
 
 namespace Infrastructure.Persistence.EntityFramework;
 
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : DbContext(options)
 {
-    public DbSet<WeatherForecastEntity> WeatherForecasts => Set<WeatherForecastEntity>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);

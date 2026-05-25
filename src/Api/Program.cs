@@ -35,14 +35,14 @@ if (builder.Environment.IsDevelopment())
         {
             document.Info = new()
             {
-                Title = "Weather Forecast API",
+                Title = "Service API",
                 Version = "v1",
-                Description = "API for the weather forecast application",
+                Description = "API description",
                 Contact = new OpenApiContact
                 {
-                    Name = "Weather Forecast API",
-                    Email = "weatherforecast@example.com",
-                    Url = new Uri("https://www.weatherforecast.com")
+                    Name = "Service API",
+                    Email = "info@example.com",
+                    Url = new Uri("https://example.com")
                 }
             };
             return Task.CompletedTask;

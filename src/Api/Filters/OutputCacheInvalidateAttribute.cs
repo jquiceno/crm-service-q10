@@ -13,7 +13,7 @@ namespace Api.Filters;
 ///
 /// Example:
 ///   [HttpPost]
-///   [OutputCacheInvalidate("weather-forecasts")]
+///   [OutputCacheInvalidate("feature")]
 ///   public Task&lt;IActionResult&gt; Create(...) { ... }
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]

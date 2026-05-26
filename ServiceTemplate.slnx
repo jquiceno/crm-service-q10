@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Infrastructure/Infrastructure.csproj" />
+    <Project Path="src/Api/Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Contexts/Health/">
+    <Project Path="src/Contexts/Health/Domain/Health.Domain.csproj" />
+    <Project Path="src/Contexts/Health/Application/Health.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Application/Shared.Application.csproj" />
+    <Project Path="src/Shared/Domain/Shared.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UnitTests/UnitTests.csproj" />
+    <Project Path="tests/IntegrationTests/IntegrationTests.csproj" />
+  </Folder>
+</Solution>

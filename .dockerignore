@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/out/
+**/.vs/
+**/.vscode/
+**/.idea/
+.git/
+.gitignore
+.dockerignore
+*.md
+*.yml
+*.yaml
+.claude/

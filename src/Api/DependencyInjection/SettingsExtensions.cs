@@ -1,0 +1,26 @@
+using Infrastructure.Settings;
+
+namespace Api.DependencyInjection;
+
+/// <summary>
+/// Extension methods for registering API layer configuration settings.
+/// </summary>
+public static class SettingsExtensions
+{
+    /// <summary>
+    /// Registers all strongly-typed settings from appsettings.json for the API layer.
+    /// </summary>
+    public static IServiceCollection AddApiSettings(this IServiceCollection services, IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddOptions<AppInfoSettings>()
+            .Bind(configuration.GetSection(AppInfoSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // services.AddOptions<AuthSettings>()...
+
+        return services;
+    }
+}

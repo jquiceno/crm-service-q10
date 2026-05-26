@@ -1,0 +1,9 @@
+using Health.Application.UseCases.GetHealthInfo;
+using Shared.Domain.Result;
+
+namespace Health.Application.Ports;
+
+public interface IGetHealthInfoPort
+{
+    Task<Result<GetHealthInfoOutputDto>> ExecuteAsync(CancellationToken cancellationToken = default);
+}

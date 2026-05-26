@@ -9,7 +9,6 @@ public sealed class SerilogLoggerAdapter<T> : ILoggerPort<T>
 
     public SerilogLoggerAdapter(ILogger logger)
     {
-        ArgumentNullException.ThrowIfNull(logger);
         _logger = logger.ForContext<T>();
     }
 

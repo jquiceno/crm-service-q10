@@ -7,8 +7,6 @@ internal static class ModelStateValidationAdapter
 {
     public static List<ValidationError> Build(ModelStateDictionary modelState)
     {
-        ArgumentNullException.ThrowIfNull(modelState);
-
         var all = modelState.Where(kvp => kvp.Value?.Errors.Count > 0).ToList();
         var hasJsonPathErrors = all.Any(kvp => kvp.Key.StartsWith('$'));
 

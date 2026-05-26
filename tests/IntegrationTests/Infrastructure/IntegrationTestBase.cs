@@ -15,7 +15,6 @@ public abstract class IntegrationTestBase : IAsyncLifetime, IAsyncDisposable
 
     protected IntegrationTestBase(SqlServerContainerFixture fixture)
     {
-        ArgumentNullException.ThrowIfNull(fixture);
         _fixture = fixture;
         _factory = new ApiFactory(fixture.ConnectionString);
         Client = _factory.CreateClient();

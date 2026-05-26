@@ -22,9 +22,6 @@ public sealed class OutputCacheInvalidateAttribute(string tag) : Attribute, IAsy
     public string Tag { get; } = tag;
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(next);
-
         var executed = await next().ConfigureAwait(false);
 
         if (executed.Exception is not null)

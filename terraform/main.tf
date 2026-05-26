@@ -102,12 +102,6 @@ data "aws_iam_policy_document" "deploy" {
         "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:instance/${id}"],
       ["arn:aws:ssm:${var.aws_region}::document/AWS-StartPortForwardingSessionToRemoteHost"]
     )
-    lifecycle {
-      precondition {
-        condition     = length(data.aws_instances.bastions.ids) > 0
-        error_message = "No running EC2 instances with tag Name=q10-*-ssm-bastion found. Ensure the bastion is running before applying."
-      }
-    }
   }
   statement {
     sid     = "SSMSession"
@@ -120,4 +114,11 @@ resource "aws_iam_role_policy" "deploy" {
   name   = "deploy-policy"
   role   = aws_iam_role.github_deploy.name
   policy = data.aws_iam_policy_document.deploy.json
+
+  lifecycle {
+    precondition {
+      condition     = length(data.aws_instances.bastions.ids) > 0
+      error_message = "No running EC2 instances with tag Name=q10-*-ssm-bastion found. Ensure the bastion is running before applying."
+    }
+  }
 }

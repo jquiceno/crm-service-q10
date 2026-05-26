@@ -1,0 +1,12 @@
+name: CD — Dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: dev
+      eks_cluster: q10-dev-eks
+    secrets: inherit

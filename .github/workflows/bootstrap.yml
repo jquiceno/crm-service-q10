@@ -1,0 +1,114 @@
+name: Bootstrap — AWS resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment (each maps to a separate AWS account)
+        type: choice
+        options: [dev, qa, prod]
+        required: true
+      action:
+        description: Terraform action
+        type: choice
+        options: [plan, apply]
+        default: plan
+
+concurrency:
+  group: terraform-bootstrap-service-template-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Terraform plan (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      has-changes: ${{ steps.plan.outputs.has-changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.BOOTSTRAP_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive
+        working-directory: terraform
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="key=services/service-template/${{ inputs.environment }}/terraform.tfstate"
+        working-directory: terraform
+
+      - name: Terraform validate
+        run: terraform validate
+        working-directory: terraform
+
+      - name: Terraform plan
+        id: plan
+        run: |
+          set +e
+          terraform plan \
+            -var-file="env/${{ inputs.environment }}.tfvars" \
+            -out=tfplan \
+            -detailed-exitcode
+          EXIT=$?
+          set -e
+          if [ $EXIT -eq 1 ]; then exit 1; fi
+          echo "has-changes=$([ $EXIT -eq 2 ] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
+        working-directory: terraform
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-service-template-${{ inputs.environment }}
+          path: terraform/tfplan
+          retention-days: 1
+
+  apply:
+    name: Terraform apply (${{ inputs.environment }})
+    needs: plan
+    if: inputs.action == 'apply' && needs.plan.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    environment: bootstrap
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.BOOTSTRAP_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.10"
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -backend-config="key=services/service-template/${{ inputs.environment }}/terraform.tfstate"
+        working-directory: terraform
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-service-template-${{ inputs.environment }}
+          path: terraform
+
+      - name: Terraform apply
+        run: terraform apply tfplan
+        working-directory: terraform

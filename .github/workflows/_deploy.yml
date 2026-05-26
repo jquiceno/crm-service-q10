@@ -11,11 +11,20 @@ on:
         description: EKS cluster name
         type: string
         required: true
+      aws_region:
+        description: AWS region
+        type: string
+        required: false
+        default: us-east-1
       ref:
         description: Branch, tag, or SHA to deploy (defaults to triggering SHA)
         type: string
         required: false
         default: ''
+
+concurrency:
+  group: deploy-service-template-${{ inputs.environment }}
+  cancel-in-progress: false
 
 jobs:
   build-push:
@@ -36,7 +45,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: us-east-1
+          aws-region: ${{ inputs.aws_region }}
 
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -51,10 +60,8 @@ jobs:
           IMAGE_TAG="${ENV}-${SHA:0:12}"
           docker build \
             -t "$IMAGE_NAME:$IMAGE_TAG" \
-            -t "$IMAGE_NAME:${ENV}-latest" \
             .
           docker push "$IMAGE_NAME:$IMAGE_TAG"
-          docker push "$IMAGE_NAME:${ENV}-latest"
           echo "image=$IMAGE_NAME:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build summary
@@ -83,14 +90,8 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
-          aws-region: us-east-1
+          aws-region: ${{ inputs.aws_region }}
 
-      # -------------------------------------------------------------------------
-      # The EKS cluster has a private-only API endpoint. We reach it by opening
-      # an SSM port-forward tunnel through the bastion in the VPC.
-      # Required GitHub environment variables:
-      #   BASTION_INSTANCE_ID — EC2 instance ID of the SSM bastion (e.g. i-0abc123)
-      # -------------------------------------------------------------------------
       - name: Install AWS Session Manager plugin
         run: |
           curl -sSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
@@ -114,12 +115,18 @@ jobs:
             --parameters "{\"host\":[\"${EKS_HOST}\"],\"portNumber\":[\"443\"],\"localPortNumber\":[\"6443\"]}" &
           echo $! > /tmp/ssm-tunnel.pid
 
-          # Wait up to 30s for tunnel to be ready
           for i in $(seq 1 10); do
-            curl -sk https://localhost:6443 > /dev/null 2>&1 && echo "Tunnel ready." && break
+            curl -sk --max-time 3 https://localhost:6443 > /dev/null 2>&1 && echo "Tunnel ready." && break
             echo "Waiting for tunnel ($i/10)..."
             sleep 3
           done
+
+          if ! curl -sk --max-time 3 https://localhost:6443 > /dev/null 2>&1; then
+            echo "::error::SSM tunnel failed to open after 30s"
+            kill "$(cat /tmp/ssm-tunnel.pid)" 2>/dev/null || true
+            exit 1
+          fi
+          kill -0 "$(cat /tmp/ssm-tunnel.pid)" || { echo "::error::SSM tunnel process died"; exit 1; }
 
       - name: Configure kubectl
         env:
@@ -132,13 +139,20 @@ jobs:
 
           aws eks update-kubeconfig \
             --name "$EKS_CLUSTER" \
-            --region us-east-1 \
+            --region ${{ inputs.aws_region }} \
             --alias "$EKS_CLUSTER"
 
-          # Redirect traffic through the SSM tunnel while keeping TLS SNI intact
           kubectl config set-cluster "$EKS_CLUSTER" \
             --server=https://localhost:6443 \
             --tls-server-name="$EKS_HOST"
+
+      - name: Capture current revision
+        id: revision
+        run: |
+          REV=$(kubectl get deployment/service-template \
+            -n service-template \
+            -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || echo "0")
+          echo "before=$REV" >> "$GITHUB_OUTPUT"
 
       - name: Set image tag in kustomize overlay
         env:
@@ -159,12 +173,29 @@ jobs:
             -n service-template \
             --timeout=5m
 
+      - name: Tag :env-latest after successful rollout
+        env:
+          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
+          ENV: ${{ inputs.environment }}
+        run: |
+          MANIFEST=$(aws ecr batch-get-image \
+            --repository-name "$(echo "$IMAGE_NAME" | cut -d'/' -f2)" \
+            --image-ids imageTag="$(echo "${{ needs.build-push.outputs.image }}" | cut -d: -f2)" \
+            --query 'images[0].imageManifest' --output text)
+          aws ecr put-image \
+            --repository-name "$(echo "$IMAGE_NAME" | cut -d'/' -f2)" \
+            --image-tag "${ENV}-latest" \
+            --image-manifest "$MANIFEST" || true
+
       - name: Rollback on failure
         if: failure()
+        env:
+          REVISION_BEFORE: ${{ steps.revision.outputs.before }}
         run: |
-          echo "::error::Rollout failed — rolling back to previous revision"
+          echo "::error::Rollout failed — rolling back to revision ${REVISION_BEFORE}"
           kubectl rollout undo deployment/service-template \
-            -n service-template
+            -n service-template \
+            --to-revision="${REVISION_BEFORE}"
           kubectl rollout status deployment/service-template \
             -n service-template \
             --timeout=3m

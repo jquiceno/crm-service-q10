@@ -142,7 +142,12 @@ jobs:
             --region ${{ inputs.aws_region }} \
             --alias "$EKS_CLUSTER"
 
-          kubectl config set-cluster "$EKS_CLUSTER" \
+          # update-kubeconfig names the cluster entry with the full ARN, not the alias.
+          # Resolve the actual entry name from the context so set-cluster patches the right entry.
+          CLUSTER_ENTRY=$(kubectl config view -o jsonpath="{.contexts[?(@.name==\"${EKS_CLUSTER}\")].context.cluster}")
+
+          # Redirect traffic through the SSM tunnel while keeping TLS SNI intact
+          kubectl config set-cluster "$CLUSTER_ENTRY" \
             --server=https://localhost:6443 \
             --tls-server-name="$EKS_HOST"
 

@@ -10,9 +10,6 @@ public static class HttpContextLogExtensions
         this HttpContext context,
         IReadOnlyDictionary<string, object?> properties)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(properties);
-
         // Accumulate all pushed properties so http.request.completed includes
         // properties from every PushLogProperties call in the same request.
         if (context.Items[LogPropertiesKey] is not Dictionary<string, object?> accumulated)

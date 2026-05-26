@@ -11,8 +11,6 @@ public static class CorsExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-
         var allowedOrigins = configuration
             .GetSection("Cors:AllowedOrigins")
             .Get<string[]>() ?? [];

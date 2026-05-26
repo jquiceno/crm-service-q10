@@ -22,8 +22,7 @@ ARG APP_PORT=8080
 ENV ASPNETCORE_URLS=http://+:${APP_PORT}
 EXPOSE ${APP_PORT}
 
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER $APP_UID
 
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Api.dll"]

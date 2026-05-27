@@ -1,6 +1,6 @@
-using Shared.Domain.Errors;
+using Shared.Result.Errors;
 
-namespace Shared.Domain.Result;
+namespace Shared.Result;
 
 public class Result
 {

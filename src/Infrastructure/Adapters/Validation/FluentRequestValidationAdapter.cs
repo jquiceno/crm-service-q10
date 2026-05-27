@@ -2,8 +2,9 @@ using FluentValidation.Results;
 using Infrastructure.Validation.FluentValidation;
 using Shared.Application;
 using Shared.Application.Ports;
-using Shared.Domain.Errors;
-using Shared.Domain.Result;
+using Shared.Result;
+using Shared.Result.Errors;
+using Result = Shared.Result.Result;
 using System.Collections;
 using System.Reflection;
 

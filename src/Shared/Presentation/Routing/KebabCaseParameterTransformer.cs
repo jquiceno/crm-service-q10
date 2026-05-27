@@ -1,6 +1,7 @@
+using Microsoft.AspNetCore.Routing;
 using System.Text.RegularExpressions;
 
-namespace Api.Routing;
+namespace Shared.Presentation.Routing;
 
 public sealed partial class KebabCaseParameterTransformer : IOutboundParameterTransformer
 {

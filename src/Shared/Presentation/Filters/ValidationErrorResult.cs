@@ -1,15 +1,18 @@
-using Api.Mapping;
-using Api.Responses;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Shared.Domain.Errors;
+using Shared.Presentation.Mapping;
+using Shared.Presentation.Responses;
+using Shared.Result.Errors;
 using System.Text.Json;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Filters;
 
-internal sealed class ValidationErrorResult(DomainError error) : IActionResult
+public sealed class ValidationErrorResult(DomainError error) : IActionResult
 {
     public async Task ExecuteResultAsync(ActionContext context)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         var response = context.HttpContext.Response;
         var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
         response.StatusCode = statusCode;

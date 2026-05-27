@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
 
-namespace Shared.Domain.Errors;
+namespace Shared.Result.Errors;
 
 public sealed record ValidationErrorList : DomainError
 {

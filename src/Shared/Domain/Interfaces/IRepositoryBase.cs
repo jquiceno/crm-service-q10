@@ -1,5 +1,5 @@
 using Shared.Domain.Pagination;
-using Shared.Domain.Result;
+using Shared.Result;
 
 namespace Shared.Domain.Interfaces;
 
@@ -9,7 +9,7 @@ public interface IRepositoryBase<TAggregate, TId>
 {
     Task<Result<TAggregate>> GetByIdAsync(TId id, CancellationToken cancellationToken = default);
     Task<PagedResult<TAggregate>> GetAllAsync(PageQuery page, CancellationToken cancellationToken = default);
-    Task<Result.Result> AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
-    Result.Result Update(TAggregate aggregate);
-    Result.Result Remove(TAggregate aggregate);
+    Task<global::Shared.Result.Result> AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
+    global::Shared.Result.Result Update(TAggregate aggregate);
+    global::Shared.Result.Result Remove(TAggregate aggregate);
 }

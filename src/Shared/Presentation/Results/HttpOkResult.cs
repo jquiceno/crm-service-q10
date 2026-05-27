@@ -1,6 +1,7 @@
-using Shared.Domain.Result;
+using Microsoft.AspNetCore.Http;
+using Shared.Result;
 
-namespace Api.Results;
+namespace Shared.Presentation.Results;
 
 public sealed class HttpOkResult<T>(Result<T> result) : HttpResult<T>(result)
 {

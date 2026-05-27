@@ -1,7 +1,7 @@
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Shared.Domain.Errors;
+using Shared.Result.Errors;
 
 namespace Infrastructure.Adapters.Persistence.SqlServer;
 

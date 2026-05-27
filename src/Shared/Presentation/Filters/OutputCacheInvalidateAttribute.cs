@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Filters;
 
 /// <summary>
 /// Evicts all output-cache entries tagged with <paramref name="tag"/> after a

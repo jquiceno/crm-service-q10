@@ -1,9 +1,9 @@
-using Api.Responses;
-using Shared.Domain.Errors;
+using Shared.Presentation.Responses;
+using Shared.Result.Errors;
 using System.Collections.Frozen;
 using System.Net;
 
-namespace Api.Mapping;
+namespace Shared.Presentation.Mapping;
 
 public static class ErrorHttpMapper
 {

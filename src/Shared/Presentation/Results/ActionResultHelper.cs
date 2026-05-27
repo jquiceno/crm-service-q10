@@ -1,9 +1,10 @@
-using Api.Mapping;
-using Api.Responses;
-using Shared.Domain.Errors;
+using Microsoft.AspNetCore.Http;
+using Shared.Presentation.Mapping;
+using Shared.Presentation.Responses;
+using Shared.Result.Errors;
 using System.Text.Json;
 
-namespace Api.Results;
+namespace Shared.Presentation.Results;
 
 internal static class ActionResultHelper
 {

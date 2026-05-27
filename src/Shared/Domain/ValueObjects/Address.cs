@@ -1,5 +1,5 @@
-using Shared.Domain.Errors;
-using Shared.Domain.Result;
+using Shared.Result;
+using Shared.Result.Errors;
 
 namespace Shared.Domain.ValueObjects;
 

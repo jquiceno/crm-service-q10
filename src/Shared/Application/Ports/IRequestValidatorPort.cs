@@ -1,5 +1,3 @@
-using Shared.Domain.Result;
-
 namespace Shared.Application.Ports;
 
 /// <summary>
@@ -7,7 +5,7 @@ namespace Shared.Application.Ports;
 /// </summary>
 public interface IRequestValidatorPort
 {
-    Task<Result> ValidateAsync(object input, CancellationToken cancellationToken = default);
+    Task<global::Shared.Result.Result> ValidateAsync(object input, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -16,5 +14,5 @@ public interface IRequestValidatorPort
 /// </summary>
 public interface IRequestValidatorPort<T> : IRequestValidatorPort
 {
-    Task<Result> ValidateAsync(T input, CancellationToken cancellationToken = default);
+    Task<global::Shared.Result.Result> ValidateAsync(T input, CancellationToken cancellationToken = default);
 }

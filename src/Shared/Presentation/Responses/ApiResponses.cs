@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Api.Responses;
+namespace Shared.Presentation.Responses;
 
 public sealed record ApiSuccessResponse<T>(T Data, int StatusCode);
 

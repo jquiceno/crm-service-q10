@@ -1,13 +1,14 @@
-using Api.Responses;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Shared.Domain.Result;
+using Shared.Presentation.Responses;
+using Shared.Result;
 using System.Text.Json;
 
-namespace Api.Results;
+namespace Shared.Presentation.Results;
 
-public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
+public abstract class HttpResult<T>(Result<T> result) : IActionResult
 {
-    public static implicit operator HttpOkPagedResult<T>(PagedResult<T> result) => new(result);
+    protected abstract int SuccessStatusCode { get; }
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
@@ -17,10 +18,8 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
 
         if (result.IsSuccess)
         {
-            response.StatusCode = StatusCodes.Status200OK;
-            var body = new ApiSuccessResponse<PagedPayload<T>>(
-                new PagedPayload<T>(result.Items, result.TotalCount),
-                StatusCodes.Status200OK);
+            response.StatusCode = SuccessStatusCode;
+            var body = new ApiSuccessResponse<T>(result.Value, SuccessStatusCode);
             await response.WriteAsJsonAsync(body, JsonSerializerOptions.Web, context.HttpContext.RequestAborted).ConfigureAwait(false);
             return;
         }
@@ -31,5 +30,3 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
             context.HttpContext.RequestAborted).ConfigureAwait(false);
     }
 }
-
-internal sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);

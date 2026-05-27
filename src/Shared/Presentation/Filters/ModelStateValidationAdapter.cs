@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Shared.Domain.Errors;
+using Shared.Result.Errors;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Filters;
 
-internal static class ModelStateValidationAdapter
+public static class ModelStateValidationAdapter
 {
-    public static List<ValidationError> Build(ModelStateDictionary modelState)
+    public static IReadOnlyList<ValidationError> Build(ModelStateDictionary modelState)
     {
         ArgumentNullException.ThrowIfNull(modelState);
 

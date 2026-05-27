@@ -3,8 +3,7 @@ using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
-using Shared.Result;
-using Result = Shared.Result.Result;
+using Result = Shared.Results.Result;
 
 namespace Infrastructure.Adapters.Persistence;
 

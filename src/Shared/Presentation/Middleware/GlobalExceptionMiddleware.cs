@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Shared.Presentation.Mapping;
 using Shared.Presentation.Responses;
-using Shared.Result.Errors;
 using System.Net;
 using System.Text.Json;
+using Shared.Results.Errors;
 
 namespace Shared.Presentation.Middleware;
 

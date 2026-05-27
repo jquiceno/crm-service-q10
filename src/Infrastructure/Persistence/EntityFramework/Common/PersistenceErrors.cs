@@ -1,4 +1,4 @@
-using Shared.Result.Errors;
+using Shared.Results.Errors;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 

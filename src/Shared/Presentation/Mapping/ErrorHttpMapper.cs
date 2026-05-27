@@ -1,5 +1,5 @@
 using Shared.Presentation.Responses;
-using Shared.Result.Errors;
+using Shared.Results.Errors;
 using System.Collections.Frozen;
 using System.Net;
 

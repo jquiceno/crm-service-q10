@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Shared.Presentation.Mapping;
 using Shared.Presentation.Responses;
-using Shared.Result.Errors;
+using Shared.Results.Errors;
 using System.Text.Json;
 
 namespace Shared.Presentation.Results;

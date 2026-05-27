@@ -1,4 +1,4 @@
-namespace Shared.Result.Errors;
+namespace Shared.Results.Errors;
 
 public static class AddressErrors
 {

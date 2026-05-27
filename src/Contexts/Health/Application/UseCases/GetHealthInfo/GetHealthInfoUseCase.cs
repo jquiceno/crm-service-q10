@@ -1,5 +1,5 @@
 using Health.Application.Ports;
-using Shared.Result;
+using Shared.Results;
 
 namespace Health.Application.UseCases.GetHealthInfo;
 

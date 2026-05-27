@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Presentation.Responses;
-using Shared.Result;
+using Shared.Results;
 using System.Text.Json;
 
 namespace Shared.Presentation.Results;

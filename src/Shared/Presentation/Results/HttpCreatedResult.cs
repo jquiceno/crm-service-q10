@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Http;
-using Shared.Result;
+using Shared.Results;
 
 namespace Shared.Presentation.Results;
 

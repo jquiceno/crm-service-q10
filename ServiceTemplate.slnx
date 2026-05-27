@@ -10,7 +10,7 @@
   </Folder>
   <Folder Name="/src/Library/">
     <Project Path="src/Shared/Presentation/Shared.Presentation.csproj" />
-    <Project Path="src/Shared/Result/Shared.Result.csproj" />
+    <Project Path="src/Shared/Result/Shared.Results.csproj" />
   </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Application/Shared.Application.csproj" />

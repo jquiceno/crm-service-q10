@@ -1,4 +1,4 @@
-using Shared.Result.Errors;
+using Shared.Results.Errors;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;

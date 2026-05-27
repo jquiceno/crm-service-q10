@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Shared.Result.Errors;
+using Shared.Results.Errors;
 
 namespace Shared.Presentation.Filters;
 

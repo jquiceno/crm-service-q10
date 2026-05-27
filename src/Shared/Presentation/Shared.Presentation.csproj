@@ -5,7 +5,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Result\Shared.Result.csproj" />
+    <ProjectReference Include="..\Result\Shared.Results.csproj" />
   </ItemGroup>
 
 </Project>

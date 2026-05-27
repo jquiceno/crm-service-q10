@@ -4,9 +4,9 @@ using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
 using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
-using Shared.Result;
-using Shared.Result.Errors;
-using Result = Shared.Result.Result;
+using Shared.Results;
+using Shared.Results.Errors;
+using Result = Shared.Results.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 

@@ -1,16 +1,18 @@
-using Api.Mapping;
-using Api.Responses;
-using Microsoft.AspNetCore.Mvc;
-using Shared.Domain.Errors;
+using Microsoft.AspNetCore.Http;
+using Shared.Presentation.Mapping;
+using Shared.Presentation.Responses;
+using Shared.Results.Errors;
 using System.Text.Json;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Results;
 
-internal sealed class ValidationErrorResult(DomainError error) : IActionResult
+internal static class ActionResultHelper
 {
-    public async Task ExecuteResultAsync(ActionContext context)
+    internal static async Task WriteErrorResponseAsync(
+        HttpResponse response,
+        DomainError error,
+        CancellationToken cancellationToken = default)
     {
-        var response = context.HttpContext.Response;
         var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
         response.StatusCode = statusCode;
 
@@ -23,6 +25,6 @@ internal sealed class ValidationErrorResult(DomainError error) : IActionResult
         await response.WriteAsJsonAsync(
             new ApiErrorResponse(errorDto, statusCode),
             JsonSerializerOptions.Web,
-            context.HttpContext.RequestAborted).ConfigureAwait(false);
+            cancellationToken).ConfigureAwait(false);
     }
 }

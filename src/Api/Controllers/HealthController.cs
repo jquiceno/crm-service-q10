@@ -1,4 +1,4 @@
-using Api.Results;
+using Shared.Presentation.Results;
 using Health.Application.Ports;
 using Health.Application.UseCases.GetHealthInfo;
 using Microsoft.AspNetCore.Mvc;

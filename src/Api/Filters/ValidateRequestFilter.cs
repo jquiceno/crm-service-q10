@@ -1,8 +1,9 @@
-using Api.Attributes;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Shared.Application;
 using Shared.Application.Ports;
+using Shared.Presentation.Attributes;
+using Shared.Presentation.Filters;
 using System.Text.Json;
 
 namespace Api.Filters;

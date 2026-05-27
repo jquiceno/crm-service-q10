@@ -1,18 +1,20 @@
 using System.Diagnostics.CodeAnalysis;
-using Api.Mapping;
-using Api.Responses;
 using Microsoft.AspNetCore.Diagnostics;
-using Shared.Domain.Errors;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Shared.Presentation.Mapping;
+using Shared.Presentation.Responses;
 using System.Net;
 using System.Text.Json;
+using Shared.Results.Errors;
 
-namespace Api.Middleware;
+namespace Shared.Presentation.Middleware;
 
 [SuppressMessage(
     "Performance",
     "CA1812:AvoidUninstantiatedInternalClasses",
     Justification = "Instantiated by ASP.NET Core when registered via AddExceptionHandler<T>().")]
-internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
+public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
     : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(
@@ -20,6 +22,9 @@ internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> log
         Exception exception,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(httpContext);
+        ArgumentNullException.ThrowIfNull(exception);
+
         if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
         {
             httpContext.Response.StatusCode = 499;

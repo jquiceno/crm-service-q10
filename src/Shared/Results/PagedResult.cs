@@ -1,6 +1,6 @@
-using Shared.Domain.Errors;
+using Shared.Results.Errors;
 
-namespace Shared.Domain.Result;
+namespace Shared.Results;
 
 public sealed class PagedResult<T> : Result
 {

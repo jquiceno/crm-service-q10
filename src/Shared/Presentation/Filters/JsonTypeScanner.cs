@@ -1,18 +1,18 @@
-using Shared.Domain.Errors;
+using Shared.Results.Errors;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Filters;
 
-internal static class JsonTypeScanner
+public static class JsonTypeScanner
 {
     private static readonly ConcurrentDictionary<Type, PropertyMeta[]> PropertyCache = new();
     private const int MaxDepth = 32;
 
-    public static List<ValidationError> Scan(JsonElement root, Type type, int depth = 0)
+    public static IReadOnlyList<ValidationError> Scan(JsonElement root, Type type, int depth = 0)
     {
         if (depth >= MaxDepth || root.ValueKind != JsonValueKind.Object)
             return [];

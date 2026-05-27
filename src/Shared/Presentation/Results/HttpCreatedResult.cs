@@ -1,6 +1,7 @@
-using Shared.Domain.Result;
+using Microsoft.AspNetCore.Http;
+using Shared.Results;
 
-namespace Api.Results;
+namespace Shared.Presentation.Results;
 
 public sealed class HttpCreatedResult<T>(Result<T> result) : HttpResult<T>(result)
 {

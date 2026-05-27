@@ -1,4 +1,4 @@
-namespace Shared.Domain.Errors;
+namespace Shared.Results.Errors;
 
 public record DomainError
 {

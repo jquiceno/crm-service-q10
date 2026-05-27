@@ -1,9 +1,10 @@
-using Api.Responses;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Shared.Domain.Result;
+using Shared.Presentation.Responses;
+using Shared.Results;
 using System.Text.Json;
 
-namespace Api.Results;
+namespace Shared.Presentation.Results;
 
 public abstract class HttpResult<T>(Result<T> result) : IActionResult
 {

@@ -1,4 +1,4 @@
-using Shared.Domain.Errors;
+using Shared.Results.Errors;
 
 namespace Shared.Application;
 

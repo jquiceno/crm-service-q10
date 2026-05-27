@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using Shared.Domain.Errors;
+using Shared.Results.Errors;
 
-namespace Api.Filters;
+namespace Shared.Presentation.Filters;
 
-internal static class ModelStateValidationAdapter
+public static class ModelStateValidationAdapter
 {
-    public static List<ValidationError> Build(ModelStateDictionary modelState)
+    public static IReadOnlyList<ValidationError> Build(ModelStateDictionary modelState)
     {
         var all = modelState.Where(kvp => kvp.Value?.Errors.Count > 0).ToList();
         var hasJsonPathErrors = all.Any(kvp => kvp.Key.StartsWith('$'));

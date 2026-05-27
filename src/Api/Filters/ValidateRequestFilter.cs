@@ -12,9 +12,6 @@ public sealed class ValidateRequestFilter : IAsyncActionFilter
 {
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(next);
-
         if (!context.ModelState.IsValid)
         {
             var hasJsonErrors = context.ModelState.Keys.Any(k => k.StartsWith('$'));

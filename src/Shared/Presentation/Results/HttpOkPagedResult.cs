@@ -12,8 +12,6 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
         var response = context.HttpContext.Response;
 
         if (result.IsSuccess)

@@ -12,8 +12,6 @@ public abstract class HttpResult<T>(Result<T> result) : IActionResult
 
     public async Task ExecuteResultAsync(ActionContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
         var response = context.HttpContext.Response;
 
         if (result.IsSuccess)

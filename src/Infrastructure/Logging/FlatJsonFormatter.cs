@@ -10,9 +10,6 @@ public sealed class FlatJsonFormatter : ITextFormatter
 
     public void Format(LogEvent logEvent, TextWriter output)
     {
-        ArgumentNullException.ThrowIfNull(logEvent);
-        ArgumentNullException.ThrowIfNull(output);
-
         output.Write('{');
 
         WriteString(output, "message", logEvent.RenderMessage(), first: true);

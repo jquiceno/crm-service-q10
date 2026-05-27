@@ -21,7 +21,6 @@ public sealed class HealthController() : ControllerBase
         IGetHealthInfoPort getHealthInfoPort,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(getHealthInfoPort);
         return await getHealthInfoPort.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 }

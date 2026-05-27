@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Result\Shared.Results.csproj" />
+    <ProjectReference Include="..\Results\Shared.Results.csproj" />
   </ItemGroup>
 
 </Project>

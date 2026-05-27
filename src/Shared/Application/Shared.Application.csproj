@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\Results\Shared.Results.csproj" />
   </ItemGroup>
 
 </Project>

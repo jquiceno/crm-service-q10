@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Restore
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
+FROM mcr.microsoft.com/dotnet/nightly/sdk:10.0 AS restore
 WORKDIR /src
 
 COPY Directory.Build.props ServiceTemplate.slnx .editorconfig .globalconfig ./
@@ -15,7 +15,7 @@ COPY src/ src/
 RUN dotnet publish src/Api/Api.csproj -c Release -o /app/publish --no-restore
 
 # Stage 3: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/nightly/aspnet:10.0 AS runtime
 WORKDIR /app
 
 ARG APP_PORT=8080

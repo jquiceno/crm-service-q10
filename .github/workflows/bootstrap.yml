@@ -80,6 +80,8 @@ jobs:
     needs: plan
     if: inputs.action == 'apply' && needs.plan.outputs.has-changes == 'true'
     runs-on: ubuntu-latest
+    # This environment must have required reviewers configured in GitHub so that
+    # apply requires manual approval before executing.
     environment: bootstrap
     permissions:
       id-token: write

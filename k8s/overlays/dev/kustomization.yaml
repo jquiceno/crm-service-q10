@@ -51,6 +51,19 @@ patches:
       spec:
         replicas: 1
 
+  # --- Ingress: dev Internal ALB group (HTTP:80, inherited from base) ---
+  - target:
+      kind: Ingress
+      name: service-template-ingress
+    patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: service-template-ingress
+        namespace: service-template
+        annotations:
+          alb.ingress.kubernetes.io/group.name: q10-dev-internal
+
   # --- HPA: reduced range in dev ---
   - target:
       kind: HorizontalPodAutoscaler

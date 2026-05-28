@@ -92,6 +92,12 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ inputs.aws_region }}
 
+      # -------------------------------------------------------------------------
+      # The EKS cluster has a private-only API endpoint. We reach it by opening
+      # an SSM port-forward tunnel through the bastion in the VPC.
+      # Required GitHub environment variables:
+      #   BASTION_INSTANCE_ID — EC2 instance ID of the SSM bastion (e.g. i-0abc123)
+      # -------------------------------------------------------------------------
       - name: Install AWS Session Manager plugin
         run: |
           curl -sSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" \
@@ -115,12 +121,14 @@ jobs:
             --parameters "{\"host\":[\"${EKS_HOST}\"],\"portNumber\":[\"443\"],\"localPortNumber\":[\"6443\"]}" &
           echo $! > /tmp/ssm-tunnel.pid
 
+          # Wait up to 30s for tunnel to be ready
           for i in $(seq 1 10); do
             curl -sk --max-time 3 https://localhost:6443 > /dev/null 2>&1 && echo "Tunnel ready." && break
             echo "Waiting for tunnel ($i/10)..."
             sleep 3
           done
 
+          # Hard fail if tunnel never came up — prevents silent kubectl errors
           if ! curl -sk --max-time 3 https://localhost:6443 > /dev/null 2>&1; then
             echo "::error::SSM tunnel failed to open after 30s"
             kill "$(cat /tmp/ssm-tunnel.pid)" 2>/dev/null || true
@@ -183,6 +191,9 @@ jobs:
           IMAGE_NAME: ${{ vars.IMAGE_NAME }}
           ENV: ${{ inputs.environment }}
         run: |
+          # Login is still active from build-push job's credential step above.
+          # Re-tag the immutable SHA image as env-latest only after rollout succeeds.
+          docker pull "$IMAGE_NAME:${{ needs.build-push.outputs.image }}" 2>/dev/null || true
           MANIFEST=$(aws ecr batch-get-image \
             --repository-name "$(echo "$IMAGE_NAME" | cut -d'/' -f2)" \
             --image-ids imageTag="$(echo "${{ needs.build-push.outputs.image }}" | cut -d: -f2)" \

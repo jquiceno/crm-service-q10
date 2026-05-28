@@ -1,0 +1,44 @@
+# Ingress — exposes this service through the shared Internal ALB.
+# The ALB Controller creates/updates the AWS ALB automatically when applied.
+#
+# Path forwarding note:
+#   The ALB forwards requests preserving the full path. A request to
+#   /service-template/api/v1/health arrives at the pod as /service-template/api/v1/health.
+#   UsePathBase in Program.cs strips the prefix so ASP.NET Core sees /api/v1/health.
+#
+# Per-overlay overrides (see each overlay's kustomization.yaml):
+#   - group.name      : dev=q10-dev-internal  qa=q10-qa-internal  prod=q10-prod-internal
+#   - listen-ports    : HTTP:80 in dev; HTTPS:443 in qa/prod (requires certificate-arn)
+#   - certificate-arn : only required for HTTPS — obtain from ACM per environment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: service-template-ingress
+  namespace: service-template
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/group.name: q10-internal   # overridden per overlay
+    # Health check — must match the readiness probe path so the ALB only routes to ready pods.
+    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # Deregistration delay: matches terminationGracePeriodSeconds (30s) so the ALB stops
+    # sending traffic before the pod exits, avoiding 502s during rolling deployments.
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /service-template
+            pathType: Prefix
+            backend:
+              service:
+                name: service-template
+                port:
+                  name: http

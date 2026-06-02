@@ -261,6 +261,7 @@ Create(id, name, price)
 
 ## Ver también
 
+- [entidades-y-agregados.md](../entidades-y-agregados.md) — clase base `Entity<TId>`, `AggregateRoot<TEntity, TId>`, auditoría
 - [value-objects.md](../value-objects.md) — anatomía completa de un Value Object
 - [patron-result.md](../patron-result.md) — jerarquía de errores y Result&lt;T, ValidationError&gt;
 - [nuevo-contexto.md](nuevo-contexto.md) — continúa con aplicación, infraestructura y API

@@ -1,7 +1,5 @@
 # Value Objects
 
-> Implementación de errores de dominio
-
 ## Reglas
 
 ### 1 — No crear Value Object si solo se valida Required + MaxLength
@@ -118,66 +116,24 @@ public sealed class Temperature : ValueObject          // sealed, hereda ValueOb
 | Elemento | Regla |
 |----------|-------|
 | Herencia | `sealed class X : ValueObject` |
-| Constructor | `private`, sin parámetros y con parámetros |
-| Factory  | `public static Result<T, TError> Create(...)` |
+| Constructor | `private` |
+| Factory  | `public static Result<T, ValidationError> Create(...)` |
 | Propiedades | `public T Prop { get; }` — sin setter |
 | Igualdad | Implementar `GetEqualityComponents()` |
 
 
 ---
 
-## Manejo de errores
+## Igualdad estructural
 
-> Para la jerarquía completa de tipos de error, ver [patron-result.md](patron-result.md).
-
-Los errores de dominio son constantes estáticas en una clase `*Errors` dentro de la capa `Domain` del contexto o en `Shared.Domain.Errors` si son compartidos.
-
-**Definición:**
-
-```csharp
-public static class WeatherForecastErrors
-{
-    public static readonly ValidationError TemperatureOutOfRange =
-        new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
-            ErrorType.Validation)
-        {
-            Attributes = new Dictionary<string, object?>
-            {
-                ["min"] = Temperature.MinCelsius,
-                ["max"] = Temperature.MaxCelsius
-            }
-        };
-}
-```
-
-**Acumulación en el agregado:**
-
-```csharp
-var errors = new List<ValidationError>();
-
-var tempResult = Temperature.Create(temperature);
-if (tempResult.IsFailure)
-    errors.Add(tempResult.TypedError with { Property = nameof(Temperature), Value = temperature });
-
-if (errors.Count > 0)
-    return DomainError.FromValidationDomainErrors(errors);
-```
-
-
----
-
-## Igualdad en Value Objects y Entidades
-
-**Value Objects** — igualdad estructural (por valor de sus propiedades). Implementar `GetEqualityComponents()`:
+La clase base `ValueObject` implementa `Equals`, `GetHashCode` y los operadores `==` / `!=` usando `SequenceEqual` sobre los componentes que devuelve `GetEqualityComponents()`. Cada VO debe implementar ese método retornando una línea por propiedad que define la igualdad:
 
 ```csharp
 protected override IEnumerable<object?> GetEqualityComponents()
 {
-    yield return Celsius;   // una línea por propiedad que define la igualdad
+    yield return Celsius;
 }
 ```
-
-**Entidades** — igualdad por identidad (`Id`). La clase base `Entity<TId>` implementa `Equals`, `GetHashCode` y los operadores `==` / `!=` comparando únicamente el `Id`. No es necesario sobreescribir nada en la entidad concreta.
 
 
 ---
@@ -203,6 +159,6 @@ protected override IEnumerable<object?> GetEqualityComponents()
 
 ## Ver también
 
-- [patron-result.md](patron-result.md) — `Result<T, ValidationError>`, acumulación de errores
+- [errores-dominio.md](errores-dominio.md) — cómo definir errores de dominio y acumularlos en el aggregate
 - [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
 - [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo completo para modelar el dominio de un contexto

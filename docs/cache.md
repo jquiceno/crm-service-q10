@@ -2,19 +2,20 @@
 
 ## Índice
 
-- [Visión general](#visión-general)
-- [Arquitectura y ubicación en capas](#arquitectura-y-ubicación-en-capas)
-- [Componentes](#componentes)
-    - [ConfigureCache (registro y política base)](#configurecache-registro-y-política-base)
-    - [UseCacheMiddleware (pipeline)](#usecachemiddleware-pipeline)
-    - [\[OutputCache\]](#outputcache)
-    - [\[OutputCacheInvalidate\]](#outputcacheinvalidate)
-- [Configuración](#configuración)
-- [Cómo habilitar caché en un endpoint](#cómo-habilitar-caché-en-un-endpoint)
-- [Cómo invalidar el caché](#cómo-invalidar-el-caché)
-- [Variación por tenant y locale](#variación-por-tenant-y-locale)
-- [Pruebas](#pruebas)
-- [Cambiar el backend (Redis, SQL, etc.)](#cambiar-el-backend-redis-sql-etc)
+* [Visión general](#visi%C3%B3n-general)
+* [Arquitectura y ubicación en capas](#arquitectura-y-ubicaci%C3%B3n-en-capas)
+* [Componentes](#componentes)
+  * [ConfigureCache (registro y política base)](#configurecache-registro-y-pol%C3%ADtica-base)
+  * [UseCacheMiddleware (pipeline)](#usecachemiddleware-pipeline)
+  * [\[OutputCache\]](#outputcache)
+  * [\[OutputCacheInvalidate\]](#outputcacheinvalidate)
+* [Configuración](#configuraci%C3%B3n)
+* [Cómo habilitar caché en un endpoint](#c%C3%B3mo-habilitar-cach%C3%A9-en-un-endpoint)
+* [Cómo invalidar el caché](#c%C3%B3mo-invalidar-el-cach%C3%A9)
+* [Variación por tenant y locale](#variaci%C3%B3n-por-tenant-y-locale)
+* [Pruebas](#pruebas)
+* [Cambiar el backend (Redis, SQL, etc.)](#cambiar-el-backend-redis-sql-etc)
+
 
 ---
 
@@ -24,9 +25,10 @@ El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCor
 
 Principios:
 
-- **Opt-in por endpoint** con `[OutputCache]` en el método del controlador.
-- **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Tenant-Id", "Accept-Language")` en la política base.
-- **Invalidación por etiquetas (tags)**: los `GET` se etiquetan con `Tags = [...]` y las mutaciones usan el filtro `[OutputCacheInvalidate("tag")]` que llama a `IOutputCacheStore.EvictByTagAsync` tras una respuesta exitosa para invalidar esas llaves de caché.
+* **Opt-in por endpoint** con `[OutputCache]` en el método del controlador.
+* **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Tenant-Id", "Accept-Language")` en la política base.
+* **Invalidación por etiquetas (tags)**: los `GET` se etiquetan con `Tags = [...]` y las mutaciones usan el filtro `[OutputCacheInvalidate("tag")]` que llama a `IOutputCacheStore.EvictByTagAsync` tras una respuesta exitosa para invalidar esas llaves de caché.
+
 
 ---
 
@@ -47,6 +49,7 @@ src/
     └── Settings/
         └── CacheSettings.cs                     ← Configuración tipada (Enabled, DefaultTtlSeconds, ConnectionString)
 ```
+
 
 ---
 
@@ -74,6 +77,7 @@ app.UseCacheMiddleware();
 
 Así el toggle `Cache:Enabled` controla **tanto el registro del servicio como el middleware** desde un único punto.
 
+
 ---
 
 ### `[OutputCache]`
@@ -86,20 +90,21 @@ Atributo estándar de ASP.NET Core. Se coloca sobre el método del controlador.
 public Task<IActionResult> GetAll(...) { ... }
 ```
 
-| Propiedad               | Tipo       | Descripción                                                             |
-| ----------------------- | ---------- | ----------------------------------------------------------------------- |
-| `Duration`              | `int` (s)  | TTL en segundos.                                                        |
-| `Tags`                  | `string[]` | Etiquetas para invalidación con `EvictByTagAsync`.                      |
-| `VaryByHeaderNames`     | `string[]` | Añade headers a la clave (complementa la política base).                |
-| `VaryByQueryKeys`       | `string[]` | Restringe qué claves de query string varían la clave (`["*"]` = todas). |
-| `VaryByRouteValueNames` | `string[]` | Varía por valores de ruta.                                              |
-| `PolicyName`            | `string`   | Selecciona una política nombrada en lugar de la base.                   |
-| `NoStore`               | `bool`     | Desactiva el caché para esta acción.                                    |
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `Duration` | `int` (s) | TTL en segundos. |
+| `Tags`    | `string[]` | Etiquetas para invalidación con `EvictByTagAsync`. |
+| `VaryByHeaderNames` | `string[]` | Añade headers a la clave (complementa la política base). |
+| `VaryByQueryKeys` | `string[]` | Restringe qué claves de query string varían la clave (`["*"]` = todas). |
+| `VaryByRouteValueNames` | `string[]` | Varía por valores de ruta. |
+| `PolicyName` | `string` | Selecciona una política nombrada en lugar de la base. |
+| `NoStore` | `bool` | Desactiva el caché para esta acción. |
 
 Comportamiento por defecto del middleware:
 
-- Solo hace caché en respuestas `GET` y `HEAD`.
-- Solo guarda en caché respuestas con status 200.
+* Solo hace caché en respuestas `GET` y `HEAD`.
+* Solo guarda en caché respuestas con status 200.
+
 
 ---
 
@@ -111,10 +116,11 @@ El framework no trae un atributo de invalidación; solo expone la API `IOutputCa
 
 **Solo invalida si:**
 
-- el handler no lanzó excepción, y
-- el status code final es `< 400`.
+* el handler no lanzó excepción, y
+* el status code final es `< 400`.
 
-**`AllowMultiple = true`** permite invalidar varios tags desde un solo endpoint (ver [múltiples recursos](#múltiples-recursos)).
+`**AllowMultiple = true**` permite invalidar varios tags desde un solo endpoint (ver [múltiples recursos](#m%C3%BAltiples-recursos)).
+
 
 ---
 
@@ -138,15 +144,15 @@ public sealed class CacheSettings
 }
 ```
 
-| Propiedad           | Tipo     | Valor por defecto | Descripción                                                                    |
-| ------------------- | -------- | ----------------- | ------------------------------------------------------------------------------ |
-| `Enabled`           | `bool`   | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra. |
-| `DefaultTtlSeconds` | `int`    | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado).  |
-| `ConnectionString`  | `string` | `""`              | Cadena de conexión a Redis (StackExchange.Redis). Vacío = store en memoria.    |
+| Propiedad | Tipo | Valor por defecto | Descripción |
+|-----------|------|-------------------|-------------|
+| `Enabled` | `bool` | `false`           | Activa o desactiva OutputCaching. Si es `false`, el middleware no se registra. |
+| `DefaultTtlSeconds` | `int` | `300`             | TTL global cuando el endpoint no especifica `Duration`. Mínimo: 1 (validado). |
+| `ConnectionString` | `string` | `""`              | Cadena de conexión a Redis (StackExchange.Redis). Vacío = store en memoria. |
 
 ### appsettings
 
-**`appsettings.json`**:
+`**appsettings.json**`:
 
 ```json
 {
@@ -165,6 +171,7 @@ Cache__Enabled=true
 Cache__DefaultTtlSeconds=120
 Cache__ConnectionString=localhost:6379
 ```
+
 
 ---
 
@@ -209,6 +216,7 @@ Crear una política nombrada en `Program.cs`:
 public Task<IActionResult> GetConfig(...) { ... }
 ```
 
+
 ---
 
 ## Cómo invalidar el caché
@@ -251,16 +259,18 @@ public Task<IActionResult> Delete(Guid id, ...) { ... }
 public Task<IActionResult> AddItem(Guid orderId, ...) { ... }
 ```
 
+
 ---
 
 ## Variación por tenant y locale
 
 La política base varía la clave por dos headers:
 
-- `X-Tenant-Id` — header identificador de tenant.
-- `Accept-Language` — locale del cliente.
+* `X-Tenant-Id` — header identificador de tenant.
+* `Accept-Language` — locale del cliente.
 
 Si ambos headers están ausentes, la respuesta se guarda como "sin tenant / sin locale" y se comparte entre todas las peticiones.
+
 
 ---
 
@@ -276,14 +286,15 @@ tests/ServiceTemplate.Tests/Api/
 └── OutputCacheInvalidateAttributeTests.cs       ← tests unitarios del filtro de invalidación
 ```
 
-- **Integración** (`OutputCacheTests`): usa `TestWebApplicationFactory` con un decorator que cuenta ejecuciones del caso de uso. Prueba hit/miss, variación por tenant/locale, y round-trip GET→POST→GET.
-- **Unitarias** (`OutputCacheInvalidateAttributeTests`): ejecuta el filtro directamente con un `FakeOutputCacheStore`, sin levantar el pipeline HTTP. Prueba evicción por tag, skip on error, múltiples tags.
+* **Integración** (`OutputCacheTests`): usa `TestWebApplicationFactory` con un decorator que cuenta ejecuciones del caso de uso. Prueba hit/miss, variación por tenant/locale, y round-trip GET→POST→GET.
+* **Unitarias** (`OutputCacheInvalidateAttributeTests`): ejecuta el filtro directamente con un `FakeOutputCacheStore`, sin levantar el pipeline HTTP. Prueba evicción por tag, skip on error, múltiples tags.
 
 ### Ejecutar
 
 ```bash
 dotnet test
 ```
+
 
 ---
 
@@ -317,5 +328,6 @@ El registro de `AddStackExchangeRedisOutputCache` reemplaza `IOutputCacheStore`.
 ### Otros backends
 
 Se debe realizar una implementación de `IOutputCacheStore`. La interfaz tiene 3 métodos (`GetAsync`, `SetAsync`, `EvictByTagAsync`). Luego se registra con `builder.Services.AddSingleton<IOutputCacheStore, YourCustomStore>();` preferiblemente en `OutputCacheExtensions`
+
 
 ---

@@ -90,7 +90,7 @@ public sealed class Result<TValue, TError> : Result<TValue>
 }
 ```
 
-> **`TypedError` vs `Error`**: `.Error` (heredado de `Result`) devuelve `DomainError` y sigue siendo accesible. `.TypedError` devuelve el tipo concreto (`ValidationError`, etc.) sin necesidad de casting. Usar `.TypedError` solo cuando el tipo concreto importa.
+> `**TypedError**` **vs** `**Error**`: `.Error` (heredado de `Result`) devuelve `DomainError` y sigue siendo accesible. `.TypedError` devuelve el tipo concreto (`ValidationError`, etc.) sin necesidad de casting. Usar `.TypedError` solo cuando el tipo concreto importa.
 
 ### `PagedResult<T>` — resultado paginado
 
@@ -334,151 +334,6 @@ public static Result<WeatherForecastAggregate> Create(...)
 
 ---
 
-## Uso en Repositorios
-
-### Contratos de la interfaz de dominio
-
-```csharp
-public interface IWeatherForecastRepositoryPort
-{
-    Task<Result<WeatherForecastAggregate>>  GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<PagedResult<WeatherForecastAggregate>> GetAllAsync(PageQuery page, CancellationToken ct = default);
-    Task<Result>                            AddAsync(WeatherForecastAggregate aggregate, CancellationToken ct = default);
-    Result                                  Update(WeatherForecastAggregate aggregate);
-    Result                                  Remove(WeatherForecastAggregate aggregate);
-    Task<Result<bool>>                      ExistsForDateAsync(DateTime date, CancellationToken ct = default);
-}
-```
-
-`SaveChangesAsync` **no pertenece al repositorio** — es responsabilidad del Unit of Work (ver sección siguiente).
-
-### Unit of Work — `IUnitOfWorkPort`
-
-La persistencia de cambios está separada del repositorio para respetar el patrón Unit of Work:
-
-```csharp
-public interface IUnitOfWorkPort
-{
-    Task<Result> CommitAsync(CancellationToken cancellationToken = default);
-}
-```
-
-`CommitAsync` captura tanto `DbUpdateException` (clasificada por `SqlServerErrorClassifier`) como cualquier otra excepción de infraestructura. La cancelación se deja propagar:
-
-```csharp
-public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
-{
-    try   { await context.SaveChangesAsync(cancellationToken); return Result.Success(); }
-    catch (DbUpdateException ex)                              { return SqlServerErrorClassifier.Classify(ex); }
-    catch (Exception ex) when (ex is not OperationCanceledException) { return PersistenceErrors.Failure(); }
-}
-```
-
-### Clasificación de errores de SQL Server
-
-`SqlServerErrorClassifier` (interno a infraestructura) traduce `SqlException.Number` a errores de dominio semánticos sin exponer mensajes del servidor:
-
-| `SqlException.Number` | Causa | `ErrorType` |
-|---|---|---|
-| 2627 | Violación de PRIMARY KEY | `Conflict` |
-| 2601 | Fila duplicada en índice único | `Conflict` |
-| 547 | Violación de FOREIGN KEY | `Conflict` |
-| 515 | INSERT de NULL en columna NOT NULL | `Validation` |
-| 8152 | Valor excede la longitud máxima | `Validation` |
-| 1205 | Víctima de deadlock | `Internal` |
-| otros | Error genérico de persistencia | `Internal` |
-
-### Implementación en la clase base
-
-`BaseAggregateRepository<TAggregate, TEntity>` implementa el comportamiento común. Las subclases implementan `ToAggregate` y `ToEntity` para la conversión entre entidades y aggregates:
-
-```csharp
-// Repositorio concreto — solo conversión y métodos específicos del contexto
-public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext context)
-    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity>(context),
-      IWeatherForecastRepositoryPort
-{
-    protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)
-        => WeatherForecastAggregate.FromEntity(entity);
-
-    protected override WeatherForecastEntity ToEntity(WeatherForecastAggregate aggregate)
-        => aggregate.ToEntity();
-
-    public async Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default) { ... }
-}
-```
-
-Las excepciones de infraestructura en todos los métodos del repositorio se convierten en `PersistenceErrors.Failure()`. La cancelación se deja propagar:
-
-```csharp
-catch (Exception ex) when (ex is not OperationCanceledException)
-{
-    return PersistenceErrors.Failure();   // mensaje genérico seguro, sin ex.Message
-}
-```
-
-
----
-
-## Paginación
-
-### `PageQuery` — parámetros de consulta (dominio)
-
-Objeto de dominio que encapsula los parámetros de paginación. Vive en `Shared.Domain.Pagination`:
-
-```csharp
-public sealed record PageQuery(int PageIndex, int PageSize)
-{
-    public int Skip => PageIndex * PageSize;
-}
-```
-
-### `PageQueryInputDto` — entrada HTTP (aplicación)
-
-DTO de entrada para endpoints paginados. Vive en `Shared.Application.Dtos`. Se valida automáticamente por `PageQueryInputValidator` al usar `[ValidateRequest]`:
-
-```csharp
-public sealed record PageQueryInputDto(int PageIndex = 0, int PageSize = 20)
-{
-    public const int MaxPageSize = 100;
-}
-```
-
-Reglas de validación:
-* `PageIndex >= 0`
-* `PageSize` entre `1` y `PageQueryInputDto.MaxPageSize` (100)
-
-### Flujo de paginación de extremo a extremo
-
-```
-GET /api/v1/weatherforecast?pageIndex=0&pageSize=20
-        ↓
-[FromQuery] PageQueryInputDto  →  [ValidateRequest] → 400 si inválido
-        ↓
-new PageQuery(input.PageIndex, input.PageSize)
-        ↓
-IGetWeatherForecastPort.ExecuteAsync(page)
-        ↓
-IWeatherForecastRepositoryPort.GetAllAsync(page)
-        ↓
-SELECT … OFFSET page.Skip ROWS FETCH NEXT page.PageSize ROWS ONLY
-COUNT(*) para el total
-        ↓
-PagedResult<WeatherForecastAggregate> { Items, TotalCount }
-        ↓
-PagedResult<GetWeatherForecastOutputDto> { Items, TotalCount }
-        ↓
-{ data: { items: [...], totalCount: N }, statusCode: 200 }
-```
-
-Para agregar paginación a un nuevo endpoint basta con:
-1. Recibir `[FromQuery] PageQueryInputDto pagination` en el action
-2. Añadir `[ValidateRequest]` al action
-3. Construir `new PageQuery(pagination.PageIndex, pagination.PageSize)` y pasarlo al use case
-
-
----
-
 ## Uso en Use Cases (Application Layer)
 
 ### Patrón estándar de manejo
@@ -525,10 +380,18 @@ if (result.IsFailure)
 
 ---
 
+## Ver también
+
+- [repositorio.md](repositorio.md) — contratos de repositorio, Unit of Work, paginación
+- [value-objects.md](value-objects.md) — anatomía de un Value Object con Create()
+- [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
+
+---
+
 ## Reglas de uso
 
 | Situación | Usar |
-|---|---|
+|-----------|------|
 | Operación que puede no encontrar el recurso | `Result<T>` con `ErrorType.NotFound` |
 | Validación de una sola propiedad en un Value Object | `Result<T, ValidationError>` |
 | Validación de múltiples propiedades en un Aggregate | `Result<T>` con `DomainError.FromValidationDomainErrors(errors)` |

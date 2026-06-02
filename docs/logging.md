@@ -1,21 +1,24 @@
 # Logging
 
-**Ver también:** Sentry — error tracking y performance monitoring.
+**Ver también:** [sentry.md](sentry.md) — error tracking y performance monitoring.
+
 
 ---
 
 ## Tabla de contenido
 
-1. [Visión general](#1-visión-general)
-2. [Cómo usar el logger](#2-cómo-usar-el-logger)
-3. [Formato de salida](#3-formato-de-salida)
-4. [Campos del log](#4-campos-del-log)
-5. [Bloque `http`](#5-bloque-http)
-6. [Bloque `properties`](#6-bloque-properties)
-7. [Pipeline de Serilog](#7-pipeline-de-serilog)
-8. [Niveles y filtros](#8-niveles-y-filtros)
-9. [Terminología](#9-terminología)
+
+ 1. [Visión general](#1-visi%C3%B3n-general)
+ 2. [Cómo usar el logger](#2-c%C3%B3mo-usar-el-logger)
+ 3. [Formato de salida](#3-formato-de-salida)
+ 4. [Campos del log](#4-campos-del-log)
+ 5. [Bloque `http`](#5-bloque-http)
+ 6. [Bloque `properties`](#6-bloque-properties)
+ 7. [Pipeline de Serilog](#7-pipeline-de-serilog)
+ 8. [Niveles y filtros](#8-niveles-y-filtros)
+ 9. [Terminología](#9-terminolog%C3%ADa)
 10. [Archivos clave](#10-archivos-clave)
+
 
 ---
 
@@ -29,8 +32,9 @@ Domain / Application  →  ILoggerPort<T>  ←  SerilogLoggerAdapter<T>  →  Se
 
 Serilog se usa por dos razones principales:
 
-- **Logging estructurado nativo**: cada propiedad del mensaje (`{PageIndex}`, `{StatusCode}`) se almacena como campo independiente, no como texto plano. Esto permite filtrar y agregar en herramientas como Seq, Datadog o ELK sin parseo.
-- **Pipeline extensible**: el sistema de sinks y enrichers permite enrutar logs a múltiples destinos y enriquecerlos automáticamente con contexto (traceId, ambiente, versión) sin tocar el código de negocio.
+* **Logging estructurado nativo**: cada propiedad del mensaje (`{PageIndex}`, `{StatusCode}`) se almacena como campo independiente, no como texto plano. Esto permite filtrar y agregar en herramientas como Seq, Datadog o ELK sin parseo.
+* **Pipeline extensible**: el sistema de sinks y enrichers permite enrutar logs a múltiples destinos y enriquecerlos automáticamente con contexto (traceId, ambiente, versión) sin tocar el código de negocio.
+
 
 ---
 
@@ -84,12 +88,13 @@ public sealed class GetWeatherForecastUseCase(
 }
 ```
 
+
 ---
 
 ## 3. Formato de salida
 
 | Ambiente | Formato | Destino |
-|---|---|---|
+|----------|---------|---------|
 | Development | Texto plano coloreado | Consola |
 | Staging / Production | JSON plano, camelCase, un objeto por línea | Consola (para ingesta por colectores) |
 
@@ -109,6 +114,7 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 }
 ```
 
+
 ---
 
 ## 4. Campos del log
@@ -116,7 +122,7 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 ### Siempre presentes
 
 | Campo | Origen | Descripción |
-|---|---|---|
+|-------|--------|-------------|
 | `message` | Serilog | Mensaje renderizado |
 | `timestamp` | Serilog | Fecha y hora UTC en ISO 8601 |
 | `level` | Serilog | Nivel: `debug`, `information`, `warning`, `error` |
@@ -128,7 +134,7 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 ### Presentes durante un request HTTP
 
 | Campo | Origen | Descripción |
-|---|---|---|
+|-------|--------|-------------|
 | `traceId` | `ActivityEnricher` (W3C) | ID de traza distribuida — atraviesa microservicios |
 | `spanId` | `ActivityEnricher` (W3C) | ID del span actual |
 | `requestId` | ASP.NET Core | ID único del request HTTP |
@@ -139,16 +145,17 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 ### Presentes dentro de una acción MVC
 
 | Campo | Origen | Descripción |
-|---|---|---|
+|-------|--------|-------------|
 | `actionId` | ASP.NET Core MVC | ID único de la acción del controller |
 | `actionName` | ASP.NET Core MVC | Nombre completo de la acción del controller |
 
 ### Opcionales
 
 | Campo | Origen | Descripción |
-|---|---|---|
+|-------|--------|-------------|
 | `properties` | `PushLogProperties()` | Contexto de negocio — solo si el dev lo usa explícitamente |
 | `exception` | Serilog | Stack trace completo, solo en logs de nivel `error` |
+
 
 ---
 
@@ -159,6 +166,7 @@ Inyectado automáticamente por `RequestLoggingMiddleware` en todos los logs del 
 ### Funcionamiento en dos fases
 
 El middleware opera en dos fases para que **todos los logs del request hereden el contexto HTTP**:
+
 
 1. **Fase temprana**: enriquece el `LogContext` con los datos del request (método, ruta, IP, user-agent) antes de invocar el siguiente middleware. Cualquier log emitido desde un use case o repositorio ya incluye estos campos.
 2. **Fase final** (`finally`): agrega `statusCode` y `latencyMs` y emite el evento de cierre `http.request.completed`.
@@ -199,8 +207,10 @@ El middleware opera en dos fases para que **todos los logs del request hereden e
 
 ### Extender `http` con campos adicionales
 
+
 1. Agregar la propiedad al record `HttpRequestLogProperties` en `src/Infrastructure/Logging/HttpRequestLogProperties.cs`.
 2. Actualizar el método `BuildRequestLogProperties` en `src/Api/Middleware/RequestLoggingMiddleware.cs`.
+
 
 ---
 
@@ -210,9 +220,9 @@ Permite adjuntar contexto de negocio arbitrario a los logs de un scope. Es **opc
 
 ### Comportamiento
 
-- Aparece en **todos los logs** generados dentro del bloque `using` (use cases, validadores, repositorios, etc.).
-- Aparece también en el evento `http.request.completed` del mismo request.
-- Se descarta automáticamente al salir del bloque `using`.
+* Aparece en **todos los logs** generados dentro del bloque `using` (use cases, validadores, repositorios, etc.).
+* Aparece también en el evento `http.request.completed` del mismo request.
+* Se descarta automáticamente al salir del bloque `using`.
 
 ### Uso desde un controller
 
@@ -274,10 +284,11 @@ new Dictionary<string, object?>
 `src/Infrastructure/Logging/LogContextExtensions.cs` expone métodos adicionales para el enriquecimiento interno del pipeline:
 
 | Método | Uso |
-|---|---|
+|--------|-----|
 | `PushLogProperties(dictionary)` | Contexto de negocio desde un controller |
 | `PushHttpProperties(httpProperties)` | Datos HTTP estructurados (uso interno del middleware) |
 | `PushFlatProperties(iLogProperties)` | Implementaciones de `ILogProperties` (uso interno) |
+
 
 ---
 
@@ -297,9 +308,9 @@ builder.Host.AddSerilog(builder.Configuration);
 Cada log event recibe estas propiedades sin intervención del código de negocio:
 
 | Enricher | Propiedades que agrega | Fuente |
-|---|---|---|
+|----------|------------------------|--------|
 | Configuración | `service`, `environment`, `version` | `appsettings.json` |
-| `ActivityEnricher` | `traceId`, `spanId` | `Activity.Current` (OpenTelemetry / W3C) |
+| `ActivityEnricher` | `traceId`, `spanId`    | `Activity.Current` (OpenTelemetry / W3C) |
 | `LogContext` | Cualquier propiedad empujada con `PushLogProperties` | `LogContext.PushProperty` |
 
 `ActivityEnricher` (`src/Infrastructure/Logging/ActivityEnricher.cs`) implementa `ILogEventEnricher` y lee `Activity.Current` del sistema de diagnóstico de .NET, compatible con OpenTelemetry. Permite correlacionar logs de un mismo request a través de múltiples servicios.
@@ -307,12 +318,13 @@ Cada log event recibe estas propiedades sin intervención del código de negocio
 ### Sinks
 
 | Sink | Ambiente | Formato |
-|---|---|---|
+|------|----------|---------|
 | Console | Development | Texto plano coloreado |
 | Console | Staging / Production | `FlatJsonFormatter` — JSON plano para ingesta por colectores |
 | Sentry | Ambos (si habilitado) | Errores → issues; Warnings → breadcrumbs |
 
 `FlatJsonFormatter` (`src/Infrastructure/Logging/FlatJsonFormatter.cs`) implementa `ITextFormatter` y genera JSON plano sin anidamiento, con propiedades en camelCase.
+
 
 ---
 
@@ -332,42 +344,38 @@ logger.Error(exception, "Failed to process order {Id}", id);
 Configurados en `appsettings.json` y `appsettings.Development.json` bajo `Serilog.MinimumLevel.Override`:
 
 | Namespace | Development | Staging / Production |
-|---|---|---|
-| Servicio (default) | `Debug+` | `Information+` |
-| `Microsoft.*` | `Warning+` | `Warning+` |
-| `Microsoft.Hosting.Lifetime` | `Information+` | `Information+` |
-| `System.*` | `Warning+` | `Warning+` |
+|-----------|-------------|----------------------|
+| Servicio (default) | `Debug+`    | `Information+`       |
+| `Microsoft.*` | `Warning+`  | `Warning+`           |
+| `Microsoft.Hosting.Lifetime` | `Information+` | `Information+`       |
+| `System.*` | `Warning+`  | `Warning+`           |
 
 Los namespaces `Microsoft.*` y `System.*` se elevan a `Warning` en producción porque generan un gran volumen de logs de nivel `Information` sobre el funcionamiento interno del framework (negociación de contenido, ciclo de vida de conexiones) que en la mayoría de los casos no aportan valor operacional.
+
 
 ---
 
 ## 9. Terminología
 
-**Sink**
-Destino al que Serilog envía los logs. Un pipeline puede tener varios sinks activos simultáneamente. Agregar un nuevo destino (un archivo, Seq, Datadog) no requiere cambiar el código de negocio, solo registrar el sink en `SerilogExtensions`.
+**Sink** Destino al que Serilog envía los logs. Un pipeline puede tener varios sinks activos simultáneamente. Agregar un nuevo destino (un archivo, Seq, Datadog) no requiere cambiar el código de negocio, solo registrar el sink en `SerilogExtensions`.
 
-**Enricher**
-Componente que agrega propiedades adicionales a todos los logs de forma automática, sin que el código que emite el log tenga que incluirlas. `ActivityEnricher` es el ejemplo más claro: agrega `traceId` y `spanId` a cada evento sin que ningún use case los mencione.
+**Enricher** Componente que agrega propiedades adicionales a todos los logs de forma automática, sin que el código que emite el log tenga que incluirlas. `ActivityEnricher` es el ejemplo más claro: agrega `traceId` y `spanId` a cada evento sin que ningún use case los mencione.
 
-**LogContext**
-Mecanismo de Serilog que adjunta propiedades al hilo de ejecución actual usando un patrón de pila. Cualquier log emitido mientras una propiedad está en el contexto la hereda automáticamente. Es lo que usa `RequestLoggingMiddleware` para que todos los logs del ciclo de vida de un request incluyan método, ruta e IP.
+**LogContext** Mecanismo de Serilog que adjunta propiedades al hilo de ejecución actual usando un patrón de pila. Cualquier log emitido mientras una propiedad está en el contexto la hereda automáticamente. Es lo que usa `RequestLoggingMiddleware` para que todos los logs del ciclo de vida de un request incluyan método, ruta e IP.
 
-**Logging estructurado**
-Enfoque en el que cada log no es una cadena de texto plano sino un objeto con campos tipados. En lugar de `"Página 1 de 20"` se emite `{ pageIndex: 1, pageSize: 20 }`. Esto permite filtrar, agrupar y consultar en herramientas como Datadog o ELK sin parseo de texto.
+**Logging estructurado** Enfoque en el que cada log no es una cadena de texto plano sino un objeto con campos tipados. En lugar de `"Página 1 de 20"` se emite `{ pageIndex: 1, pageSize: 20 }`. Esto permite filtrar, agrupar y consultar en herramientas como Datadog o ELK sin parseo de texto.
 
-**Nivel de log**
-Clasificación de la importancia de un evento. De menor a mayor: `Debug` → `Information` → `Warning` → `Error` → `Fatal`. Configurar un nivel mínimo descarta todos los eventos de niveles inferiores.
+**Nivel de log** Clasificación de la importancia de un evento. De menor a mayor: `Debug` → `Information` → `Warning` → `Error` → `Fatal`. Configurar un nivel mínimo descarta todos los eventos de niveles inferiores.
 
-**Traza distribuida**
-Mecanismo para correlacionar los logs de un mismo request a través de múltiples servicios. Cada request recibe un `traceId` único; si el servicio A llama al servicio B, ambos comparten el mismo `traceId`, lo que permite reconstruir el flujo completo en una herramienta de observabilidad.
+**Traza distribuida** Mecanismo para correlacionar los logs de un mismo request a través de múltiples servicios. Cada request recibe un `traceId` único; si el servicio A llama al servicio B, ambos comparten el mismo `traceId`, lo que permite reconstruir el flujo completo en una herramienta de observabilidad.
+
 
 ---
 
 ## 10. Archivos clave
 
 | Archivo | Responsabilidad |
-|---|---|
+|---------|-----------------|
 | `src/Shared/Application/Ports/ILoggerPort.cs` | Puerto de logging — abstracción visible desde Application |
 | `src/Infrastructure/Adapters/Logging/SerilogLoggerAdapter.cs` | Implementación Serilog del puerto |
 | `src/Infrastructure/Extensions/SerilogExtensions.cs` | Pipeline de Serilog: enrichers, sinks y niveles |

@@ -33,6 +33,7 @@ src/Contexts/<Contexto>/Domain/ValueObjects/<NombreValueObject>.cs
 
 El agregado es el único punto de entrada. Nadie fuera del dominio puede construir un Value Object directamente porque los constructores son privados. Toda creación pasa por el método factory `Create()` del propio Value Object, y ese método solo es invocado desde `AggregateRoot.Create()`.
 
+
 ---
 
 ## Estructura de carpetas
@@ -51,6 +52,7 @@ src/
             └── ValueObjects/
                 └── Temperature.cs      ← VO exclusivo del contexto
 ```
+
 
 ---
 
@@ -81,6 +83,7 @@ HTTP Request
      ▼
 [AggregateRoot]  WeatherForecastAggregate wrappea la entity
 ```
+
 
 ---
 
@@ -113,29 +116,21 @@ public sealed class Temperature : ValueObject          // sealed, hereda ValueOb
 ```
 
 | Elemento | Regla |
-|---|---|
+|----------|-------|
 | Herencia | `sealed class X : ValueObject` |
 | Constructor | `private`, sin parámetros y con parámetros |
-| Factory | `public static Result<T, TError> Create(...)` |
+| Factory  | `public static Result<T, TError> Create(...)` |
 | Propiedades | `public T Prop { get; }` — sin setter |
 | Igualdad | Implementar `GetEqualityComponents()` |
+
 
 ---
 
 ## Manejo de errores
 
+> Para la jerarquía completa de tipos de error, ver [patron-result.md](patron-result.md).
+
 Los errores de dominio son constantes estáticas en una clase `*Errors` dentro de la capa `Domain` del contexto o en `Shared.Domain.Errors` si son compartidos.
-
-```
-src/Shared/Domain/Errors/
-    DomainError.cs           ← record base
-    ValidationError.cs       ← error con Property, Value, Children
-    ValidationErrorList.cs   ← lista de ValidationError
-    AddressErrors.cs         ← errores del VO Address (compartido)
-
-src/Contexts/<Contexto>/Domain/Errors/
-    WeatherForecastErrors.cs ← errores del contexto
-```
 
 **Definición:**
 
@@ -168,6 +163,23 @@ if (errors.Count > 0)
     return DomainError.FromValidationDomainErrors(errors);
 ```
 
+
+---
+
+## Igualdad en Value Objects y Entidades
+
+**Value Objects** — igualdad estructural (por valor de sus propiedades). Implementar `GetEqualityComponents()`:
+
+```csharp
+protected override IEnumerable<object?> GetEqualityComponents()
+{
+    yield return Celsius;   // una línea por propiedad que define la igualdad
+}
+```
+
+**Entidades** — igualdad por identidad (`Id`). La clase base `Entity<TId>` implementa `Equals`, `GetHashCode` y los operadores `==` / `!=` comparando únicamente el `Id`. No es necesario sobreescribir nada en la entidad concreta.
+
+
 ---
 
 ## Decisión rápida: ¿VO o primitivo?
@@ -185,3 +197,12 @@ if (errors.Count > 0)
                    │
                    └── Instanciar solo desde Aggregate.Create()
 ```
+
+
+---
+
+## Ver también
+
+- [patron-result.md](patron-result.md) — `Result<T, ValidationError>`, acumulación de errores
+- [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
+- [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo completo para modelar el dominio de un contexto

@@ -6,8 +6,8 @@ Los documentos están organizados en dos tipos:
 
 | Tipo | Prefijo | Responde a |
 |------|---------|------------|
-| Referencia | `ref-` | *¿Cómo funciona X en esta plantilla?* |
-| Guía | `guide-` | *¿Cómo implemento X paso a paso?* |
+| Referencia | — | *¿Cómo funciona X en esta plantilla?* |
+| Guía | `guias/` | *¿Cómo implemento X paso a paso?* |
 
 ---
 
@@ -21,7 +21,8 @@ Los documentos están organizados en dos tipos:
 
 ### Dominio y aplicación
 
-- [patron-result.md](patron-result.md) — jerarquía de tipos `Result<T>`, errores de dominio, reglas de uso
+- [patron-result.md](patron-result.md) — tipos `Result<T>`, conversiones implícitas, patrón de uso en use cases
+- [errores-dominio.md](errores-dominio.md) — `DomainError`, `ValidationError`, `ErrorType`, cómo definir errores por contexto
 - [value-objects.md](value-objects.md) — cuándo crear un VO, anatomía, igualdad estructural
 - [validaciones.md](validaciones.md) — mapa de las cinco capas de validación y dónde vive cada una
 - [repositorio.md](repositorio.md) — `IRepositoryBase`, `BaseAggregateRepository`, Unit of Work, paginación
@@ -57,6 +58,6 @@ Los documentos están organizados en dos tipos:
 
 1. **[arquitectura.md](arquitectura.md)** — entiende la estructura general antes de tocar código
 2. **[puertos-y-adaptadores.md](puertos-y-adaptadores.md)** — aprende la nomenclatura que verás en todo el código
-3. **[patron-result.md](patron-result.md)** — el patrón transversal más importante de la plantilla
+3. **[patron-result.md](patron-result.md)** + **[errores-dominio.md](errores-dominio.md)** — el patrón transversal más importante de la plantilla
 4. **[guias/nuevo-contexto.md](guias/nuevo-contexto.md)** — implementa tu primer contexto de principio a fin
-5. El resto de los `ref-` según la funcionalidad que vayas a tocar
+5. El resto según la funcionalidad que vayas a tocar

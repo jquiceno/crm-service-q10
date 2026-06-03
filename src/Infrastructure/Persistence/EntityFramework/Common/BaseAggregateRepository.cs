@@ -13,7 +13,7 @@ namespace Infrastructure.Persistence.EntityFramework.Common;
 public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context, ILoggerPort<object> logger)
     : IRepositoryBase<TAggregate, TId>
     where TAggregate : AggregateRoot<TEntity, TId>
-    where TEntity : Entity<TId>
+    where TEntity : EntityRoot<TId>
     where TId : notnull
 {
     protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();

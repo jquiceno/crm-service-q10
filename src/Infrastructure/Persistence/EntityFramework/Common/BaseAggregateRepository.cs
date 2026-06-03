@@ -6,7 +6,6 @@ using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
 using Shared.Results;
 using Shared.Results.Errors;
-using Result = Shared.Results.Result;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
@@ -35,7 +34,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
         }
     }
 
-    protected virtual DomainError GetNotFoundError(TId id) =>
+    protected virtual NotFoundError GetNotFoundError(TId id) =>
         SharedErrors.NotFound(typeof(TAggregate).Name, id!);
 
     public virtual async Task<PagedResult<TAggregate>> GetAllAsync(

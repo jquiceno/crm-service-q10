@@ -1,13 +1,13 @@
+using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Domain.Tenants.Aggregates;
 using Shared.Domain.Tenants.Errors;
 using Shared.Domain.Tenants.Ports;
-using Shared.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Shared.Results;
 using Shared.Results.Errors;
 
-namespace Shared.MasterAccess.Persistence.EntityFramework.Tenants;
+namespace Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants;
 
 public sealed class TenantRepository(ApplicationDbContext context, ILoggerPort<TenantRepository> logger) : ITenantRepository
 {

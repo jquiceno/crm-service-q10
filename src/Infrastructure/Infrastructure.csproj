@@ -1,9 +1,9 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <ItemGroup>
-        <ProjectReference Include="..\Contexts\Health\Application\Health.Application.csproj" />
-<ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Contexts\Health\Application\Health.Application.csproj" />
+    <ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />

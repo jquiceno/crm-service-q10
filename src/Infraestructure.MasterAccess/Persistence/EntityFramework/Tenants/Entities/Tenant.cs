@@ -1,4 +1,4 @@
-namespace Shared.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
+namespace Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 
 public sealed class Tenant
 {

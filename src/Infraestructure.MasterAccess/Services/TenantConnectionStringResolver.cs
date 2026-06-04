@@ -1,7 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
-namespace Shared.MasterAccess.Services;
+namespace Infraestructure.MasterAccess.Services;
 
 public sealed class TenantConnectionStringResolver(IConfiguration configuration) : ITenantConnectionStringResolver
 {
@@ -12,14 +12,15 @@ public sealed class TenantConnectionStringResolver(IConfiguration configuration)
             .GetChildren()
             .ToDictionary(c => c.Key, c => c.Value ?? string.Empty);
 
-        if (!serverMapping.TryGetValue(serverDatabase.ToString(), out var connectionStringKey)
-            || string.IsNullOrWhiteSpace(connectionStringKey))
+        // Intenta obtener el nombre de la cadena de conexión para el servidor.
+        serverMapping.TryGetValue(serverDatabase.ToString(), out var connectionStringName);
+
+        if (string.IsNullOrWhiteSpace(connectionStringName))
         {
-            throw new InvalidOperationException(
-                $"No connection string configured for server database '{serverDatabase}'.");
+            throw new InvalidOperationException($"No connection string configured for server database '{serverDatabase}'.");
         }
 
-        return new SqlConnectionStringBuilder(connectionStringKey)
+        return new SqlConnectionStringBuilder(connectionStringName)
         {
             InitialCatalog = databaseName
         }.ConnectionString;

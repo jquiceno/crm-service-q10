@@ -1,7 +1,7 @@
+using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Microsoft.EntityFrameworkCore;
-using Shared.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 
-namespace Shared.MasterAccess.Persistence.EntityFramework;
+namespace Infraestructure.MasterAccess.Persistence.EntityFramework;
 
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
 {

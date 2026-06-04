@@ -1,8 +1,8 @@
+using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
-using Shared.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 
-namespace Shared.MasterAccess.Persistence.EntityFramework.Tenants.Configurations;
+namespace Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Configurations;
 
 public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
 {

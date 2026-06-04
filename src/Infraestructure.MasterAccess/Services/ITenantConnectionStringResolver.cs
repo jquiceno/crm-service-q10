@@ -1,4 +1,4 @@
-namespace Shared.MasterAccess.Services;
+namespace Infraestructure.MasterAccess.Services;
 
 public interface ITenantConnectionStringResolver
 {

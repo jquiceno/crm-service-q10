@@ -15,6 +15,7 @@
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/Application/Shared.Application.csproj" />
     <Project Path="src/Shared/Domain/Shared.Domain.csproj" />
+    <Project Path="src/Shared/Shared.MasterAccess/Shared.MasterAccess.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/IntegrationTests/IntegrationTests.csproj" />

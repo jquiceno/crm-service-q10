@@ -1,14 +1,13 @@
 using System.Net;
-using IntegrationTests.Infrastructure;
 using Shouldly;
 using Xunit;
 
-namespace IntegrationTests.Health;
+namespace IntegrationTests.Infrastructure;
 
 [Collection(IntegrationTestCollection.Name)]
-public sealed class HealthEndpointsTests : IntegrationTestBase
+public sealed class HealthProbesTests : IntegrationTestBase
 {
-    public HealthEndpointsTests(SqlServerContainerFixture fixture) : base(fixture) { }
+    public HealthProbesTests(SqlServerContainerFixture fixture) : base(fixture) { }
 
     [Fact]
     public async Task Live_Returns200()

@@ -7,20 +7,19 @@ public sealed class TenantConnectionStringResolver(IConfiguration configuration)
 {
     public string Resolve(int serverDatabase, string databaseName)
     {
-        var baseConnectionString = serverDatabase switch
-        {
-            2001 => configuration.GetConnectionString("DB-Aws1"),
-            2002 => configuration.GetConnectionString("DB-Aws2"),
-            2003 => configuration.GetConnectionString("DB-Aws3"),
-            1007 or 3 => configuration.GetConnectionString("AzureDB"),
-            _ => null
-        };
+        var serverMapping = configuration
+            .GetSection("TenantServers")
+            .GetChildren()
+            .ToDictionary(c => c.Key, c => c.Value ?? string.Empty);
 
-        if (string.IsNullOrWhiteSpace(baseConnectionString))
+        if (!serverMapping.TryGetValue(serverDatabase.ToString(), out var connectionStringKey)
+            || string.IsNullOrWhiteSpace(connectionStringKey))
+        {
             throw new InvalidOperationException(
                 $"No connection string configured for server database '{serverDatabase}'.");
+        }
 
-        return new SqlConnectionStringBuilder(baseConnectionString)
+        return new SqlConnectionStringBuilder(connectionStringKey)
         {
             InitialCatalog = databaseName
         }.ConnectionString;

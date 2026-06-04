@@ -1,8 +1,8 @@
-using Announcement.Domain.Tenants.Aggregates;
-using Announcement.Domain.Tenants.Errors;
-using Announcement.Domain.Tenants.Ports;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
+using Shared.Domain.Tenants.Aggregates;
+using Shared.Domain.Tenants.Errors;
+using Shared.Domain.Tenants.Ports;
 using Shared.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Shared.Results;
 using Shared.Results.Errors;

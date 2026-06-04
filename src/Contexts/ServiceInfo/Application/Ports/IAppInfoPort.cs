@@ -1,4 +1,4 @@
-namespace Health.Application.Ports;
+namespace ServiceInfo.Application.Ports;
 
 public interface IAppInfoPort
 {

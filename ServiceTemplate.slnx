@@ -5,9 +5,9 @@
     <Project Path="src/Infrastructure/Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Contexts/" />
-  <Folder Name="/src/Contexts/Health/">
-    <Project Path="src/Contexts/Health/Application/Health.Application.csproj" />
-    <Project Path="src/Contexts/Health/Domain/Health.Domain.csproj" />
+  <Folder Name="/src/Contexts/ServiceInfo/">
+    <Project Path="src/Contexts/ServiceInfo/Application/ServiceInfo.Application.csproj" />
+    <Project Path="src/Contexts/ServiceInfo/Domain/ServiceInfo.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Library/">
     <Project Path="src/Shared/Presentation/Shared.Presentation.csproj" />

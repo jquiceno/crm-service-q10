@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Shared.Results;
 using Shared.Results.Errors;
 
-namespace Infraestructure.MasterAccess.Resolvers;
+namespace Infrastructure.MasterAccess.Resolvers;
 
 public sealed class TenantConnectionStringResolver(IConfiguration configuration) : ITenantConnectionStringResolver
 {

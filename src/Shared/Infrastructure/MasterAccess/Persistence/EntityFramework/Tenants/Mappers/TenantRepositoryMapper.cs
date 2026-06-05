@@ -1,7 +1,7 @@
-using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Shared.Domain.Tenants.Aggregates;
 
-namespace Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
+namespace Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 
 public static class TenantRepositoryMapper
 {

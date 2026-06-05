@@ -1,12 +1,12 @@
-using Infraestructure.MasterAccess.Persistence.EntityFramework;
-using Xunit;
-using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants;
-using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
+using Infrastructure.MasterAccess.Persistence.EntityFramework;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Shared.Application.Ports;
 using Shared.Results.Errors;
 using Shouldly;
+using Xunit;
 
 namespace UnitTests.Infrastructure;
 

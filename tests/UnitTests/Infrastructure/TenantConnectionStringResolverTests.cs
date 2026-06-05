@@ -1,4 +1,4 @@
-using Infraestructure.MasterAccess.Resolvers;
+using Infrastructure.MasterAccess.Resolvers;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using Shared.Results.Errors;

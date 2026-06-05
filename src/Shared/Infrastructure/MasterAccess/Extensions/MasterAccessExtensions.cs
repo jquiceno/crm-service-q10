@@ -1,12 +1,12 @@
-using Infraestructure.MasterAccess.Persistence.EntityFramework;
-using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants;
-using Infraestructure.MasterAccess.Resolvers;
+using Infrastructure.MasterAccess.Persistence.EntityFramework;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
+using Infrastructure.MasterAccess.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.UseCases.GetTenant;
 using Shared.Domain.Tenants.Ports;
 
-namespace Infraestructure.MasterAccess.Extensions;
+namespace Infrastructure.MasterAccess.Extensions;
 
 public static class MasterAccessExtensions
 {

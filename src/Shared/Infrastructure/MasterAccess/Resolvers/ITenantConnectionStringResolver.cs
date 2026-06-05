@@ -1,6 +1,6 @@
 using Shared.Results;
 
-namespace Infraestructure.MasterAccess.Resolvers;
+namespace Infrastructure.MasterAccess.Resolvers;
 
 public interface ITenantConnectionStringResolver
 {

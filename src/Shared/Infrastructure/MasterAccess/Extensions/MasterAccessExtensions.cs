@@ -1,6 +1,6 @@
 using Infraestructure.MasterAccess.Persistence.EntityFramework;
 using Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants;
-using Infraestructure.MasterAccess.Services;
+using Infraestructure.MasterAccess.Resolvers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.UseCases.GetTenant;
@@ -13,9 +13,9 @@ public static class MasterAccessExtensions
     public static IServiceCollection AddMasterAccess(this IServiceCollection services, string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
-            services.AddDbContext<ApplicationDbContext>(options => options.UseInMemoryDatabase("MasterAccessDb"));
+            services.AddDbContext<MasterAccessDbContext>(options => options.UseInMemoryDatabase("MasterAccessDb"));
         else
-            services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
+            services.AddDbContext<MasterAccessDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
 
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddSingleton<ITenantConnectionStringResolver, TenantConnectionStringResolver>();

@@ -9,7 +9,7 @@ using Shared.Results.Errors;
 
 namespace Infraestructure.MasterAccess.Persistence.EntityFramework.Tenants;
 
-public sealed class TenantRepository(ApplicationDbContext context, ILoggerPort<TenantRepository> logger) : ITenantRepository
+public sealed class TenantRepository(MasterAccessDbContext context, ILoggerPort<TenantRepository> logger) : ITenantRepository
 {
     public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {

@@ -4,7 +4,7 @@ using Shared.Domain.Interfaces;
 namespace Shared.Domain.Aggregates;
 
 public abstract class AggregateRoot<TEntity, TId> : IAggregateRoot
-    where TEntity : Entity<TId>
+    where TEntity : EntityRoot<TId>
     where TId : notnull
 {
     protected TEntity Entity { get; }

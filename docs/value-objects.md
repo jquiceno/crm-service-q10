@@ -1,7 +1,5 @@
 # Value Objects
 
-> Implementación de errores de dominio
-
 ## Reglas
 
 ### 1 — No crear Value Object si solo se valida Required + MaxLength
@@ -33,6 +31,7 @@ src/Contexts/<Contexto>/Domain/ValueObjects/<NombreValueObject>.cs
 
 El agregado es el único punto de entrada. Nadie fuera del dominio puede construir un Value Object directamente porque los constructores son privados. Toda creación pasa por el método factory `Create()` del propio Value Object, y ese método solo es invocado desde `AggregateRoot.Create()`.
 
+
 ---
 
 ## Estructura de carpetas
@@ -51,6 +50,7 @@ src/
             └── ValueObjects/
                 └── Temperature.cs      ← VO exclusivo del contexto
 ```
+
 
 ---
 
@@ -81,6 +81,7 @@ HTTP Request
      ▼
 [AggregateRoot]  WeatherForecastAggregate wrappea la entity
 ```
+
 
 ---
 
@@ -113,60 +114,27 @@ public sealed class Temperature : ValueObject          // sealed, hereda ValueOb
 ```
 
 | Elemento | Regla |
-|---|---|
+|----------|-------|
 | Herencia | `sealed class X : ValueObject` |
-| Constructor | `private`, sin parámetros y con parámetros |
-| Factory | `public static Result<T, TError> Create(...)` |
+| Constructor | `private` |
+| Factory  | `public static Result<T, ValidationError> Create(...)` |
 | Propiedades | `public T Prop { get; }` — sin setter |
 | Igualdad | Implementar `GetEqualityComponents()` |
 
+
 ---
 
-## Manejo de errores
+## Igualdad estructural
 
-Los errores de dominio son constantes estáticas en una clase `*Errors` dentro de la capa `Domain` del contexto o en `Shared.Domain.Errors` si son compartidos.
-
-```
-src/Shared/Domain/Errors/
-    DomainError.cs           ← record base
-    ValidationError.cs       ← error con Property, Value, Children
-    ValidationErrorList.cs   ← lista de ValidationError
-    AddressErrors.cs         ← errores del VO Address (compartido)
-
-src/Contexts/<Contexto>/Domain/Errors/
-    WeatherForecastErrors.cs ← errores del contexto
-```
-
-**Definición:**
+La clase base `ValueObject` implementa `Equals`, `GetHashCode` y los operadores `==` / `!=` usando `SequenceEqual` sobre los componentes que devuelve `GetEqualityComponents()`. Cada VO debe implementar ese método retornando una línea por propiedad que define la igualdad:
 
 ```csharp
-public static class WeatherForecastErrors
+protected override IEnumerable<object?> GetEqualityComponents()
 {
-    public static readonly ValidationError TemperatureOutOfRange =
-        new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
-            ErrorType.Validation)
-        {
-            Attributes = new Dictionary<string, object?>
-            {
-                ["min"] = Temperature.MinCelsius,
-                ["max"] = Temperature.MaxCelsius
-            }
-        };
+    yield return Celsius;
 }
 ```
 
-**Acumulación en el agregado:**
-
-```csharp
-var errors = new List<ValidationError>();
-
-var tempResult = Temperature.Create(temperature);
-if (tempResult.IsFailure)
-    errors.Add(tempResult.TypedError with { Property = nameof(Temperature), Value = temperature });
-
-if (errors.Count > 0)
-    return DomainError.FromValidationDomainErrors(errors);
-```
 
 ---
 
@@ -185,3 +153,12 @@ if (errors.Count > 0)
                    │
                    └── Instanciar solo desde Aggregate.Create()
 ```
+
+
+---
+
+## Ver también
+
+- [errores-dominio.md](errores-dominio.md) — cómo definir errores de dominio y acumularlos en el aggregate
+- [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
+- [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo completo para modelar el dominio de un contexto

@@ -2,17 +2,17 @@ using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Domain.Aggregates;
 using Shared.Domain.Entities;
-using Shared.Domain.Errors;
 using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
-using Shared.Domain.Result;
+using Shared.Results;
+using Shared.Results.Errors;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
 public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context, ILoggerPort<object> logger)
     : IRepositoryBase<TAggregate, TId>
     where TAggregate : AggregateRoot<TEntity, TId>
-    where TEntity : Entity<TId>
+    where TEntity : EntityRoot<TId>
     where TId : notnull
 {
     protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();
@@ -34,7 +34,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
         }
     }
 
-    protected virtual DomainError GetNotFoundError(TId id) =>
+    protected virtual NotFoundError GetNotFoundError(TId id) =>
         SharedErrors.NotFound(typeof(TAggregate).Name, id!);
 
     public virtual async Task<PagedResult<TAggregate>> GetAllAsync(

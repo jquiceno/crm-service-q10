@@ -1,5 +1,5 @@
-using Api.Middleware;
 using Microsoft.AspNetCore.Mvc;
+using Shared.Presentation.Middleware;
 
 namespace Api.DependencyInjection;
 

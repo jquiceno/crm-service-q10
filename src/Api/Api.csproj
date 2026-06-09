@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\Shared\Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\Shared\Infrastructure\Presentation\Shared.Presentation.csproj" />
   </ItemGroup>
 
     <ItemGroup>

@@ -6,7 +6,6 @@ is_global = true
 
 # Design
 dotnet_diagnostic.CA1031.severity = warning
-dotnet_diagnostic.CA1062.severity = warning
 dotnet_diagnostic.CA1816.severity = warning
 dotnet_diagnostic.CA1851.severity = warning
 dotnet_diagnostic.CA1852.severity = warning
@@ -96,6 +95,9 @@ dotnet_diagnostic.CA2234.severity = none
 
 # Result<T> uses static factory methods (Success/Failure) on a generic type — intentional API
 dotnet_diagnostic.CA1000.severity = none
+
+# DI container + nullable reference types guarantee non-null injection; explicit argument validation is redundant
+dotnet_diagnostic.CA1062.severity = none
 
 # Roslynator version of CA1032 — DomainException primary constructor is sufficient
 dotnet_diagnostic.RCS1194.severity = none

@@ -1,7 +1,7 @@
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Shared.Domain.Errors;
+using Shared.Results.Errors;
 
 namespace Infrastructure.Adapters.Persistence.SqlServer;
 
@@ -23,22 +23,22 @@ internal static class SqlServerErrorClassifier
     private static DomainError ClassifySqlException(SqlException ex) => ex.Number switch
     {
         // Primary key violation
-        2627 => new DomainError("A record with this value already exists.", ErrorType.Conflict),
-        
+        2627 => new ConflictError("A record with this value already exists."),
+
         // Unique index violation
-        2601 => new DomainError("A record with this value already exists.", ErrorType.Conflict),
-        
+        2601 => new ConflictError("A record with this value already exists."),
+
         // Foreign key constraint violation
-        547 => new DomainError("The operation conflicts with a related record.", ErrorType.Conflict),
-        
+        547 => new ConflictError("The operation conflicts with a related record."),
+
         // NOT NULL constraint violation
-        515 => new DomainError("A required field cannot be null.", ErrorType.Validation),
-        
+        515 => new PersistenceValidationError("A required field cannot be null."),
+
         // String or binary data would be truncated
-        8152 => new DomainError("A value exceeds the maximum allowed length.", ErrorType.Validation),
-        
+        8152 => new PersistenceValidationError("A value exceeds the maximum allowed length."),
+
         // Deadlock
-        1205 => new DomainError("The operation was aborted due to a deadlock. Please retry.", ErrorType.Internal),
+        1205 => new InternalError("The operation was aborted due to a deadlock. Please retry."),
         
         // Default: log the error but don't expose implementation details
         _ => PersistenceErrors.Failure()

@@ -1,31 +1,5 @@
 # Patrón Result
 
-## ¿Por qué usar el Patrón Result?
-
-En arquitecturas orientadas al dominio, los errores tienen dos naturalezas distintas:
-
-* **Errores esperados**: negocio, validación, "no encontrado", conflicto. Son condiciones normales del flujo que el código llamante debe manejar explícitamente.
-* **Errores excepcionales**: fallos de red, memoria agotada, bugs de programación. Son condiciones inesperadas que deben propagarse como excepciones.
-
-El problema con usar **excepciones para errores esperados** es que:
-
-* No son visibles en la firma del método — el llamante no sabe qué puede fallar.
-* Son costosas en rendimiento cuando ocurren frecuentemente.
-* El compilador no obliga a manejarlas, lo que lleva a errores silenciosos.
-
-El **Patrón Result** resuelve esto representando el éxito o el fracaso como un valor de retorno tipado. El llamante **no puede ignorar** el resultado sin una decisión explícita.
-
-```csharp
-// ❌ Sin Result: el llamante no sabe que puede fallar
-public async Task<WeatherForecastAggregate?> GetByIdAsync(Guid id);
-
-// ✅ Con Result: el fracaso es parte del contrato
-public async Task<Result<WeatherForecastAggregate>> GetByIdAsync(Guid id);
-```
-
-
----
-
 ## Jerarquía de tipos Result
 
 Todos los tipos viven en `Shared.Domain.Result` y heredan de `Result`:
@@ -90,7 +64,7 @@ public sealed class Result<TValue, TError> : Result<TValue>
 }
 ```
 
-> **`TypedError` vs `Error`**: `.Error` (heredado de `Result`) devuelve `DomainError` y sigue siendo accesible. `.TypedError` devuelve el tipo concreto (`ValidationError`, etc.) sin necesidad de casting. Usar `.TypedError` solo cuando el tipo concreto importa.
+> **`.TypedError` vs `.Error`**: `.Error` devuelve `DomainError` base. `.TypedError` devuelve el tipo concreto (`ValidationError`, etc.) sin casting. Usar `.TypedError` solo cuando el tipo concreto importa.
 
 ### `PagedResult<T>` — resultado paginado
 
@@ -109,18 +83,10 @@ public sealed class PagedResult<T> : Result
 }
 ```
 
-Uso en el repositorio:
-
-```csharp
-// Antes: Task<Result<IReadOnlyList<TAggregate>>>
-// Ahora: PagedResult<T> es el resultado directamente
-Task<PagedResult<WeatherForecastAggregate>> GetAllAsync(PageQuery page, CancellationToken ct = default);
-```
-
 
 ---
 
-## Conversiones Implícitas
+## Conversiones implícitas
 
 Las conversiones implícitas eliminan el ruido del código al evitar llamadas explícitas a `Success()` y `Failure()`.
 
@@ -154,332 +120,7 @@ Result<Temperature> result = Temperature.Create(celsius);
 
 ---
 
-## Jerarquía de Errores de Dominio
-
-Todos los errores heredan de `DomainError`, que es un `record`:
-
-```csharp
-public record DomainError
-{
-    public string   Message  { get; }
-    public ErrorType Type    { get; }
-    public string   Context  { get; init; }
-    public string   Origin   { get; init; }
-    public IReadOnlyList<ErrorDetail> Details { get; init; }
-}
-```
-
-### `ErrorType` — categorías de error
-
-```csharp
-public enum ErrorType
-{
-    None,         // usado únicamente por DomainError.None (resultado exitoso)
-    Validation,   // datos inválidos, campos requeridos, formatos incorrectos
-    NotFound,     // recurso no encontrado
-    Conflict,     // violación de unicidad, restricción de FK
-    Unauthorized, // sin autenticación
-    Forbidden,    // sin autorización
-    Internal,     // error de infraestructura (BD, red, deadlock)
-    DomainError   // múltiples errores de dominio agregados
-}
-```
-
-### `ValidationError` — error de validación con contexto de propiedad
-
-```csharp
-public sealed record ValidationError : DomainError
-{
-    public string   Property   { get; init; }
-    public object?  Value      { get; init; }
-    public IReadOnlyDictionary<string, object?>? Attributes { get; init; }
-    public IReadOnlyList<ValidationError>?       Children   { get; init; }
-}
-```
-
-### `ValidationErrorList` — colección de errores de validación
-
-Agrupa múltiples `ValidationError` cuando un objeto tiene varias propiedades inválidas:
-
-```csharp
-public sealed record ValidationErrorList : DomainError
-{
-    public IReadOnlyList<ValidationError> Errors { get; }
-}
-```
-
-
----
-
-## Definición de Errores
-
-### Errores compartidos (`SharedErrors`)
-
-Solo contiene errores verdaderamente compartidos entre todos los contextos. Los errores de persistencia **no pertenecen al dominio** y viven en infraestructura:
-
-```csharp
-// Shared.Domain.Errors.SharedErrors
-public static class SharedErrors
-{
-    public static DomainError NotFound(string entityName, Guid id);
-}
-```
-
-### Errores de infraestructura (`PersistenceErrors`)
-
-Errores genéricos de persistencia, `internal` a la capa de infraestructura. No exponen detalles técnicos del servidor (`ex.Message`) por seguridad:
-
-```csharp
-// Infrastructure — internal, no expuesto al dominio
-internal static class PersistenceErrors
-{
-    internal static DomainError Failure() =>
-        new("A persistence error occurred.", ErrorType.Internal);
-}
-```
-
-### Errores de dominio por contexto
-
-Cada contexto define sus propios errores en `Domain.Errors`. Los errores estáticos son constantes de dominio; los métodos de fábrica se usan cuando el mensaje depende de un valor en runtime:
-
-```csharp
-public static class WeatherForecastErrors
-{
-    public static readonly ValidationError DateRequired =
-        new("Date is required.", ErrorType.Validation);
-
-    public static readonly ValidationError TemperatureOutOfRange =
-        new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
-            ErrorType.Validation)
-        {
-            Attributes = new Dictionary<string, object?>
-            {
-                ["min"] = Temperature.MinCelsius,
-                ["max"] = Temperature.MaxCelsius
-            }
-        };
-
-    public static readonly ValidationError DateAlreadyExists =
-        new("A forecast for this date already exists.", ErrorType.Conflict);
-}
-```
-
-### Enriquecimiento del error en el Application Layer
-
-Los errores se definen sin `Context` ni `Origin` en el dominio. Al retornarlos desde un use case se enriquecen con `with`:
-
-```csharp
-return WeatherForecastErrors.DateAlreadyExists with
-{
-    Context = WeatherForecastErrors.Context,
-    Origin  = nameof(CreateWeatherForecastUseCase)
-};
-```
-
-
----
-
-## Uso en Value Objects
-
-Los Value Objects usan `Result<TValue, TError>` para exponer el tipo exacto del error:
-
-```csharp
-public sealed class Temperature : ValueObject
-{
-    public static Result<Temperature, ValidationError> Create(int celsius)
-    {
-        if (celsius < MinCelsius || celsius > MaxCelsius)
-            return WeatherForecastErrors.TemperatureOutOfRange;   // implícito
-        return new Temperature(celsius);                           // implícito
-    }
-}
-```
-
-En el Aggregate, `.TypedError` permite acceder al error concreto sin casting y usar `with` para agregar contexto de propiedad:
-
-```csharp
-var temperatureResult = Temperature.Create(temperature);
-if (temperatureResult.IsFailure)
-    errors.Add(temperatureResult.TypedError with { Property = nameof(Temperature), Value = temperature });
-//             ^^^^^^^^^^^^^^^^^
-//             Tipo: ValidationError — acceso sin casting, correcto en LSP
-```
-
-### Agregación de errores en el Aggregate
-
-```csharp
-public static Result<WeatherForecastAggregate> Create(...)
-{
-    var errors = new List<ValidationError>();
-
-    var temperatureResult = Temperature.Create(temperature);
-    if (temperatureResult.IsFailure)
-        errors.Add(temperatureResult.TypedError with { Property = nameof(Temperature), Value = temperature });
-
-    var addressResult = Address.Create(street, city, zipCode);
-    if (addressResult.IsFailure)
-        errors.Add(new ValidationError("Address is invalid.", ErrorType.Validation)
-        {
-            Property = nameof(Address),
-            Children = addressResult.TypedError.Errors
-        });
-
-    if (errors.Count > 0)
-        return DomainError.FromValidationDomainErrors(errors);  // implícito → Result<Aggregate>
-
-    return new WeatherForecastAggregate(entity);                // implícito → Result<Aggregate>
-}
-```
-
-
----
-
-## Uso en Repositorios
-
-### Contratos de la interfaz de dominio
-
-```csharp
-public interface IWeatherForecastRepositoryPort
-{
-    Task<Result<WeatherForecastAggregate>>  GetByIdAsync(Guid id, CancellationToken ct = default);
-    Task<PagedResult<WeatherForecastAggregate>> GetAllAsync(PageQuery page, CancellationToken ct = default);
-    Task<Result>                            AddAsync(WeatherForecastAggregate aggregate, CancellationToken ct = default);
-    Result                                  Update(WeatherForecastAggregate aggregate);
-    Result                                  Remove(WeatherForecastAggregate aggregate);
-    Task<Result<bool>>                      ExistsForDateAsync(DateTime date, CancellationToken ct = default);
-}
-```
-
-`SaveChangesAsync` **no pertenece al repositorio** — es responsabilidad del Unit of Work (ver sección siguiente).
-
-### Unit of Work — `IUnitOfWorkPort`
-
-La persistencia de cambios está separada del repositorio para respetar el patrón Unit of Work:
-
-```csharp
-public interface IUnitOfWorkPort
-{
-    Task<Result> CommitAsync(CancellationToken cancellationToken = default);
-}
-```
-
-`CommitAsync` captura tanto `DbUpdateException` (clasificada por `SqlServerErrorClassifier`) como cualquier otra excepción de infraestructura. La cancelación se deja propagar:
-
-```csharp
-public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
-{
-    try   { await context.SaveChangesAsync(cancellationToken); return Result.Success(); }
-    catch (DbUpdateException ex)                              { return SqlServerErrorClassifier.Classify(ex); }
-    catch (Exception ex) when (ex is not OperationCanceledException) { return PersistenceErrors.Failure(); }
-}
-```
-
-### Clasificación de errores de SQL Server
-
-`SqlServerErrorClassifier` (interno a infraestructura) traduce `SqlException.Number` a errores de dominio semánticos sin exponer mensajes del servidor:
-
-| `SqlException.Number` | Causa | `ErrorType` |
-|---|---|---|
-| 2627 | Violación de PRIMARY KEY | `Conflict` |
-| 2601 | Fila duplicada en índice único | `Conflict` |
-| 547 | Violación de FOREIGN KEY | `Conflict` |
-| 515 | INSERT de NULL en columna NOT NULL | `Validation` |
-| 8152 | Valor excede la longitud máxima | `Validation` |
-| 1205 | Víctima de deadlock | `Internal` |
-| otros | Error genérico de persistencia | `Internal` |
-
-### Implementación en la clase base
-
-`BaseAggregateRepository<TAggregate, TEntity>` implementa el comportamiento común. Las subclases implementan `ToAggregate` y `ToEntity` para la conversión entre entidades y aggregates:
-
-```csharp
-// Repositorio concreto — solo conversión y métodos específicos del contexto
-public sealed class WeatherForecastRepositoryAdapter(ApplicationDbContext context)
-    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity>(context),
-      IWeatherForecastRepositoryPort
-{
-    protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)
-        => WeatherForecastAggregate.FromEntity(entity);
-
-    protected override WeatherForecastEntity ToEntity(WeatherForecastAggregate aggregate)
-        => aggregate.ToEntity();
-
-    public async Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default) { ... }
-}
-```
-
-Las excepciones de infraestructura en todos los métodos del repositorio se convierten en `PersistenceErrors.Failure()`. La cancelación se deja propagar:
-
-```csharp
-catch (Exception ex) when (ex is not OperationCanceledException)
-{
-    return PersistenceErrors.Failure();   // mensaje genérico seguro, sin ex.Message
-}
-```
-
-
----
-
-## Paginación
-
-### `PageQuery` — parámetros de consulta (dominio)
-
-Objeto de dominio que encapsula los parámetros de paginación. Vive en `Shared.Domain.Pagination`:
-
-```csharp
-public sealed record PageQuery(int PageIndex, int PageSize)
-{
-    public int Skip => PageIndex * PageSize;
-}
-```
-
-### `PageQueryInputDto` — entrada HTTP (aplicación)
-
-DTO de entrada para endpoints paginados. Vive en `Shared.Application.Dtos`. Se valida automáticamente por `PageQueryInputValidator` al usar `[ValidateRequest]`:
-
-```csharp
-public sealed record PageQueryInputDto(int PageIndex = 0, int PageSize = 20)
-{
-    public const int MaxPageSize = 100;
-}
-```
-
-Reglas de validación:
-* `PageIndex >= 0`
-* `PageSize` entre `1` y `PageQueryInputDto.MaxPageSize` (100)
-
-### Flujo de paginación de extremo a extremo
-
-```
-GET /api/v1/weatherforecast?pageIndex=0&pageSize=20
-        ↓
-[FromQuery] PageQueryInputDto  →  [ValidateRequest] → 400 si inválido
-        ↓
-new PageQuery(input.PageIndex, input.PageSize)
-        ↓
-IGetWeatherForecastPort.ExecuteAsync(page)
-        ↓
-IWeatherForecastRepositoryPort.GetAllAsync(page)
-        ↓
-SELECT … OFFSET page.Skip ROWS FETCH NEXT page.PageSize ROWS ONLY
-COUNT(*) para el total
-        ↓
-PagedResult<WeatherForecastAggregate> { Items, TotalCount }
-        ↓
-PagedResult<GetWeatherForecastOutputDto> { Items, TotalCount }
-        ↓
-{ data: { items: [...], totalCount: N }, statusCode: 200 }
-```
-
-Para agregar paginación a un nuevo endpoint basta con:
-1. Recibir `[FromQuery] PageQueryInputDto pagination` en el action
-2. Añadir `[ValidateRequest]` al action
-3. Construir `new PageQuery(pagination.PageIndex, pagination.PageSize)` y pasarlo al use case
-
-
----
-
-## Uso en Use Cases (Application Layer)
+## Uso en Use Cases
 
 ### Patrón estándar de manejo
 
@@ -528,7 +169,7 @@ if (result.IsFailure)
 ## Reglas de uso
 
 | Situación | Usar |
-|---|---|
+|-----------|------|
 | Operación que puede no encontrar el recurso | `Result<T>` con `ErrorType.NotFound` |
 | Validación de una sola propiedad en un Value Object | `Result<T, ValidationError>` |
 | Validación de múltiples propiedades en un Aggregate | `Result<T>` con `DomainError.FromValidationDomainErrors(errors)` |
@@ -542,3 +183,13 @@ if (result.IsFailure)
 | Acceder a `.Error` sin verificar `IsFailure` | **Prohibido** — lanza `InvalidOperationException` |
 | Acceder a `.TypedError` sin verificar `IsFailure` | **Prohibido** — lanza `InvalidOperationException` |
 | Exponer `ex.Message` en errores de infraestructura | **Prohibido** — usar `PersistenceErrors.Failure()` |
+
+
+---
+
+## Ver también
+
+- [errores-dominio.md](errores-dominio.md) — jerarquía de errores, `ErrorType`, cómo definir errores por contexto
+- [repositorio.md](repositorio.md) — contratos de repositorio, Unit of Work, paginación
+- [value-objects.md](value-objects.md) — uso de `Result<T, ValidationError>` en Value Objects
+- [validaciones.md](validaciones.md) — mapa de las cinco capas de validación

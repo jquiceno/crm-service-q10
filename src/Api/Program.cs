@@ -1,7 +1,7 @@
 using Api.DependencyInjection;
 using Api.Filters;
 using Api.Middleware;
-using Api.Routing;
+using Shared.Presentation.Routing;
 using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;

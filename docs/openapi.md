@@ -1,17 +1,19 @@
-# OpenAPI y documentación de API
+# OpenAPI
 
 Este documento describe cómo está integrado OpenAPI en la plantilla, cómo activarlo, cómo documentar endpoints en controllers y buenas prácticas.
+
 
 ---
 
 ## Resumen de la arquitectura de documentación
 
-| Elemento                             | Paquete / rol                                                                                                                                                              |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Generación del documento OpenAPI** | `Microsoft.AspNetCore.OpenApi` — documento JSON (por defecto OpenAPI 3.1) a partir de los endpoints descubiertos por el API Explorer.                                      |
-| **Interfaz Swagger UI**              | `Swashbuckle.AspNetCore.SwaggerUI` — solo la UI embebida; **no** se usa `Swashbuckle.AspNetCore` completo (sin SwaggerGen ni middleware `UseSwagger` para servir el JSON). |
+| Elemento | Paquete / rol |
+|----------|---------------|
+| **Generación del documento OpenAPI** | `Microsoft.AspNetCore.OpenApi` — documento JSON (por defecto OpenAPI 3.1) a partir de los endpoints descubiertos por el API Explorer. |
+| **Interfaz Swagger UI** | `Swashbuckle.AspNetCore.SwaggerUI` — solo la UI embebida; **no** se usa `Swashbuckle.AspNetCore` completo (sin SwaggerGen ni middleware `UseSwagger` para servir el JSON). |
 
-El JSON oficial se expone en **`/openapi/v1.json`** (documento por defecto llamado `v1`). Swagger UI se expone en **`/swagger`** y apunta a ese JSON.
+El JSON oficial se expone en `**/openapi/v1.json**` (documento por defecto llamado `v1`). Swagger UI se expone en `**/swagger**` y apunta a ese JSON.
+
 
 ---
 
@@ -22,6 +24,7 @@ El JSON oficial se expone en **`/openapi/v1.json`** (documento por defecto llama
 Se sigue usando Swagger UI ya que el paquete de Microsoft no trae por defecto un visualizador. Otra alternativa a considerar es usar [**Scalar**](https://scalar.com/) que es una interfaz mas moderna y completa que Swagger UI
 
 Referencia oficial: [Usar documentos OpenAPI generados](https://learn.microsoft.com/es-es/aspnet/core/fundamentals/openapi/using-openapi-documents) y [Generar documentos OpenAPI](https://learn.microsoft.com/es-es/aspnet/core/fundamentals/openapi/aspnetcore-openapi).
+
 
 ---
 
@@ -39,8 +42,8 @@ if (builder.Environment.IsDevelopment())
 }
 ```
 
-- **`AddEndpointsApiExplorer`**: necesario para que el API Explorer describa los endpoints.
-- **`AddOpenApi`**: registra la generación del documento (por defecto el nombre del documento es **`v1`**).
+* `**AddEndpointsApiExplorer**`: necesario para que el API Explorer describa los endpoints.
+* `**AddOpenApi**`: registra la generación del documento (por defecto el nombre del documento es `**v1**`).
 
 ### Pipeline HTTP
 
@@ -55,12 +58,14 @@ if (app.Environment.IsDevelopment())
 }
 ```
 
-- **`MapOpenApi()`**: publica el JSON en **`/openapi/v1.json`** (ruta por convención).
-- **`UseSwaggerUI`**: sirve la UI en `/swagger` y carga el JSON anterior.
+* `**MapOpenApi()**`: publica el JSON en `**/openapi/v1.json**` (ruta por convención).
+* `**UseSwaggerUI**`: sirve la UI en `/swagger` y carga el JSON anterior.
+
 
 ---
 
 ## Buenas prácticas
+
 
 1. **El controller es un adaptador**: traduce HTTP ↔ DTOs de entrada/salida del caso de uso; la documentación OpenAPI describe ese contrato HTTP, no la lógica de dominio interna.
 2. **Tipos de retorno explícitos**: preferir `ActionResult<T>` / `Task<ActionResult<T>>` sobre `IActionResult` cuando el éxito tenga un cuerpo estable; facilita inferencia de esquemas al especificar el tipo.
@@ -68,6 +73,7 @@ if (app.Environment.IsDevelopment())
 4. **Especificar título y descripción en operaciones**: `[EndpointSummary("...")]`, `[EndpointDescription("...")]`
 5. **Agrupación en Swagger UI**: Usar tags preferiblemente por contexto o dominio `[Tags("dominio")]`
 6. **Esquema de errores**: Definir también el tipo de error en los atributos de `[ProducesResponseType]`
+
 
 ---
 
@@ -80,15 +86,16 @@ if (app.Environment.IsDevelopment())
 - [ ] Usar **DTOs con nullable reference types** para distinguir obligatorios vs opcionales en el esquema.
 - [ ] Usar **Atributo Description** en las propiedades del DTO para documentar la propiedad.
 
-### Metadatos “de producto”
+### Metadatos "de producto"
 
 - [ ] Ajustar **título, descripción, versión, contacto, licencia** del documento (transformadores en `AddOpenApi` o equivalente).
-- [ ] Configurar **`servers`** para dev/stage/prod cuando el mismo binario se despliegue en varios entornos y el spec se consuma fuera de localhost.
+- [ ] Configurar `**servers**` para dev/stage/prod cuando el mismo binario se despliegue en varios entornos y el spec se consuma fuera de localhost.
 
 ### Seguridad
 
-- [ ] Mantener **Swagger UI y `/openapi/*.json` deshabilitados en producción**, salvo requisito explícito y que exista autenticación.
-- [ ] Cuando exista **JWT, API keys u OAuth**, registrar el **esquema de seguridad** en OpenAPI y marcar operaciones protegidas para que “Authorize” en Swagger UI sea coherente con la API real.
+- [ ] Mantener **Swagger UI y** `**/openapi/\*.json**` **deshabilitados en producción**, salvo requisito explícito y que exista autenticación.
+- [ ] Cuando exista **JWT, API keys u OAuth**, registrar el **esquema de seguridad** en OpenAPI y marcar operaciones protegidas para que "Authorize" en Swagger UI sea coherente con la API real.
+
 
 ---
 
@@ -98,7 +105,8 @@ La plantilla puede versionar por **prefijo en ruta** (`api/v1/...`) y/o por paqu
 
 Si coexisten varias versiones:
 
-- Alinear **nombre del documento** (`AddOpenApi("v1")`, `AddOpenApi("v2")`) con las rutas o reglas de inclusión de endpoints.
-- En Swagger UI, registrar **varios** `SwaggerEndpoint` (uno por documento) para un selector de versiones en la UI.
+* Alinear **nombre del documento** (`AddOpenApi("v1")`, `AddOpenApi("v2")`) con las rutas o reglas de inclusión de endpoints.
+* En Swagger UI, registrar **varios** `SwaggerEndpoint` (uno por documento) para un selector de versiones en la UI.
+
 
 ---

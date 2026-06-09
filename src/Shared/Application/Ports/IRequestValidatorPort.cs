@@ -1,4 +1,4 @@
-using Shared.Domain.Result;
+using Shared.Results;
 
 namespace Shared.Application.Ports;
 

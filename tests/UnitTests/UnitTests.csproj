@@ -27,6 +27,7 @@
         <ProjectReference Include="..\..\src\Contexts\ServiceInfo\Application\ServiceInfo.Application.csproj" />
         <ProjectReference Include="..\..\src\Shared\Application\Shared.Application.csproj" />
         <ProjectReference Include="..\..\src\Infrastructure\Infrastructure.csproj" />
+        <ProjectReference Include="..\..\src\Shared\Infrastructure\MasterAccess\Infrastructure.MasterAccess.csproj" />
     </ItemGroup>
 
 </Project>

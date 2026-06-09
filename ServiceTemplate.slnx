@@ -8,12 +8,8 @@
     <Project Path="./src/Contexts/ServiceInfo/Domain/ServiceInfo.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Infra/">
-    <Project Path="./src/Shared/Infrastructure/MasterAccess/Infrastructure.MasterAccess.csproj">
-      <Build Solution="Debug|*" Project="false" />
-    </Project>
-    <Project Path="./src/Infrastructure/Infrastructure.csproj">
-      <Build Solution="Debug|*" Project="false" />
-    </Project>
+    <Project Path="./src/Shared/Infrastructure/MasterAccess/Infrastructure.MasterAccess.csproj" />
+    <Project Path="./src/Infrastructure/Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Library/">
     <Project Path="./src/Shared/Infrastructure/Presentation/Shared.Presentation.csproj" />

@@ -3,7 +3,7 @@ using Shared.Results;
 
 namespace Shared.Domain.Interfaces;
 
-public interface IRepositoryBase<TAggregate, TId>
+public interface IRootRepository<TAggregate, TId>
     where TAggregate : IAggregateRoot
     where TId : notnull
 {

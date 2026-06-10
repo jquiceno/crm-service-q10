@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Domain.Aggregates;
-using Shared.Domain.Entities;
 using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
 using Shared.Results;
@@ -9,23 +8,19 @@ using Shared.Results.Errors;
 
 namespace Infrastructure.Persistence.EntityFramework.Common;
 
-public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(ApplicationDbContext context, ILoggerPort<object> logger)
-    : IRepositoryBase<TAggregate, TId>
-    where TAggregate : AggregateRoot<TEntity, TId>
-    where TEntity : EntityRoot<TId>
+public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext context, ILoggerPort<object> logger)
+    : IRootRepository<TAggregate, TId>
+    where TAggregate : AggregateRoot<TId>
     where TId : notnull
 {
-    protected DbSet<TEntity> DbSet { get; } = context.Set<TEntity>();
-
-    protected abstract TAggregate ToAggregate(TEntity entity);
-    protected abstract TEntity ToEntity(TAggregate aggregate);
+    protected DbSet<TAggregate> DbSet { get; } = context.Set<TAggregate>();
 
     public virtual async Task<Result<TAggregate>> GetByIdAsync(TId id, CancellationToken cancellationToken = default)
     {
         try
         {
-            var entity = await DbSet.FindAsync(new object[] { id }, cancellationToken).ConfigureAwait(false);
-            return entity is null ? GetNotFoundError(id) : ToAggregate(entity);
+            var aggregate = await DbSet.FindAsync(new object[] { id }, cancellationToken).ConfigureAwait(false);
+            return aggregate is null ? GetNotFoundError(id) : Result<TAggregate>.Success(aggregate);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -49,7 +44,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
                 .Select(g => new
                 {
                     Total = g.Count(),
-                    Entities = g
+                    Items = g
                         .OrderBy(x => x)
                         .Skip(page.Skip)
                         .Take(page.PageSize)
@@ -58,11 +53,9 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
                 .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
             if (result is null)
-            {
                 return PagedResult<TAggregate>.Success([], 0);
-            }
 
-            IReadOnlyList<TAggregate> aggregates = [.. result.Entities.Select(ToAggregate)];
+            IReadOnlyList<TAggregate> aggregates = [.. result.Items];
             return PagedResult<TAggregate>.Success(aggregates, result.Total);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -76,7 +69,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            await DbSet.AddAsync(ToEntity(aggregate), cancellationToken).ConfigureAwait(false);
+            await DbSet.AddAsync(aggregate, cancellationToken).ConfigureAwait(false);
             return Result.Success();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -90,7 +83,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            DbSet.Update(ToEntity(aggregate));
+            DbSet.Update(aggregate);
             return Result.Success();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -104,7 +97,7 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(Applicat
     {
         try
         {
-            DbSet.Remove(ToEntity(aggregate));
+            DbSet.Remove(aggregate);
             return Result.Success();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

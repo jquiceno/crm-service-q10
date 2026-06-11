@@ -1,16 +1,33 @@
 using Shared.Domain.Aggregates;
-using Shared.Domain.Tenants.Entities;
 
 namespace Shared.Domain.Tenants.Aggregates;
 
-public sealed class TenantAggregate : AggregateRoot<TenantEntity, string>
+public sealed class TenantAggregate : AggregateRoot<string>
 {
-    private TenantAggregate(TenantEntity entity) : base(entity) { }
-
     public string Code => Id;
-    public string Database => Entity.Database;
-    public int ServerDatabase => Entity.ServerDatabase;
+    public string Database { get; private set; } = string.Empty;
+    public int ServerDatabase { get; private set; }
+
+    private TenantAggregate(string code, string database, int serverDatabase)
+    {
+        Id = code;
+        Database = database;
+        ServerDatabase = serverDatabase;
+    }
+
+    public static TenantAggregate Create(string code, string database, int serverDatabase)
+    {
+        var aggregate = new TenantAggregate(code, database, serverDatabase);
+        aggregate.Created();
+        return aggregate;
+    }
 
     public static TenantAggregate Reconstruct(string code, string database, int serverDatabase) =>
-        new(new TenantEntity(code, database, serverDatabase));
+        new(code, database, serverDatabase);
+
+    protected override void Created()
+    {
+        SetCreatedAt(DateTime.UtcNow);
+        SetUpdatedAt(DateTime.UtcNow);
+    }
 }

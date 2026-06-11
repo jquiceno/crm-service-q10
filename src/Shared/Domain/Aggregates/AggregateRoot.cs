@@ -3,16 +3,8 @@ using Shared.Domain.Interfaces;
 
 namespace Shared.Domain.Aggregates;
 
-public abstract class AggregateRoot<TEntity, TId> : IAggregateRoot
-    where TEntity : EntityRoot<TId>
+public abstract class AggregateRoot<TId> : EntityRoot<TId>, IAggregateRoot
     where TId : notnull
 {
-    protected TEntity Entity { get; }
-
-    protected AggregateRoot(TEntity entity)
-    {
-        Entity = entity ?? throw new ArgumentNullException(nameof(entity));
-    }
-
-    public TId Id => Entity.Id;
+    protected abstract void Created();
 }

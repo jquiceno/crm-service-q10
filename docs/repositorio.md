@@ -11,7 +11,7 @@ El proyecto implementa **Clean Architecture** combinada con principios de **Doma
 src/
 ├── Shared/
 │   ├── Domain/
-│   │   ├── Interfaces/           # IRepositoryBase, IAggregateRoot
+│   │   ├── Interfaces/           # IRootRepository, IAggregateRoot
 │   │   ├── Result/               # Result<T>, PagedResult<T>
 │   │   └── Pagination/           # PageQuery
 │   └── Application/
@@ -27,7 +27,7 @@ src/
     ├── Persistence/EntityFramework/
     │   ├── ApplicationDbContext.cs
     │   ├── Common/
-    │   │   └── BaseAggregateRepository.cs   # Repositorio genérico
+    │   │   └── RepositoryBaseEF.cs   # Repositorio genérico
     │   └── WeatherForecast/Configurations/
     └── Adapters/
         └── Persistence/
@@ -40,11 +40,11 @@ src/
 
 ## Componentes del patrón de repositorio
 
-### `IRepositoryBase<TAggregate, TId>`
+### `IRootRepository<TAggregate, TId>`
 
 ```csharp
-// Shared/Domain/Interfaces/IRepositoryBase.cs
-public interface IRepositoryBase<TAggregate, TId>
+// Shared/Domain/Interfaces/IRootRepository.cs
+public interface IRootRepository<TAggregate, TId>
     where TAggregate : IAggregateRoot
     where TId : notnull
 {
@@ -60,34 +60,32 @@ Todos los métodos retornan `Result` — nunca lanzan excepciones al caller.
 
 ### Puerto de repositorio del contexto
 
-Extiende `IRepositoryBase` con queries específicas del dominio:
+Extiende `IRootRepository` con queries específicas del dominio:
 
 ```csharp
 // Contexts/WeatherForecast/Domain/Ports/IWeatherForecastRepositoryPort.cs
-public interface IWeatherForecastRepositoryPort : IRepositoryBase<WeatherForecastAggregate, Guid>
+public interface IWeatherForecastRepositoryPort : IRootRepository<WeatherForecastAggregate, Guid>
 {
     Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default);
 }
 ```
 
-### Repositorio genérico — `BaseAggregateRepository<TAggregate, TEntity, TId>`
+### Repositorio genérico — `RepositoryBaseEF<TAggregate, TId>`
 
-Implementación base en infraestructura. Maneja CRUD + paginación. Requiere implementar dos métodos abstractos:
+Implementación base en infraestructura. El agregado **es** la entidad que EF Core mapea directamente, por lo que no hay conversiones intermedias. Maneja CRUD + paginación:
 
 ```csharp
-// Infrastructure/Persistence/EntityFramework/Common/BaseAggregateRepository.cs
-public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(
+// Infrastructure/Persistence/EntityFramework/Common/RepositoryBaseEF.cs
+public abstract class RepositoryBaseEF<TAggregate, TId>(
     ApplicationDbContext context, ILoggerPort<object> logger)
-    : IRepositoryBase<TAggregate, TId>
-    where TAggregate : AggregateRoot<TEntity, TId>
-    where TEntity    : Entity<TId>
+    : IRootRepository<TAggregate, TId>
+    where TAggregate : AggregateRoot<TId>
     where TId        : notnull
 {
-    protected abstract TAggregate ToAggregate(TEntity entity);
-    protected abstract TEntity    ToEntity(TAggregate aggregate);
+    protected DbSet<TAggregate> DbSet { get; } = context.Set<TAggregate>();
 
-    // Overridable if the context has its own "not found" error
-    protected virtual DomainError GetNotFoundError(TId id)
+    // Overridable si el contexto tiene su propio error "not found"
+    protected virtual NotFoundError GetNotFoundError(TId id)
         => SharedErrors.NotFound(typeof(TAggregate).Name, id!);
 }
 ```
@@ -98,23 +96,17 @@ public abstract class BaseAggregateRepository<TAggregate, TEntity, TId>(
 
 ### Adaptador concreto — `WeatherForecastRepositoryAdapter`
 
-Hereda de `BaseAggregateRepository` e implementa las conversiones y queries extras:
+Hereda de `RepositoryBaseEF` e implementa las queries extras del contexto:
 
 ```csharp
 // Infrastructure/Adapters/Persistence/WeatherForecast/WeatherForecastRepositoryAdapter.cs
 public sealed class WeatherForecastRepositoryAdapter(
     ApplicationDbContext context,
     ILoggerPort<WeatherForecastRepositoryAdapter> logger)
-    : BaseAggregateRepository<WeatherForecastAggregate, WeatherForecastEntity, Guid>(context, logger),
+    : RepositoryBaseEF<WeatherForecastAggregate, Guid>(context, logger),
       IWeatherForecastRepositoryPort
 {
-    protected override WeatherForecastAggregate ToAggregate(WeatherForecastEntity entity)
-        => WeatherForecastAggregate.FromEntity(entity);
-
-    protected override WeatherForecastEntity ToEntity(WeatherForecastAggregate aggregate)
-        => aggregate.ToEntity();
-
-    protected override DomainError GetNotFoundError(Guid id)
+    protected override NotFoundError GetNotFoundError(Guid id)
         => WeatherForecastErrors.NotFound(id);
 
     public async Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default)

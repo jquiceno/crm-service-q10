@@ -3,12 +3,9 @@
 ## Jerarquía de tipos
 
 ```
-Entity
-└── Entity<TId>
-        └── (implementada por cada entidad de contexto)
-
-AggregateRoot<TEntity, TId>   ← wrappea una Entity<TId>
-        └── (implementado por cada agregado de contexto)
+EntityRoot
+└── EntityRoot<TId>
+        └── AggregateRoot<TId>   ← heredado por cada agregado de contexto
 ```
 
 Todos los tipos base viven en `Shared.Domain`.
@@ -16,73 +13,65 @@ Todos los tipos base viven en `Shared.Domain`.
 
 ---
 
-## `Entity<TId>` — clase base de entidades
+## `EntityRoot<TId>` — clase base de entidades
 
 ```csharp
-public abstract class Entity<TId> : Entity where TId : notnull
+public abstract class EntityRoot<TId> : EntityRoot where TId : notnull
 {
-    public TId      Id            { get; set; } = default!;
-    protected Entity() { }
+    public TId Id { get; protected set; } = default!;
+    protected EntityRoot() { }
 
     // igualdad por Id
     public override bool Equals(object? obj) =>
-        obj is Entity<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);
+        obj is EntityRoot<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);
     public override int GetHashCode() => Id?.GetHashCode() ?? 0;
-    public static bool operator ==(Entity<TId>? left, Entity<TId>? right) => Equals(left, right);
-    public static bool operator !=(Entity<TId>? left, Entity<TId>? right) => !Equals(left, right);
+    public static bool operator ==(EntityRoot<TId>? left, EntityRoot<TId>? right) => Equals(left, right);
+    public static bool operator !=(EntityRoot<TId>? left, EntityRoot<TId>? right) => !Equals(left, right);
 }
 ```
 
-La clase `Entity` no genérica aporta los campos de auditoría:
+La clase `EntityRoot` no genérica aporta los campos de auditoría:
 
 ```csharp
-public abstract class Entity
+public abstract class EntityRoot
 {
-    public DateTime  CreatedAtUtc  { get; private set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAtUtc  { get; private set; }
-    public void SetUpdatedAtUtc() => UpdatedAtUtc = DateTime.UtcNow;
+    public DateTime? CreatedAt { get; protected set; }
+    public DateTime? UpdatedAt { get; protected set; }
+
+    protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
+    protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
 }
 ```
 
 | Elemento | Descripción |
 |----------|-------------|
 | `Id` | Clave de identidad; define igualdad |
-| `CreatedAtUtc` | Se asigna automáticamente al construir la entidad |
-| `UpdatedAtUtc` | `null` hasta la primera actualización |
-| `SetUpdatedAtUtc()` | El agregado lo llama antes de `repository.Update()` |
+| `CreatedAt` | Asignado en `Created()` al crear el agregado; `null` si se reconstruye desde persistencia sin el campo |
+| `UpdatedAt` | `null` hasta la primera actualización |
+| `SetCreatedAt(dt)` | Llamado dentro de `Created()` al crear un agregado nuevo |
+| `SetUpdatedAt(dt)` | Llamado dentro del método de mutación del agregado, antes de `repository.Update()` |
 | Igualdad | Por `Id`, no por valor de propiedades |
-
-> `Entity<TId>` tiene el constructor `protected`. En cada contexto el constructor de la entidad se declara `internal` para que solo la infraestructura pueda reconstruirla.
 
 
 ---
 
-## `AggregateRoot<TEntity, TId>` — clase base de agregados
+## `AggregateRoot<TId>` — clase base de agregados
 
 ```csharp
-public abstract class AggregateRoot<TEntity, TId> : IAggregateRoot
-    where TEntity : Entity<TId>
+public abstract class AggregateRoot<TId> : EntityRoot<TId>, IAggregateRoot
     where TId : notnull
 {
-    protected TEntity Entity { get; }
-
-    protected AggregateRoot(TEntity entity)
-    {
-        Entity = entity ?? throw new ArgumentNullException(nameof(entity));
-    }
-
-    public TId Id => Entity.Id;
+    protected abstract void Created();
 }
 ```
 
 | Elemento | Descripción |
 |----------|-------------|
-| `Entity` | La entidad que wrappea; `protected` — solo accesible desde el agregado |
-| `Id` | Delegado a `Entity.Id` |
-| Constructor | `protected`; lanza `ArgumentNullException` si la entidad es null |
+| `EntityRoot<TId>` | El agregado **es** la entidad; hereda `Id`, `CreatedAt`, `UpdatedAt` |
 | `IAggregateRoot` | Interfaz marcadora; permite referenciar agregados sin conocer sus tipos concretos |
+| `Created()` | Método abstracto **obligatorio**. Solo se llama desde el factory `Create()`, nunca desde `Reconstruct()` |
 
-> El constructor del agregado concreto se declara `private`. Solo los métodos factory `Create()` y `FromEntity()` pueden instanciarlo.
+> El constructor del agregado concreto se declara `private`. Solo los métodos factory `Create()` y `Reconstruct()` pueden instanciarlo.
 
 
 ---
@@ -90,16 +79,21 @@ public abstract class AggregateRoot<TEntity, TId> : IAggregateRoot
 ## Anatomía de un agregado concreto
 
 ```csharp
-public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
+public sealed class ProductAggregate : AggregateRoot<Guid>
 {
-    // Propiedades expuestas desde la entidad
-    public string  Name  => Entity.Name;
-    public decimal Price => Entity.Price;
+    // Propiedades propias del agregado
+    public string  Name  { get; private set; } = string.Empty;
+    public decimal Price { get; private set; }
 
     // Constructor privado — solo accesible desde los factories
-    private ProductAggregate(ProductEntity entity) : base(entity) { }
+    private ProductAggregate(Guid id, string name, decimal price)
+    {
+        Id    = id;
+        Name  = name;
+        Price = price;
+    }
 
-    // Factory para creación nueva
+    // Factory para creación nueva — llama Created() para inicializar auditoría
     public static Result<ProductAggregate> Create(string name, decimal price)
     {
         var errors = new List<ValidationError>();
@@ -109,27 +103,29 @@ public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var entity = new ProductEntity
-        {
-            Id    = Guid.NewGuid(),
-            Name  = name,
-            Price = price
-        };
-        return new ProductAggregate(entity);
+        var aggregate = new ProductAggregate(Guid.NewGuid(), name, price);
+        aggregate.Created();
+        return aggregate;
     }
 
-    // Factory para reconstrucción desde persistencia
-    public static ProductAggregate FromEntity(ProductEntity entity)
-        => new(entity);
+    // Factory para reconstrucción desde persistencia — sin validaciones ni auditoría
+    public static ProductAggregate Reconstruct(Guid id, string name, decimal price)
+        => new(id, name, price);
 
-    // Conversión inversa para persistencia
-    public ProductEntity ToEntity() => Entity;
+    // Implementación obligatoria de Created()
+    protected override void Created()
+    {
+        SetCreatedAt(DateTime.UtcNow);
+        SetUpdatedAt(DateTime.UtcNow);
+    }
 
     // Mutación — marca la fecha de actualización
     public Result Update(string name, decimal price)
     {
-        // ... validar y actualizar campos en Entity ...
-        Entity.SetUpdatedAtUtc();
+        // ... validar y actualizar campos ...
+        Name  = name;
+        Price = price;
+        SetUpdatedAt(DateTime.UtcNow);
         return Result.Success();
     }
 }
@@ -138,68 +134,41 @@ public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
 
 ---
 
-## Relación entre entidad y agregado
+## `Create()` vs `Reconstruct()`
 
-```
-[Base de datos]
-      │
-      ▼
-  ProductEntity          ← modelo de persistencia (EF Core)
-      │
-      ▼
-  ProductAggregate       ← cara pública del dominio
-      │                     expone propiedades, contiene métodos Create/Update
-      ▼
-  [Use Case / Repository]
-```
+| Método | Cuándo usarlo | Llama `Created()` |
+|--------|---------------|:-----------------:|
+| `Create(...)` | Nueva entidad de negocio | Sí |
+| `Reconstruct(...)` | Reconstruir desde persistencia o lectura de BD | No |
 
-- La **entidad** es el modelo que EF Core mapea a la tabla.
-- El **agregado** es lo que el resto de la aplicación ve; oculta los detalles de la entidad.
-- El repositorio recibe y devuelve **agregados**; usa `ToEntity()` / `FromEntity()` internamente.
-
-### `ToAggregate` y `ToEntity` en el repositorio
-
-`BaseAggregateRepository` declara dos métodos abstractos que cada repositorio concreto implementa:
-
-```csharp
-protected abstract TAggregate ToAggregate(TEntity entity);
-protected abstract TEntity    ToEntity(TAggregate aggregate);
-```
-
-```csharp
-// Implementación típica en ProductRepository
-protected override ProductAggregate ToAggregate(ProductEntity entity)
-    => ProductAggregate.FromEntity(entity);
-
-protected override ProductEntity ToEntity(ProductAggregate aggregate)
-    => aggregate.ToEntity();
-```
+- `Create()` dispara la lógica de inicialización del dominio: asigna `CreatedAt`, `UpdatedAt` y cualquier evento de dominio.
+- `Reconstruct()` solo reensambla el estado ya existente; los datos ya son válidos y las fechas las trae la BD.
 
 
 ---
 
-## Auditoría: cuándo llamar a `SetUpdatedAtUtc()`
+## Auditoría: cuándo llamar a `SetUpdatedAt()`
 
-`SetUpdatedAtUtc()` debe llamarse **dentro del método de mutación del agregado**, antes de que el Use Case llame a `repository.Update()`:
+`SetUpdatedAt()` debe llamarse **dentro del método de mutación del agregado**, antes de que el Use Case llame a `repository.Update()`:
 
 ```csharp
 // En el agregado
 public Result Update(string name, decimal price)
 {
-    Entity.Name  = name;
-    Entity.Price = price;
-    Entity.SetUpdatedAtUtc();   // <-- aquí, antes de salir del dominio
+    Name  = name;
+    Price = price;
+    SetUpdatedAt(DateTime.UtcNow);   // <-- aquí, antes de salir del dominio
     return Result.Success();
 }
 
 // En el Use Case
 var updateResult = aggregate.Update(input.Name, input.Price);
-if (updateResult.IsFailure) return updateResult.Error ...;
+if (updateResult.IsFailure) return updateResult.Error;
 
-var repoResult = repository.Update(aggregate);
+repository.Update(aggregate);
 ```
 
-`CreatedAtUtc` se asigna automáticamente en el constructor de `Entity` y nunca se modifica.
+`CreatedAt` se asigna una sola vez en `Created()` y nunca se modifica.
 
 
 ---
@@ -208,5 +177,5 @@ var repoResult = repository.Update(aggregate);
 
 - [value-objects.md](value-objects.md) — Value Objects que viven dentro del agregado
 - [errores-dominio.md](errores-dominio.md) — cómo definir y acumular errores de dominio
-- [repositorio.md](repositorio.md) — `IRepositoryBase`, `BaseAggregateRepository`, Unit of Work
+- [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work
 - [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo paso a paso para modelar el dominio de un contexto

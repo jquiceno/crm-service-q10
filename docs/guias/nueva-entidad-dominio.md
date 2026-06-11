@@ -131,68 +131,33 @@ Puntos clave:
 
 ---
 
-## Paso 4 — Entidad
+## Paso 4 — Aggregate Root
 
-La entidad es la representación persistible del aggregate. El aggregate la wrappea y controla todo acceso a ella.
-
-```csharp
-// Contexts/Product/Domain/Entities/ProductEntity.cs
-using Shared.Domain.Entities;
-using Product.Domain.ValueObjects;
-
-namespace Product.Domain.Entities;
-
-public sealed class ProductEntity : Entity<Guid>
-{
-    public string Name  { get; private set; } = null!;
-    public Price  Price { get; private set; } = null!;
-
-    private ProductEntity() { }
-
-    internal ProductEntity(Guid id, string name, Price price)
-    {
-        Id    = id;
-        Name  = name;
-        Price = price;
-    }
-}
-```
-
-Puntos clave:
-
-- `Entity<Guid>`: el parámetro genérico es el tipo de la clave primaria. Puede ser `Guid`, `int`, `string`, etc.
-- `private set` en las propiedades: EF Core puede mutar las propiedades durante el tracking, pero el código de dominio no puede asignarlas directamente desde fuera.
-- Constructor `private` sin parámetros: requerido por EF Core para la materialización desde base de datos.
-- Constructor `internal`: solo el aggregate del mismo contexto puede crear instancias de la entidad. Nada fuera del ensamblado de dominio puede construirla directamente.
-- `Entity<TId>` incluye las propiedades de auditoría `CreatedAtUtc` y `UpdatedAtUtc` que se actualizan automáticamente.
-
----
-
-## Paso 5 — Aggregate Root
-
-El aggregate es el único punto de entrada al dominio. Toda creación, validación y reconstrucción pasa por él.
+El aggregate es el único punto de entrada al dominio. Toda creación, validación y reconstrucción pasa por él. El aggregate **es** directamente la entidad que EF Core mapea — no hay una clase entidad separada.
 
 ```csharp
 // Contexts/Product/Domain/Aggregates/ProductAggregate.cs
 using Shared.Domain.Aggregates;
 using Shared.Domain.Errors;
 using Shared.Domain.Result;
-using Product.Domain.Entities;
 using Product.Domain.Errors;
 using Product.Domain.ValueObjects;
 
 namespace Product.Domain.Aggregates;
 
-public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
+public sealed class ProductAggregate : AggregateRoot<Guid>
 {
-    // Propiedades públicas readonly que delegan en la entidad interna
-    public string  Name  => Entity.Name;
-    public decimal Price => Entity.Price.Value;
-    public DateTime CreatedAtUtc => Entity.CreatedAtUtc;
+    public string  Name  { get; private set; } = string.Empty;
+    public decimal Price { get; private set; }
 
-    private ProductAggregate(ProductEntity entity) : base(entity) { }
+    private ProductAggregate(Guid id, string name, decimal price)
+    {
+        Id    = id;
+        Name  = name;
+        Price = price;
+    }
 
-    public static Result<ProductAggregate> Create(Guid id, string name, decimal price)
+    public static Result<ProductAggregate> Create(string name, decimal price)
     {
         var errors = new List<ValidationError>();
 
@@ -209,20 +174,20 @@ public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var entity = new ProductEntity(id, name, priceResult.Value);
-        return new ProductAggregate(entity);
+        var aggregate = new ProductAggregate(Guid.NewGuid(), name, priceResult.Value.Value);
+        aggregate.Created();
+        return aggregate;
     }
 
-    /// <summary>
-    /// Reconstruye el aggregate desde la entidad recuperada de persistencia.
-    /// No realiza ninguna validación — se asume que los datos son válidos.
-    /// </summary>
-    public static ProductAggregate FromEntity(ProductEntity entity) => new(entity);
+    // Reconstruye el aggregate desde persistencia — sin validaciones ni auditoría
+    public static ProductAggregate Reconstruct(Guid id, string name, decimal price)
+        => new(id, name, price);
 
-    /// <summary>
-    /// Retorna la entidad interna para que el repositorio la persista.
-    /// </summary>
-    public ProductEntity ToEntity() => Entity;
+    protected override void Created()
+    {
+        SetCreatedAt(DateTime.UtcNow);
+        SetUpdatedAt(DateTime.UtcNow);
+    }
 }
 ```
 
@@ -231,37 +196,38 @@ public sealed class ProductAggregate : AggregateRoot<ProductEntity, Guid>
 El aggregate no retorna al primer error: recorre todas las validaciones y acumula los fallos. Esto permite que el llamante reciba todos los problemas de una sola vez en lugar de tener que corregir y volver a intentar campo por campo.
 
 ```
-Create(id, name, price)
+Create(name, price)
     │
     ├─▶ ¿Name vacío?              → acumular NameRequired
     │
     ├─▶ Price.Create(price)
     │       falla                 → acumular TypedError con { Property, Value }
-    │       éxito                 → guardar priceResult.Value para construir la entidad
+    │       éxito                 → guardar priceResult.Value
     │
     ├─▶ ¿errors.Count > 0?
     │       SÍ  →  return DomainError.FromValidationDomainErrors(errors)
     │               (conversión implícita DomainError → Result<ProductAggregate>)
     │
-    └─▶ new ProductEntity(id, name, priceResult.Value)
-        return new ProductAggregate(entity)
+    └─▶ new ProductAggregate(Guid.NewGuid(), name, price)
+        aggregate.Created()        ← asigna CreatedAt y UpdatedAt
+        return aggregate
         (conversión implícita ProductAggregate → Result<ProductAggregate>)
 ```
 
-`DomainError.FromValidationDomainErrors(errors)` agrupa los `ValidationError` acumulados en un único `DomainError` con `Type = DomainError` y `Details` poblados. La conversión implícita `DomainError → Result<T>` evita llamadas explícitas a `Result<ProductAggregate>.Failure(...)`.
+### `Create()` vs `Reconstruct()`
 
-### Responsabilidades de `FromEntity()` y `ToEntity()`
+| Método | Cuándo usarlo | Llama `Created()` |
+|--------|---------------|:-----------------:|
+| `Create(...)` | Nueva entidad de negocio | Sí |
+| `Reconstruct(...)` | Reconstruir desde persistencia | No |
 
-| Método | Quién lo llama | Para qué |
-|--------|---------------|----------|
-| `FromEntity(entity)` | Repositorio — al leer de la base de datos | Reconstruir el aggregate sin pasar por validaciones (los datos ya son válidos) |
-| `ToEntity()` | Repositorio — al escribir en la base de datos | Extraer la entidad interna que EF Core necesita para el tracking |
+`Reconstruct()` lo llama el repositorio al leer de la base de datos. Los datos ya son válidos y las fechas las trae la BD directamente a través de EF Core.
 
 ---
 
 ## Ver también
 
-- [entidades-y-agregados.md](../entidades-y-agregados.md) — clase base `Entity<TId>`, `AggregateRoot<TEntity, TId>`, auditoría
+- [entidades-y-agregados.md](../entidades-y-agregados.md) — clase base `EntityRoot<TId>`, `AggregateRoot<TId>`, auditoría
 - [value-objects.md](../value-objects.md) — anatomía completa de un Value Object
 - [patron-result.md](../patron-result.md) — jerarquía de errores y Result&lt;T, ValidationError&gt;
 - [nuevo-contexto.md](nuevo-contexto.md) — continúa con aplicación, infraestructura y API

@@ -22,7 +22,7 @@ public sealed class ServiceInfoEndpointsTests : IntegrationTestBase
 
         var body = await response.Content.ReadFromJsonAsync<ApiResponse<GetServiceInfoOutputDto>>(JsonSerializerOptions.Web);
         body!.Data.Status.ShouldBe("ok");
-        body.Data.ServiceName.ShouldNotBeNullOrEmpty();
+        body.Data.Name.ShouldNotBeNullOrEmpty();
         body.Data.Version.ShouldNotBeNullOrEmpty();
     }
 }

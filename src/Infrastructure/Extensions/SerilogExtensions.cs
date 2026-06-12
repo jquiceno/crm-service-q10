@@ -21,22 +21,22 @@ public static class SerilogExtensions
         return hostBuilder.UseSerilog(
             (context, loggerConfig) =>
             {
-                var appInfo =
-                    configuration.GetSection(AppInfoSettings.SectionName).Get<AppInfoSettings>()
+                var serviceInfo =
+                    configuration.GetSection(ServiceInfoSettings.SectionName).Get<ServiceInfoSettings>()
                     ?? throw new InvalidOperationException(
-                        $"Missing required configuration section '{AppInfoSettings.SectionName}'. "
-                        + "Ensure 'AppInfo:ServiceName' and 'AppInfo:Version' are set in appsettings.json.");
+                        $"Missing required configuration section '{ServiceInfoSettings.SectionName}'. "
+                        + "Ensure 'ServiceInfo:Name' and 'ServiceInfo:Version' are set in appsettings.json.");
 
                 loggerConfig
                     .ReadFrom.Configuration(configuration)
                     .Enrich.FromLogContext()
                     .Enrich.With<ActivityEnricher>()
-                    .Enrich.WithProperty("service", appInfo.ServiceName)
+                    .Enrich.WithProperty("service", serviceInfo.Name)
                     .Enrich.WithProperty(
                         "environment",
                         context.HostingEnvironment.EnvironmentName.ToLowerInvariant()
                     )
-                    .Enrich.WithProperty("version", appInfo.Version);
+                    .Enrich.WithProperty("version", serviceInfo.Version);
 
                 if (context.HostingEnvironment.IsDevelopment())
                 {

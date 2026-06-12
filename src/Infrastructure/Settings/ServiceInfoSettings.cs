@@ -2,13 +2,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Infrastructure.Settings;
 
-public sealed class AppInfoSettings
+public sealed class ServiceInfoSettings
 {
-    public const string SectionName = "AppInfo";
+    public const string SectionName = "ServiceInfo";
 
     [Required]
     [MinLength(1)]
-    public string ServiceName { get; init; } = string.Empty;
+    public string Name { get; init; } = string.Empty;
 
     [Required]
     [MinLength(1)]

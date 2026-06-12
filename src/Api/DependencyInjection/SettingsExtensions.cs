@@ -12,8 +12,13 @@ public static class SettingsExtensions
     /// </summary>
     public static IServiceCollection AddApiSettings(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<AppInfoSettings>()
-            .Bind(configuration.GetSection(AppInfoSettings.SectionName))
+        services.AddOptions<ServiceInfoSettings>()
+            .Bind(configuration.GetSection(ServiceInfoSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddOptions<TemplateSettings>()
+            .Bind(configuration.GetSection(TemplateSettings.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

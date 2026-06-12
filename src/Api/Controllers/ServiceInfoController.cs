@@ -9,7 +9,7 @@ namespace Api.Controllers;
 /// Endpoints that expose basic information about this service (name, version, status) without depending on the database or other external services.
 /// </summary>
 [ApiController]
-[Route("api/v1/info")]
+[Route("info")]
 public sealed class ServiceInfoController() : ControllerBase
 {
     [HttpGet]

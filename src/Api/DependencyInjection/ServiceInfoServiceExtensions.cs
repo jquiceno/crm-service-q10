@@ -9,7 +9,7 @@ public static class ServiceInfoServiceExtensions
     public static IServiceCollection AddServiceInfoServices(this IServiceCollection services)
     {
         services.AddSingleton<IGetServiceInfoPort, GetServiceInfoUseCase>();
-        services.AddSingleton<IAppInfoPort, AppInfoAdapter>();
+        services.AddSingleton<IServiceInfoPort, ServiceInfoAdapter>();
 
         return services;
     }

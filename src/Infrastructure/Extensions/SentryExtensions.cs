@@ -28,9 +28,9 @@ public static class SentryExtensions
             );
         }
 
-        var appInfo =
-            builder.Configuration.GetSection(AppInfoSettings.SectionName).Get<AppInfoSettings>()
-            ?? new AppInfoSettings();
+        var serviceInfo =
+            builder.Configuration.GetSection(ServiceInfoSettings.SectionName).Get<ServiceInfoSettings>()
+            ?? new ServiceInfoSettings();
 
         var deniedHeaders = new HashSet<string>(
             sentrySettings.DeniedHeaders
@@ -45,7 +45,7 @@ public static class SentryExtensions
         {
             options.Dsn = sentrySettings.Dsn;
             options.Environment = builder.Environment.EnvironmentName;
-            options.Release = appInfo.Version;
+            options.Release = serviceInfo.Version;
             options.TracesSampleRate = sentrySettings.TracesSampleRate;
             options.SendDefaultPii = false;
 

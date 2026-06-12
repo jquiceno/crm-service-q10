@@ -26,7 +26,7 @@ public static class OutputCacheExtensions
 
         if (!string.IsNullOrWhiteSpace(settings.ConnectionString))
         {
-            var serviceName = configuration[$"{AppInfoSettings.SectionName}:ServiceName"] ?? "app";
+            var serviceName = configuration[$"{ServiceInfoSettings.SectionName}:Name"] ?? "app";
 
             services.AddStackExchangeRedisOutputCache(options =>
             {

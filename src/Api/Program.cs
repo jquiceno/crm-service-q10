@@ -9,6 +9,7 @@ using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("template.json", optional: false, reloadOnChange: false);
 builder.Configuration.AddAzureKeyVault(builder.Environment);
 builder.AddSentry();
 builder.Host.AddSerilog(builder.Configuration);

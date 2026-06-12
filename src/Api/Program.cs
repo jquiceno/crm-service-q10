@@ -6,6 +6,7 @@ using Infrastructure.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +30,6 @@ builder.Services
 
 if (builder.Environment.IsDevelopment())
 {
-    builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddOpenApi(options =>
     {
         options.AddDocumentTransformer((document, context, cancellationToken) =>
@@ -69,10 +69,7 @@ app.UseCacheMiddleware();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/openapi/v1.json", "v1");
-    });
+    app.MapScalarApiReference("/openapi");
 }
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

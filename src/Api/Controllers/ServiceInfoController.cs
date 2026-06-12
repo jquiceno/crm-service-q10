@@ -14,7 +14,7 @@ public sealed class ServiceInfoController() : ControllerBase
 {
     [HttpGet]
     [Tags("serviceinfo")]
-    [ProducesResponseType(typeof(HttpOkResult<GetServiceInfoOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(GetServiceInfoOutputDto), StatusCodes.Status200OK)]
     [EndpointSummary("Get service info")]
     [EndpointDescription("Returns basic service information: status, service name, and version.")]
     public async Task<HttpOkResult<GetServiceInfoOutputDto>> GetInfo(

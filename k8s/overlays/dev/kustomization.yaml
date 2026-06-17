@@ -1,12 +1,27 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# ---------------------------------------------------------------------------
+# FORK CHECKLIST — when creating a new service from this template, update:
+#   1. namespace: below                     (service name)
+#   2. images.name / newName               (ECR image key and URI)
+#   3. All patch target `name:` values     (ConfigMap, Deployment, Ingress, etc.)
+#   4. ASPNETCORE_PATHBASE                 (URL prefix for this service)
+#   5. ExternalSecret key paths            (/platform/dev/<service>)
+#   6. GitHub repo variables:
+#        SERVICE_NAME = <service-name>
+#        IMAGE_KEY    = q10-<service-name>
+#        IMAGE_NAME   = <account>.dkr.ecr.<region>.amazonaws.com/q10-<service-name>
+#   7. terraform/env/*.tfvars              (service_name, github_repo)
+# ---------------------------------------------------------------------------
+
 namespace: service-template
 
 resources:
   - ../../base
 
-# Image tag with commit SHA, set by the CD pipeline
+# `name` must match the base deployment image AND vars.IMAGE_KEY GitHub repo variable.
+# The CD pipeline runs: kustomize edit set image <IMAGE_KEY>="<ECR_URI>:<TAG>"
 images:
   - name: q10-service-template
     newName: 764283926096.dkr.ecr.us-east-1.amazonaws.com/q10-service-template
@@ -25,6 +40,7 @@ patches:
         namespace: service-template
       data:
         ASPNETCORE_ENVIRONMENT: "Development"
+        ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         Persistence__Enabled: "false"
         Sentry__Enabled: "false"
         Cors__AllowedOrigins__0: "http://localhost:3000"

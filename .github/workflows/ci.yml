@@ -32,4 +32,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t service-template:ci-${{ github.sha }} .
+        run: docker build -t ${{ vars.SERVICE_NAME || github.event.repository.name }}:ci-${{ github.sha }} .

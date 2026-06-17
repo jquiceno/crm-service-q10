@@ -24,6 +24,7 @@ patches:
         namespace: service-template
       data:
         ASPNETCORE_ENVIRONMENT: "Staging"
+        ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
         Cors__AllowedOrigins__0: "https://qa.app.q10.com"
 

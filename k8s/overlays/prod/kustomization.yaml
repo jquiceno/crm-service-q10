@@ -12,7 +12,7 @@ images:
     newTag: prod-latest   # overridden in CD with the commit SHA
 
 patches:
-  # --- ConfigMap: prod values (base already has the correct defaults) ---
+  # --- ConfigMap: prod values ---
   - target:
       kind: ConfigMap
       name: service-template-config
@@ -24,6 +24,7 @@ patches:
         namespace: service-template
       data:
         ASPNETCORE_ENVIRONMENT: "Production"
+        ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
         Cors__AllowedOrigins__0: "https://app.q10.com"
 
@@ -50,6 +51,8 @@ patches:
         replicas: 2
 
   # --- Ingress: prod Internal ALB group + HTTPS ---
+  # Para habilitar HTTPS: obtener cert ARN en cuenta Prod:
+  #   aws acm list-certificates --profile <perfil-prod> --region us-east-1
   - target:
       kind: Ingress
       name: service-template-ingress

@@ -1,10 +1,10 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Restore
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS restore
+FROM mcr.microsoft.com/dotnet/nightly/sdk:10.0 AS restore
 WORKDIR /src
 
-COPY Directory.Build.props ServiceTemplate.slnx ./
+COPY Directory.Build.props ServiceTemplate.slnx .editorconfig .globalconfig ./
 COPY --parents src/**/*.csproj ./
 
 RUN dotnet restore src/Api/Api.csproj
@@ -15,15 +15,14 @@ COPY src/ src/
 RUN dotnet publish src/Api/Api.csproj -c Release -o /app/publish --no-restore
 
 # Stage 3: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/nightly/aspnet:10.0 AS runtime
 WORKDIR /app
 
 ARG APP_PORT=8080
 ENV ASPNETCORE_URLS=http://+:${APP_PORT}
 EXPOSE ${APP_PORT}
 
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+USER $APP_UID
 
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Api.dll"]

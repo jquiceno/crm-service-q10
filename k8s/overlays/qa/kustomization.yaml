@@ -49,6 +49,21 @@ patches:
       spec:
         replicas: 2
 
+  # --- Ingress: qa Internal ALB group + HTTPS ---
+  - target:
+      kind: Ingress
+      name: service-template-ingress
+    patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: service-template-ingress
+        namespace: service-template
+        annotations:
+          alb.ingress.kubernetes.io/group.name: q10-qa-internal
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          alb.ingress.kubernetes.io/certificate-arn: "" # TODO: set ACM cert ARN for qa
+
   # --- HPA: moderate range in qa ---
   - target:
       kind: HorizontalPodAutoscaler

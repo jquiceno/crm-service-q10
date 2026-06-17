@@ -10,24 +10,42 @@ spec:
   selector:
     matchLabels:
       app: service-template
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  minReadySeconds: 10
+  progressDeadlineSeconds: 300
   template:
     metadata:
       labels:
         app: service-template
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: service-template
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: service-template
       containers:
         - name: api
-          # Image overridden per overlay via kustomization images:
           image: q10-service-template:latest
           ports:
             - containerPort: 8080
-          # Config injection: ConfigMap (non-sensitive) + Secret (sensitive via External Secrets)
           envFrom:
             - configMapRef:
                 name: service-template-config
             - secretRef:
                 name: service-template-secrets
-                optional: true   # prevents crash if secret has not been synced yet
+                optional: true
           resources:
             requests:
               cpu: "100m"
@@ -35,18 +53,35 @@ spec:
             limits:
               cpu: "500m"
               memory: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1654
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          startupProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            failureThreshold: 30
+            periodSeconds: 10
+            initialDelaySeconds: 5
           livenessProbe:
             httpGet:
               path: /health/ready
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 0
             periodSeconds: 15
             failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /health/ready
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 0
             periodSeconds: 5
             failureThreshold: 3
       terminationGracePeriodSeconds: 30

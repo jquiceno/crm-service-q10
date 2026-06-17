@@ -53,6 +53,9 @@ if (builder.Environment.IsDevelopment())
 
 var app = builder.Build();
 
+var pathBase = builder.Configuration["ASPNETCORE_PATHBASE"] ?? "";
+if (!string.IsNullOrEmpty(pathBase)) app.UsePathBase(pathBase);
+
 app.UseExceptionHandler();
 
 app.Use(async (context, next) =>

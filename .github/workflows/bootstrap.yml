@@ -14,8 +14,9 @@ on:
         options: [plan, apply]
         default: plan
 
+# vars.SERVICE_NAME must be set as a GitHub repository variable (e.g. "announcements-service").
 concurrency:
-  group: terraform-bootstrap-service-template-${{ inputs.environment }}
+  group: terraform-bootstrap-${{ vars.SERVICE_NAME }}-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +48,7 @@ jobs:
       - name: Terraform init
         run: |
           terraform init \
-            -backend-config="key=services/service-template/${{ inputs.environment }}/terraform.tfstate"
+            -backend-config="key=services/${{ vars.SERVICE_NAME }}/${{ inputs.environment }}/terraform.tfstate"
         working-directory: terraform
 
       - name: Terraform validate
@@ -71,7 +72,7 @@ jobs:
       - name: Upload plan artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan-service-template-${{ inputs.environment }}
+          name: tfplan-${{ vars.SERVICE_NAME }}-${{ inputs.environment }}
           path: terraform/tfplan
           retention-days: 1
 
@@ -102,13 +103,13 @@ jobs:
       - name: Terraform init
         run: |
           terraform init \
-            -backend-config="key=services/service-template/${{ inputs.environment }}/terraform.tfstate"
+            -backend-config="key=services/${{ vars.SERVICE_NAME }}/${{ inputs.environment }}/terraform.tfstate"
         working-directory: terraform
 
       - name: Download plan artifact
         uses: actions/download-artifact@v4
         with:
-          name: tfplan-service-template-${{ inputs.environment }}
+          name: tfplan-${{ vars.SERVICE_NAME }}-${{ inputs.environment }}
           path: terraform
 
       - name: Terraform apply

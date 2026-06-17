@@ -22,8 +22,10 @@ on:
         required: false
         default: ''
 
+# vars.SERVICE_NAME must be set as a GitHub repository variable (e.g. "announcements-service").
+# This keeps the workflow generic so it can be pulled from the upstream template without conflicts.
 concurrency:
-  group: deploy-service-template-${{ inputs.environment }}
+  group: deploy-${{ vars.SERVICE_NAME }}-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
@@ -162,8 +164,8 @@ jobs:
       - name: Capture current revision
         id: revision
         run: |
-          REV=$(kubectl get deployment/service-template \
-            -n service-template \
+          REV=$(kubectl get deployment/${{ vars.SERVICE_NAME }} \
+            -n ${{ vars.SERVICE_NAME }} \
             -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}' 2>/dev/null || echo "0")
           echo "before=$REV" >> "$GITHUB_OUTPUT"
 
@@ -173,7 +175,9 @@ jobs:
           IMAGE: ${{ needs.build-push.outputs.image }}
         run: |
           cd "k8s/overlays/$ENV"
-          kustomize edit set image q10-service-template="$IMAGE"
+          # IMAGE_KEY matches the `name:` field in the overlay's images: list.
+          # Every service repo sets IMAGE_KEY as a GitHub repository variable (e.g. "q10-announcements-service").
+          kustomize edit set image ${{ vars.IMAGE_KEY }}="$IMAGE"
 
       - name: Apply manifests
         env:
@@ -182,8 +186,8 @@ jobs:
 
       - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/service-template \
-            -n service-template \
+          kubectl rollout status deployment/${{ vars.SERVICE_NAME }} \
+            -n ${{ vars.SERVICE_NAME }} \
             --timeout=5m
 
       - name: Tag :env-latest after successful rollout
@@ -209,11 +213,11 @@ jobs:
           REVISION_BEFORE: ${{ steps.revision.outputs.before }}
         run: |
           echo "::error::Rollout failed — rolling back to revision ${REVISION_BEFORE}"
-          kubectl rollout undo deployment/service-template \
-            -n service-template \
+          kubectl rollout undo deployment/${{ vars.SERVICE_NAME }} \
+            -n ${{ vars.SERVICE_NAME }} \
             --to-revision="${REVISION_BEFORE}"
-          kubectl rollout status deployment/service-template \
-            -n service-template \
+          kubectl rollout status deployment/${{ vars.SERVICE_NAME }} \
+            -n ${{ vars.SERVICE_NAME }} \
             --timeout=3m
 
       - name: Close SSM tunnel

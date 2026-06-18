@@ -4,7 +4,7 @@
 FROM mcr.microsoft.com/dotnet/nightly/sdk:10.0 AS restore
 WORKDIR /src
 
-COPY Directory.Build.props ServiceTemplate.slnx .editorconfig .globalconfig ./
+COPY Directory.Build.props Service.slnx .editorconfig .globalconfig ./
 COPY --parents src/**/*.csproj ./
 
 RUN dotnet restore src/Api/Api.csproj

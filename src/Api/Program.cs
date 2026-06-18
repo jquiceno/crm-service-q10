@@ -72,7 +72,11 @@ app.UseCacheMiddleware();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-    app.MapScalarApiReference("/openapi");
+    app.MapScalarApiReference("/openapi", options =>
+    {
+        options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    });
+    app.MapGet("/openapi", () => Results.Redirect("/openapi/v1")).ExcludeFromDescription();
 }
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions

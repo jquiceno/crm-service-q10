@@ -4,6 +4,8 @@ using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Shared.Application.Ports;
+using Shared.Domain.Tenants.Aggregates;
+using Shared.Results;
 using Shared.Results.Errors;
 using Shouldly;
 using Xunit;
@@ -20,13 +22,29 @@ public sealed class TenantRepositoryTests
         return new MasterAccessDbContext(options);
     }
 
+    /// <summary>
+    /// Returns an ICacheStore substitute that transparently invokes the factory,
+    /// so tests can still assert on the real DB query path.
+    /// </summary>
+    private static ICacheStore PassThroughCache()
+    {
+        var cache = Substitute.For<ICacheStore>();
+        cache.GetOrSetAsync(
+                Arg.Any<string>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<Func<Task<Result<TenantAggregate>>>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(ci => ci.Arg<Func<Task<Result<TenantAggregate>>>>().Invoke());
+        return cache;
+    }
+
     [Fact]
     public async Task GetByCodeAsync_WhenTenantExists_ReturnsMappedAggregate()
     {
         using var context = CreateContext(nameof(GetByCodeAsync_WhenTenantExists_ReturnsMappedAggregate));
         context.Tenants.Add(new Tenant { Code = "TENANT01", Database = "db_tenant", ServerDatabase = 2 });
         await context.SaveChangesAsync();
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), PassThroughCache());
 
         var result = await sut.GetByCodeAsync("TENANT01");
 
@@ -40,7 +58,7 @@ public sealed class TenantRepositoryTests
     public async Task GetByCodeAsync_WhenTenantDoesNotExist_ReturnsNotFound()
     {
         using var context = CreateContext(nameof(GetByCodeAsync_WhenTenantDoesNotExist_ReturnsNotFound));
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), PassThroughCache());
 
         var result = await sut.GetByCodeAsync("NONEXISTENT");
 
@@ -55,7 +73,7 @@ public sealed class TenantRepositoryTests
         using var context = CreateContext(nameof(GetByCodeAsync_WhenCodeDoesNotMatchStoredTenant_ReturnsNotFound));
         context.Tenants.Add(new Tenant { Code = "TENANT01", Database = "db_tenant", ServerDatabase = 1 });
         await context.SaveChangesAsync();
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), PassThroughCache());
 
         var result = await sut.GetByCodeAsync("TENANT02");
 
@@ -70,7 +88,7 @@ public sealed class TenantRepositoryTests
         var context = CreateContext(nameof(GetByCodeAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         await context.DisposeAsync();
         var logger = Substitute.For<ILoggerPort<TenantRepository>>();
-        var sut = new TenantRepository(context, logger);
+        var sut = new TenantRepository(context, logger, PassThroughCache());
 
         var result = await sut.GetByCodeAsync("TENANT01");
 

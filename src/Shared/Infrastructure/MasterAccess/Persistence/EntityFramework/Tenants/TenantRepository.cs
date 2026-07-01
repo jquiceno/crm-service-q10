@@ -1,6 +1,7 @@
 using Infrastructure.MasterAccess.Persistence.EntityFramework;
 using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Microsoft.EntityFrameworkCore;
+using Shared.Application.Caching;
 using Shared.Application.Ports;
 using Shared.Domain.Tenants.Aggregates;
 using Shared.Domain.Tenants.Errors;
@@ -10,9 +11,19 @@ using Shared.Results.Errors;
 
 namespace Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
 
-public sealed class TenantRepository(MasterAccessDbContext context, ILoggerPort<TenantRepository> logger) : ITenantRepository
+public sealed class TenantRepository(
+    MasterAccessDbContext context,
+    ILoggerPort<TenantRepository> logger,
+    ICacheStore cache) : ITenantRepository
 {
-    public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default) =>
+        cache.GetOrSetAsync(
+            CacheKey.For("masteraccess").Resource("tenant", code),
+            TimeSpan.FromMinutes(10),
+            () => QueryByCodeAsync(code, cancellationToken),
+            cancellationToken);
+
+    private async Task<Result<TenantAggregate>> QueryByCodeAsync(string code, CancellationToken cancellationToken)
     {
         try
         {

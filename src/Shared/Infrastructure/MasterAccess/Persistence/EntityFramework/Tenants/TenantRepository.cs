@@ -1,5 +1,4 @@
 using Infrastructure.MasterAccess.Persistence.EntityFramework;
-using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Caching;
 using Shared.Application.Ports;
@@ -16,14 +15,21 @@ public sealed class TenantRepository(
     ILoggerPort<TenantRepository> logger,
     ICacheStore cache) : ITenantRepository
 {
-    public Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default) =>
-        cache.GetOrSetAsync(
+    public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        var cached = await cache.GetOrSetAsync(
             CacheKey.For("masteraccess").Resource("tenant", code),
             TimeSpan.FromMinutes(10),
             () => QueryByCodeAsync(code, cancellationToken),
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
-    private async Task<Result<TenantAggregate>> QueryByCodeAsync(string code, CancellationToken cancellationToken)
+        return cached.IsSuccess
+            ? Result<TenantAggregate>.Success(
+                TenantAggregate.Reconstruct(cached.Value.Code, cached.Value.Database, cached.Value.ServerDatabase))
+            : Result<TenantAggregate>.Failure(cached.Error);
+    }
+
+    private async Task<Result<TenantCacheModel>> QueryByCodeAsync(string code, CancellationToken cancellationToken)
     {
         try
         {
@@ -34,7 +40,7 @@ public sealed class TenantRepository(
 
             return document is null
                 ? TenantErrors.NotFound(code)
-                : TenantRepositoryMapper.ToDomain(document);
+                : new TenantCacheModel(document.Code, document.Database, document.ServerDatabase);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

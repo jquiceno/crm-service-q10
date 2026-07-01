@@ -24,7 +24,13 @@ public sealed class CacheKey
     public string Resource(string resource, object id) =>
         Build($"{Segment(resource, nameof(resource))}:{id}");
 
-    public string Prefix(string prefix) => Build(prefix);
+    public string Prefix(string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(prefix))
+            throw new ArgumentException("'prefix' must be non-empty.", nameof(prefix));
+
+        return Build(prefix);
+    }
 
     private string Build(string tail)
     {

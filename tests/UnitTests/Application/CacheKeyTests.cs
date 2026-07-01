@@ -36,4 +36,10 @@ public sealed class CacheKeyTests
     [Fact]
     public void Tenant_RejectsColon() =>
         Should.Throw<ArgumentException>(() => CacheKey.For("orders").Tenant("a:b"));
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Prefix_RejectsEmptyOrWhitespace(string prefix) =>
+        Should.Throw<ArgumentException>(() => CacheKey.For("orders").Prefix(prefix));
 }

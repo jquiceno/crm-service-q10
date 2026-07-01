@@ -451,7 +451,7 @@ Formato canónico con tenant: `ctx:{context}:v1:t:{tenantId}:{resource}:{id}`
 
 Restricciones:
 * `context`, `resource` y `tenantId` no pueden contener `":"` ni estar vacíos (se lanza `ArgumentException`).
-* `v1` es la versión de esquema (`CacheKey.SchemaVersion`). Si el contrato de serialización de un tipo cacheado cambia, se debe incrementar esta constante para invalidar entradas antiguas automáticamente.
+* `v1` es la versión de esquema (la constante privada `SchemaVersion` en `CacheKey.cs`). Si el contrato de serialización de un tipo cacheado cambia, se debe incrementar esta constante para invalidar entradas antiguas automáticamente.
 * `RemoveByPrefixAsync` requiere que el prefijo empiece con `"ctx:"` (validado en `RedisCacheStore`).
 
 
@@ -589,30 +589,46 @@ Cache__ConnectionString=localhost:6379
 > **Atención:** cachear agregados de dominio directamente puede causar problemas.
 >
 > * Los agregados cacheados vuelven como objetos **detached** (sin tracking de EF Core). Si se pasan a `repository.Update(...)`, pueden generar inconsistencias o excepciones de tracking.
-> * Algunas entidades tienen propiedades que no son directamente serializables con `System.Text.Json` (e.g., objetos de valor con constructores privados o sin setter público).
+> * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lanze una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
 >
-> **Preferencia:** cachear **DTOs** o **read-models** en lugar de agregados. Si se cachea un agregado (como en `TenantRepository`), asegurarse de que es usado exclusivamente para lectura y de que la consulta subyacente usa `AsNoTracking()`.
+> **Preferencia:** cachear **snapshots serializables** (records o DTOs simples) en lugar de agregados. Reconstruir el agregado desde el snapshot al leer del caché (ver ejemplo real más abajo).
 
 
 ---
 
 ### Ejemplo real
 
-`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo:
+`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo aplicando la advertencia anterior: `TenantAggregate` tiene un constructor privado y no puede ser deserializado por `System.Text.Json`, por lo que el repositorio cachea un snapshot serializable (`TenantCacheModel`) y reconstruye el agregado mediante `TenantAggregate.Reconstruct` en cada cache hit.
 
 ```csharp
-public Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default) =>
-    cache.GetOrSetAsync(
+public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+{
+    var cached = await cache.GetOrSetAsync(
         CacheKey.For("masteraccess").Resource("tenant", code),
         TimeSpan.FromMinutes(10),
         () => QueryByCodeAsync(code, cancellationToken),
-        cancellationToken);
+        cancellationToken).ConfigureAwait(false);
+
+    return cached.IsSuccess
+        ? Result<TenantAggregate>.Success(
+            TenantAggregate.Reconstruct(cached.Value.Code, cached.Value.Database, cached.Value.ServerDatabase))
+        : Result<TenantAggregate>.Failure(cached.Error);
+}
+```
+
+El método privado `QueryByCodeAsync` devuelve `Result<TenantCacheModel>` — un record con solo propiedades primitivas que `System.Text.Json` puede serializar y deserializar sin configuración adicional:
+
+```csharp
+return document is null
+    ? TenantErrors.NotFound(code)
+    : new TenantCacheModel(document.Code, document.Database, document.ServerDatabase);
 ```
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
 * TTL de 10 minutos, adecuado para datos de tenant que raramente cambian.
 * En miss o fallo de Redis, se ejecuta `QueryByCodeAsync` directamente (con `AsNoTracking()`).
 * Si `QueryByCodeAsync` devuelve un `Result.Failure` (tenant no encontrado, error de BD), el resultado no se cachea.
+* El snapshot `TenantCacheModel` se define en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantCacheModel.cs` como `internal sealed record` — es un detalle de implementación de la infraestructura, no parte del dominio.
 
 
 ---

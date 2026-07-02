@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Shared.Application.Ports;
-using Shared.Results;
 
 namespace UnitTests.Infrastructure;
 
@@ -17,16 +16,15 @@ public sealed class JsonRoundTripCacheStore : ICacheStore
 
     public IReadOnlyCollection<string> Keys => _store.Keys.ToList();
 
-    public async Task<Result<T>> GetOrSetAsync<T>(
-        string key, TimeSpan ttl, Func<Task<Result<T>>> factory, CancellationToken cancellationToken = default)
-    {
-        if (_store.TryGetValue(key, out var json))
-            return Result<T>.Success(JsonSerializer.Deserialize<T>(json, Options)!);
+    public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) where T : class =>
+        Task.FromResult(_store.TryGetValue(key, out var json)
+            ? JsonSerializer.Deserialize<T>(json, Options)
+            : null);
 
-        var result = await factory().ConfigureAwait(false);
-        if (result.IsSuccess)
-            _store[key] = JsonSerializer.Serialize(result.Value, Options);
-        return result;
+    public Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken cancellationToken = default) where T : class
+    {
+        _store[key] = JsonSerializer.Serialize(value, Options);
+        return Task.CompletedTask;
     }
 
     public Task RemoveAsync(string key, CancellationToken cancellationToken = default)

@@ -1,14 +1,13 @@
 using System.Text.Json;
 using Shared.Application.Ports;
-using Shared.Results;
 using StackExchange.Redis;
 
 namespace Infrastructure.Caching;
 
 /// <summary>
-/// Redis-backed L2 cache (StackExchange.Redis). Serializes only the success payload of a
-/// <see cref="Result{T}"/>. Every backend operation degrades gracefully: on failure it logs a
-/// warning and falls back (reads run the factory; invalidations no-op).
+/// Redis-backed L2 cache (StackExchange.Redis) using System.Text.Json. Every backend
+/// operation degrades gracefully: on failure it logs a warning and falls back
+/// (<see cref="GetAsync{T}"/> returns <c>null</c>; writes and invalidations no-op).
 /// </summary>
 public sealed class RedisCacheStore(
     IConnectionMultiplexer connection,
@@ -16,43 +15,33 @@ public sealed class RedisCacheStore(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<Result<T>> GetOrSetAsync<T>(
-        string key,
-        TimeSpan ttl,
-        Func<Task<Result<T>>> factory,
-        CancellationToken cancellationToken = default)
+    public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) where T : class
     {
         try
         {
             var cached = await connection.GetDatabase().StringGetAsync(key).ConfigureAwait(false);
             if (cached.HasValue)
-            {
-                var value = JsonSerializer.Deserialize<T>((string)cached!, JsonOptions);
-                if (value is not null)
-                    return Result<T>.Success(value);
-            }
+                return JsonSerializer.Deserialize<T>((string)cached!, JsonOptions);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Warning(ex, "L2 cache read failed for {Key}", key);
         }
 
-        var result = await factory().ConfigureAwait(false);
+        return null;
+    }
 
-        if (result.IsSuccess)
+    public async Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken cancellationToken = default) where T : class
+    {
+        try
         {
-            try
-            {
-                var payload = JsonSerializer.Serialize(result.Value, JsonOptions);
-                await connection.GetDatabase().StringSetAsync(key, payload, ttl).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                logger.Warning(ex, "L2 cache write failed for {Key}", key);
-            }
+            var payload = JsonSerializer.Serialize(value, JsonOptions);
+            await connection.GetDatabase().StringSetAsync(key, payload, ttl).ConfigureAwait(false);
         }
-
-        return result;
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.Warning(ex, "L2 cache write failed for {Key}", key);
+        }
     }
 
     public async Task RemoveAsync(string key, CancellationToken cancellationToken = default)

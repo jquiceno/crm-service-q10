@@ -2,7 +2,6 @@ using Infrastructure.Caching;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Shared.Application.Ports;
-using Shared.Results;
 using StackExchange.Redis;
 using Shouldly;
 using Xunit;
@@ -16,6 +15,8 @@ public sealed class RedisCacheStoreTests
 
     private RedisCacheStore CreateSut() => new(_connection, _logger);
 
+    private sealed record Sample(string Name);
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -27,16 +28,22 @@ public sealed class RedisCacheStoreTests
     }
 
     [Fact]
-    public async Task GetOrSetAsync_WhenBackendThrows_RunsFactoryAndLogs()
+    public async Task GetAsync_WhenBackendThrows_ReturnsNullAndLogs()
     {
         _connection.GetDatabase().Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "down"));
 
-        var result = await CreateSut().GetOrSetAsync(
-            "ctx:t:v1:x:1", TimeSpan.FromMinutes(1),
-            () => Task.FromResult(Result<int>.Success(7)));
+        var value = await CreateSut().GetAsync<Sample>("ctx:t:v1:x:1");
 
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBe(7);
+        value.ShouldBeNull();
+        _logger.Received().Warning(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
+    }
+
+    [Fact]
+    public async Task SetAsync_WhenBackendThrows_DoesNotThrowAndLogs()
+    {
+        _connection.GetDatabase().Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "down"));
+
+        await Should.NotThrowAsync(() => CreateSut().SetAsync("ctx:t:v1:x:1", new Sample("a"), TimeSpan.FromMinutes(1)));
         _logger.Received().Warning(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
     }
 

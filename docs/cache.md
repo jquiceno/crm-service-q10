@@ -389,7 +389,7 @@ src/
 └── Infrastructure/
     └── Caching/
         ├── RedisCacheStore.cs              ← implementación Redis (StackExchange.Redis + System.Text.Json)
-        ├── NoOpCacheStore.cs               ← implementación no-op (siempre ejecuta la factory)
+        ├── NoOpCacheStore.cs               ← implementación no-op (toda lectura es miss)
         └── DistributedCacheExtensions.cs   ← registro DI (AddDistributedCache)
 ```
 
@@ -405,11 +405,9 @@ Los repositorios e implementaciones de adaptadores en `Infrastructure` reciben `
 ```csharp
 public interface ICacheStore
 {
-    Task<Result<T>> GetOrSetAsync<T>(
-        string key,
-        TimeSpan ttl,
-        Func<Task<Result<T>>> factory,
-        CancellationToken cancellationToken = default);
+    Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) where T : class;
+
+    Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken cancellationToken = default) where T : class;
 
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);
 
@@ -417,9 +415,12 @@ public interface ICacheStore
 }
 ```
 
+El patrón cache-aside lo orquesta explícitamente quien llama: se lee con `GetAsync`; si devuelve `null` (miss), se consulta la fuente real y se pobla con `SetAsync`. Así, la política "solo cachear resultados exitosos" vive en el sitio de llamada (basta con no llamar a `SetAsync` en un miss o error).
+
 | Método | Propósito |
 |--------|-----------|
-| `GetOrSetAsync<T>` | Devuelve el valor cacheado para `key`; en miss ejecuta `factory` y cachea su resultado solo si es exitoso (`Result.IsSuccess`). |
+| `GetAsync<T>` | Devuelve el valor cacheado para `key`, o `null` en miss (o cuando el backend no está disponible — degradación transparente). El tipo cacheado debe ser de referencia (`where T : class`). |
+| `SetAsync<T>` | Almacena `value` bajo `key` durante `ttl`. Los fallos de backend se registran y se ignoran. |
 | `RemoveAsync` | Elimina una sola llave (invalidación precisa tras una mutación puntual). |
 | `RemoveByPrefixAsync` | Elimina todas las llaves que empiecen con `prefix` (invalidación de colección). `prefix` debe ser no vacío y empezar con `"ctx:"`. |
 
@@ -459,14 +460,14 @@ Restricciones:
 
 ### TTL por llamada
 
-El TTL se pasa en cada llamada a `GetOrSetAsync`. No existe un TTL global de L2 — cada sitio de caché elige el valor adecuado al dominio.
+El TTL se pasa en cada llamada a `SetAsync`. No existe un TTL global de L2 — cada sitio de caché elige el valor adecuado al dominio.
 
 ```csharp
 // 10 minutos
-await cache.GetOrSetAsync(key, TimeSpan.FromMinutes(10), factory, ct);
+await cache.SetAsync(key, value, TimeSpan.FromMinutes(10), ct);
 
 // 1 hora
-await cache.GetOrSetAsync(key, TimeSpan.FromHours(1), factory, ct);
+await cache.SetAsync(key, value, TimeSpan.FromHours(1), ct);
 ```
 
 > **Nota:** `Cache:DefaultTtlSeconds` en `CacheSettings` corresponde exclusivamente al L1 (Output Cache). No aplica al L2.
@@ -478,15 +479,15 @@ await cache.GetOrSetAsync(key, TimeSpan.FromHours(1), factory, ct);
 
 **Solo se cachean éxitos**
 
-Si `factory` devuelve `Result.Failure(...)`, el resultado se devuelve al llamador pero no se escribe en Redis. Los errores de dominio (entidad no encontrada, validación fallida, etc.) no contaminan el caché.
+La política vive en el sitio de llamada: solo se invoca `SetAsync` cuando la fuente devuelve un valor válido. Un miss o un error (entidad no encontrada, validación fallida, error de BD) simplemente no llama a `SetAsync`, así que los errores de dominio no contaminan el caché.
 
 **Degradación transparente**
 
-Si Redis no está disponible durante una lectura, `RedisCacheStore` registra un `Warning` y ejecuta `factory` directamente, como si hubiera un miss. Si falla durante una invalidación (`RemoveAsync` / `RemoveByPrefixAsync`), también registra el `Warning` y continúa sin lanzar excepción. El servicio opera correctamente sin caché ante cualquier fallo del backend.
+Si Redis no está disponible durante una lectura, `GetAsync` registra un `Warning` y devuelve `null` — el llamador lo trata como un miss y consulta la fuente real. Si falla durante una escritura (`SetAsync`) o una invalidación (`RemoveAsync` / `RemoveByPrefixAsync`), también registra el `Warning` y continúa sin lanzar excepción. El servicio opera correctamente sin caché ante cualquier fallo del backend.
 
 **NoOpCacheStore**
 
-Cuando `L2Enabled = false` o `ConnectionString` está vacío, se registra `NoOpCacheStore`, que siempre ejecuta la factory y hace no-op en las invalidaciones. No hay overhead de red ni serialización.
+Cuando `L2Enabled = false` o `ConnectionString` está vacío, se registra `NoOpCacheStore`, cuyo `GetAsync` siempre devuelve `null` y cuyas escrituras e invalidaciones son no-op. No hay overhead de red ni serialización.
 
 
 ---
@@ -591,44 +592,51 @@ Cache__ConnectionString=localhost:6379
 > * Los agregados cacheados vuelven como objetos **detached** (sin tracking de EF Core). Si se pasan a `repository.Update(...)`, pueden generar inconsistencias o excepciones de tracking.
 > * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lanze una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
 >
-> **Preferencia:** cachear **snapshots serializables** (records o DTOs simples) en lugar de agregados. Reconstruir el agregado desde el snapshot al leer del caché (ver ejemplo real más abajo).
+> **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché (ver ejemplo real más abajo). La entidad de EF Core es un buen candidato de snapshot cuando es **plana y sin propiedades de navegación ni proxies de lazy-loading** (como `Tenant`): tiene constructor público sin parámetros y propiedades asignables, por lo que `System.Text.Json` la (de)serializa sin configuración adicional.
 
 
 ---
 
 ### Ejemplo real
 
-`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo aplicando la advertencia anterior: `TenantAggregate` tiene un constructor privado y no puede ser deserializado por `System.Text.Json`, por lo que el repositorio cachea un snapshot serializable (`TenantCacheModel`) y reconstruye el agregado mediante `TenantAggregate.Reconstruct` en cada cache hit.
+`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo aplicando la advertencia anterior. `TenantAggregate` tiene un constructor privado y no puede ser deserializado por `System.Text.Json`, por lo que el repositorio **cachea la entidad de EF Core `Tenant`** (plana y serializable) y reconstruye el agregado mediante `TenantRepositoryMapper.ToDomain` en cada cache hit:
 
 ```csharp
 public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
 {
-    var cached = await cache.GetOrSetAsync(
-        CacheKey.For("masteraccess").Resource("tenant", code),
-        TimeSpan.FromMinutes(10),
-        () => QueryByCodeAsync(code, cancellationToken),
-        cancellationToken).ConfigureAwait(false);
+    var key = CacheKey.For("masteraccess").Resource("tenant", code);
 
-    return cached.IsSuccess
-        ? Result<TenantAggregate>.Success(
-            TenantAggregate.Reconstruct(cached.Value.Code, cached.Value.Database, cached.Value.ServerDatabase))
-        : Result<TenantAggregate>.Failure(cached.Error);
+    // La entidad Tenant (plana, sin proxies, obtenida con AsNoTracking) es segura de cachear.
+    var cached = await cache.GetAsync<Tenant>(key, cancellationToken).ConfigureAwait(false);
+    if (cached is not null)
+        return TenantRepositoryMapper.ToDomain(cached);
+
+    try
+    {
+        var document = await context.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Code == code, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (document is null)
+            return TenantErrors.NotFound(code);
+
+        await cache.SetAsync(key, document, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(false);
+        return TenantRepositoryMapper.ToDomain(document);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        logger.Error(ex, "Error retrieving Tenant with code {Code}", code);
+        return new DomainError("A persistence error occurred.", ErrorType.Internal);
+    }
 }
-```
-
-El método privado `QueryByCodeAsync` devuelve `Result<TenantCacheModel>` — un record con solo propiedades primitivas que `System.Text.Json` puede serializar y deserializar sin configuración adicional:
-
-```csharp
-return document is null
-    ? TenantErrors.NotFound(code)
-    : new TenantCacheModel(document.Code, document.Database, document.ServerDatabase);
 ```
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
 * TTL de 10 minutos, adecuado para datos de tenant que raramente cambian.
-* En miss o fallo de Redis, se ejecuta `QueryByCodeAsync` directamente (con `AsNoTracking()`).
-* Si `QueryByCodeAsync` devuelve un `Result.Failure` (tenant no encontrado, error de BD), el resultado no se cachea.
-* El snapshot `TenantCacheModel` se define en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantCacheModel.cs` como `internal sealed record` — es un detalle de implementación de la infraestructura, no parte del dominio.
+* En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta la BD directamente (con `AsNoTracking()`).
+* `SetAsync` solo se llama cuando el tenant existe: un tenant no encontrado (`NotFound`) o un error de BD **no** se cachean.
+* Se cachea la entidad `Tenant`, no el agregado; el mapeo `Tenant → TenantAggregate` se hace con el `TenantRepositoryMapper` existente tanto en hit como en miss.
 
 
 ---

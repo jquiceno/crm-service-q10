@@ -1,4 +1,6 @@
 using Infrastructure.MasterAccess.Persistence.EntityFramework;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Caching;
 using Shared.Application.Ports;
@@ -17,20 +19,13 @@ public sealed class TenantRepository(
 {
     public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
-        var cached = await cache.GetOrSetAsync(
-            CacheKey.For("masteraccess").Resource("tenant", code),
-            TimeSpan.FromMinutes(10),
-            () => QueryByCodeAsync(code, cancellationToken),
-            cancellationToken).ConfigureAwait(false);
+        var key = CacheKey.For("masteraccess").Resource("tenant", code);
 
-        return cached.IsSuccess
-            ? Result<TenantAggregate>.Success(
-                TenantAggregate.Reconstruct(cached.Value.Code, cached.Value.Database, cached.Value.ServerDatabase))
-            : Result<TenantAggregate>.Failure(cached.Error);
-    }
+        // The flat, proxy-free Tenant entity (fetched AsNoTracking) is safe to cache directly.
+        var cached = await cache.GetAsync<Tenant>(key, cancellationToken).ConfigureAwait(false);
+        if (cached is not null)
+            return TenantRepositoryMapper.ToDomain(cached);
 
-    private async Task<Result<TenantCacheModel>> QueryByCodeAsync(string code, CancellationToken cancellationToken)
-    {
         try
         {
             var document = await context.Tenants
@@ -38,9 +33,11 @@ public sealed class TenantRepository(
                 .FirstOrDefaultAsync(t => t.Code == code, cancellationToken)
                 .ConfigureAwait(false);
 
-            return document is null
-                ? TenantErrors.NotFound(code)
-                : new TenantCacheModel(document.Code, document.Database, document.ServerDatabase);
+            if (document is null)
+                return TenantErrors.NotFound(code);
+
+            await cache.SetAsync(key, document, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(false);
+            return TenantRepositoryMapper.ToDomain(document);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -1,16 +1,15 @@
 using Shared.Application.Ports;
-using Shared.Results;
 
 namespace Infrastructure.Caching;
 
-/// <summary>No-op L2 cache used when the distributed cache is disabled. Always runs the factory.</summary>
+/// <summary>No-op L2 cache used when the distributed cache is disabled. Every read is a miss.</summary>
 public sealed class NoOpCacheStore : ICacheStore
 {
-    public Task<Result<T>> GetOrSetAsync<T>(
-        string key,
-        TimeSpan ttl,
-        Func<Task<Result<T>>> factory,
-        CancellationToken cancellationToken = default) => factory();
+    public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) where T : class =>
+        Task.FromResult<T?>(null);
+
+    public Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken cancellationToken = default) where T : class =>
+        Task.CompletedTask;
 
     public Task RemoveAsync(string key, CancellationToken cancellationToken = default) =>
         Task.CompletedTask;

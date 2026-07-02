@@ -2,8 +2,6 @@ using Infrastructure.Caching;
 using NSubstitute;
 using Shared.Application.Caching;
 using Shared.Application.Ports;
-using Shared.Results;
-using Shared.Results.Errors;
 using Shouldly;
 using Xunit;
 
@@ -26,77 +24,60 @@ public sealed class RedisCacheStoreIntegrationTests : IClassFixture<RedisContain
     private sealed record SampleDto(string Name);
 
     [Fact]
-    public async Task GetOrSetAsync_MissThenHit_RunsFactoryOnce()
+    public async Task GetAsync_OnMiss_ReturnsNull()
     {
-        var key = CacheKey.For("orders").Resource("order", 1);
-        var calls = 0;
-        Task<Result<SampleDto>> Factory()
-        {
-            calls++;
-            return Task.FromResult(Result<SampleDto>.Success(new SampleDto("acme")));
-        }
+        var value = await _sut.GetAsync<SampleDto>(CacheKey.For("orders").Resource("order", 404));
 
-        var first = await _sut.GetOrSetAsync(key, TimeSpan.FromMinutes(5), Factory);
-        var second = await _sut.GetOrSetAsync(key, TimeSpan.FromMinutes(5), Factory);
-
-        calls.ShouldBe(1);
-        first.Value.Name.ShouldBe("acme");
-        second.Value.Name.ShouldBe("acme");
+        value.ShouldBeNull();
     }
 
     [Fact]
-    public async Task GetOrSetAsync_FailedResult_IsNotCached()
+    public async Task SetThenGet_ReturnsStoredValue()
+    {
+        var key = CacheKey.For("orders").Resource("order", 1);
+
+        await _sut.SetAsync(key, new SampleDto("acme"), TimeSpan.FromMinutes(5));
+        var value = await _sut.GetAsync<SampleDto>(key);
+
+        value.ShouldNotBeNull();
+        value.Name.ShouldBe("acme");
+    }
+
+    [Fact]
+    public async Task RemoveAsync_EvictsKey()
     {
         var key = CacheKey.For("orders").Resource("order", 2);
-        var calls = 0;
-        Task<Result<SampleDto>> Factory()
-        {
-            calls++;
-            return Task.FromResult(Result<SampleDto>.Failure(new DomainError("nope", ErrorType.Internal)));
-        }
+        await _sut.SetAsync(key, new SampleDto("acme"), TimeSpan.FromMinutes(5));
 
-        await _sut.GetOrSetAsync(key, TimeSpan.FromMinutes(5), Factory);
-        await _sut.GetOrSetAsync(key, TimeSpan.FromMinutes(5), Factory);
+        await _sut.RemoveAsync(key);
 
-        calls.ShouldBe(2); // failure never stored, so factory runs again
+        (await _sut.GetAsync<SampleDto>(key)).ShouldBeNull();
     }
 
     [Fact]
     public async Task RemoveByPrefixAsync_InvalidatesWholeFamily()
     {
-        var calls = 0;
-        Task<Result<SampleDto>> Factory()
-        {
-            calls++;
-            return Task.FromResult(Result<SampleDto>.Success(new SampleDto("x")));
-        }
-
         var page1 = CacheKey.For("orders").Prefix("order:list:page=1");
         var page2 = CacheKey.For("orders").Prefix("order:list:page=2");
-        await _sut.GetOrSetAsync(page1, TimeSpan.FromMinutes(5), Factory);
-        await _sut.GetOrSetAsync(page2, TimeSpan.FromMinutes(5), Factory);
-        calls.ShouldBe(2);
+        await _sut.SetAsync(page1, new SampleDto("p1"), TimeSpan.FromMinutes(5));
+        await _sut.SetAsync(page2, new SampleDto("p2"), TimeSpan.FromMinutes(5));
 
         await _sut.RemoveByPrefixAsync(CacheKey.For("orders").Prefix("order:list"));
 
-        await _sut.GetOrSetAsync(page1, TimeSpan.FromMinutes(5), Factory);
-        await _sut.GetOrSetAsync(page2, TimeSpan.FromMinutes(5), Factory);
-        calls.ShouldBe(4); // both re-fetched after invalidation
+        (await _sut.GetAsync<SampleDto>(page1)).ShouldBeNull();
+        (await _sut.GetAsync<SampleDto>(page2)).ShouldBeNull();
     }
 
     [Fact]
     public async Task TenantPartition_KeysDoNotCollide()
     {
-        Task<Result<SampleDto>> Factory(string name) =>
-            Task.FromResult(Result<SampleDto>.Success(new SampleDto(name)));
-
         var acme = CacheKey.For("orders").Tenant("acme").Resource("order", 1);
         var globex = CacheKey.For("orders").Tenant("globex").Resource("order", 1);
 
-        var a = await _sut.GetOrSetAsync(acme, TimeSpan.FromMinutes(5), () => Factory("acme"));
-        var g = await _sut.GetOrSetAsync(globex, TimeSpan.FromMinutes(5), () => Factory("globex"));
+        await _sut.SetAsync(acme, new SampleDto("acme"), TimeSpan.FromMinutes(5));
+        await _sut.SetAsync(globex, new SampleDto("globex"), TimeSpan.FromMinutes(5));
 
-        a.Value.Name.ShouldBe("acme");
-        g.Value.Name.ShouldBe("globex");
+        (await _sut.GetAsync<SampleDto>(acme))!.Name.ShouldBe("acme");
+        (await _sut.GetAsync<SampleDto>(globex))!.Name.ShouldBe("globex");
     }
 }

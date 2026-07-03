@@ -48,6 +48,20 @@ if (builder.Environment.IsDevelopment())
             };
             return Task.CompletedTask;
         });
+
+        options.AddSchemaTransformer((schema, context, _) =>
+        {
+            // Enums may surface as Nullable<TEnum>, whose own IsEnum is false; unwrap first.
+            var enumType = Nullable.GetUnderlyingType(context.JsonTypeInfo.Type) ?? context.JsonTypeInfo.Type;
+            if (enumType.IsEnum)
+            {
+                var lines = Enum.GetValues(enumType)
+                    .Cast<object>()
+                    .Select(v => $"- `{Convert.ToInt32(v)}` = {v}");
+                schema.Description = $"{schema.Description}\n\n{string.Join("\n", lines)}".Trim();
+            }
+            return Task.CompletedTask;
+        });
     });
 }
 

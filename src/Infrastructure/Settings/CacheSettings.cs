@@ -8,6 +8,8 @@ public sealed class CacheSettings
 
     public bool Enabled { get; init; }
 
+    public bool L2Enabled { get; init; }
+
     [Range(1, int.MaxValue)]
     public int DefaultTtlSeconds { get; init; } = 300;
 

@@ -26,7 +26,7 @@ public sealed class TenantRepositoryTests
         using var context = CreateContext(nameof(GetByCodeAsync_WhenTenantExists_ReturnsMappedAggregate));
         context.Tenants.Add(new Tenant { Code = "TENANT01", Database = "db_tenant", ServerDatabase = 2 });
         await context.SaveChangesAsync();
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), new JsonRoundTripCacheStore());
 
         var result = await sut.GetByCodeAsync("TENANT01");
 
@@ -40,7 +40,7 @@ public sealed class TenantRepositoryTests
     public async Task GetByCodeAsync_WhenTenantDoesNotExist_ReturnsNotFound()
     {
         using var context = CreateContext(nameof(GetByCodeAsync_WhenTenantDoesNotExist_ReturnsNotFound));
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), new JsonRoundTripCacheStore());
 
         var result = await sut.GetByCodeAsync("NONEXISTENT");
 
@@ -55,7 +55,7 @@ public sealed class TenantRepositoryTests
         using var context = CreateContext(nameof(GetByCodeAsync_WhenCodeDoesNotMatchStoredTenant_ReturnsNotFound));
         context.Tenants.Add(new Tenant { Code = "TENANT01", Database = "db_tenant", ServerDatabase = 1 });
         await context.SaveChangesAsync();
-        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>());
+        var sut = new TenantRepository(context, Substitute.For<ILoggerPort<TenantRepository>>(), new JsonRoundTripCacheStore());
 
         var result = await sut.GetByCodeAsync("TENANT02");
 
@@ -70,7 +70,7 @@ public sealed class TenantRepositoryTests
         var context = CreateContext(nameof(GetByCodeAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         await context.DisposeAsync();
         var logger = Substitute.For<ILoggerPort<TenantRepository>>();
-        var sut = new TenantRepository(context, logger);
+        var sut = new TenantRepository(context, logger, new JsonRoundTripCacheStore());
 
         var result = await sut.GetByCodeAsync("TENANT01");
 

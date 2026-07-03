@@ -1,4 +1,5 @@
 using System;
+using Infrastructure.Caching;
 using Infrastructure.Extensions;
 using Infrastructure.Settings;
 
@@ -39,6 +40,8 @@ public static class InfrastructureServiceExtensions
 
             services.AddEfCoreInMemory();
         }
+
+        services.AddDistributedCache(configuration);
 
         return services;
     }

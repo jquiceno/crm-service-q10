@@ -45,7 +45,7 @@ public static class OutputCacheExtensions
             options.DefaultExpirationTimeSpan = TimeSpan.FromSeconds(settings.DefaultTtlSeconds);
 
             options.AddBasePolicy(policy => policy
-                .SetVaryByHeader("X-Tenant-Id", "Accept-Language"));
+                .SetVaryByHeader("X-Entity-Code", "Accept-Language"));
 
             options.AddPolicy("Global", p => { });
         });

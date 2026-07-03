@@ -55,4 +55,14 @@ public sealed class RedisCacheStoreTests
         await Should.NotThrowAsync(() => CreateSut().RemoveAsync("ctx:t:v1:x:1"));
         _logger.Received().Warning(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
     }
+
+    [Fact]
+    public async Task RemoveByPrefixAsync_WhenBackendThrows_DoesNotThrowAndLogs()
+    {
+        _connection.GetEndPoints(Arg.Any<bool>())
+            .Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "down"));
+
+        await Should.NotThrowAsync(() => CreateSut().RemoveByPrefixAsync("ctx:t:v1:x"));
+        _logger.Received().Warning(Arg.Any<Exception>(), Arg.Any<string>(), Arg.Any<object[]>());
+    }
 }

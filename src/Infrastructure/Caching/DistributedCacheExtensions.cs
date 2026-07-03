@@ -32,7 +32,10 @@ public static class DistributedCacheExtensions
         var options = ConfigurationOptions.Parse(settings.ConnectionString);
         options.AbortOnConnectFail = false;
 
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(options));
+        // Connect eagerly at startup so no request pays the (blocking) connect cost.
+        // AbortOnConnectFail=false means a boot with Redis down won't throw — it reconnects
+        // in the background, preserving graceful degradation.
+        services.AddSingleton<IConnectionMultiplexer>(ConnectionMultiplexer.Connect(options));
         services.AddSingleton<ICacheStore, RedisCacheStore>();
         Console.WriteLine("[Cache] L2 application cache backend: Redis.");
 

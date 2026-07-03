@@ -17,6 +17,8 @@ public sealed class RedisCacheStore(
 
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default) where T : class
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             var cached = await connection.GetDatabase().StringGetAsync(key).ConfigureAwait(false);
@@ -33,6 +35,8 @@ public sealed class RedisCacheStore(
 
     public async Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken cancellationToken = default) where T : class
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             var payload = JsonSerializer.Serialize(value, JsonOptions);
@@ -46,6 +50,8 @@ public sealed class RedisCacheStore(
 
     public async Task RemoveAsync(string key, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         try
         {
             await connection.GetDatabase().KeyDeleteAsync(key).ConfigureAwait(false);
@@ -60,6 +66,8 @@ public sealed class RedisCacheStore(
     {
         if (string.IsNullOrWhiteSpace(prefix) || !prefix.StartsWith("ctx:", StringComparison.Ordinal))
             throw new ArgumentException("Prefix must be non-empty and start with 'ctx:'.", nameof(prefix));
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {

@@ -6,6 +6,12 @@ namespace Shared.Application.Ports;
 /// Implementations MUST degrade gracefully: any backend failure is logged and swallowed —
 /// <see cref="GetAsync{T}"/> returns <c>null</c> (treated as a miss) and the write/invalidation
 /// operations no-op.
+/// <para>
+/// The <c>cancellationToken</c> governs whether an operation is <em>started</em>: a cancelled
+/// token short-circuits with <see cref="OperationCanceledException"/> before any backend call.
+/// It does not cancel an already in-flight backend operation — the Redis client does not expose
+/// per-command cancellation — so a command that has begun runs to completion regardless.
+/// </para>
 /// </summary>
 public interface ICacheStore
 {

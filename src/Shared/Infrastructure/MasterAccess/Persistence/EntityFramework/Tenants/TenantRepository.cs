@@ -1,6 +1,8 @@
 using Infrastructure.MasterAccess.Persistence.EntityFramework;
+using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Entities;
 using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants.Mappers;
 using Microsoft.EntityFrameworkCore;
+using Shared.Application.Caching;
 using Shared.Application.Ports;
 using Shared.Domain.Tenants.Aggregates;
 using Shared.Domain.Tenants.Errors;
@@ -10,10 +12,20 @@ using Shared.Results.Errors;
 
 namespace Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
 
-public sealed class TenantRepository(MasterAccessDbContext context, ILoggerPort<TenantRepository> logger) : ITenantRepository
+public sealed class TenantRepository(
+    MasterAccessDbContext context,
+    ILoggerPort<TenantRepository> logger,
+    ICacheStore cache) : ITenantRepository
 {
     public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
+        var key = CacheKey.For("masteraccess").Resource("tenant", code);
+
+        // The flat, proxy-free Tenant entity (fetched AsNoTracking) is safe to cache directly.
+        var cached = await cache.GetAsync<Tenant>(key, cancellationToken).ConfigureAwait(false);
+        if (cached is not null)
+            return TenantRepositoryMapper.ToDomain(cached);
+
         try
         {
             var document = await context.Tenants
@@ -21,9 +33,11 @@ public sealed class TenantRepository(MasterAccessDbContext context, ILoggerPort<
                 .FirstOrDefaultAsync(t => t.Code == code, cancellationToken)
                 .ConfigureAwait(false);
 
-            return document is null
-                ? TenantErrors.NotFound(code)
-                : TenantRepositoryMapper.ToDomain(document);
+            if (document is null)
+                return TenantErrors.NotFound(code);
+
+            await cache.SetAsync(key, document, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(false);
+            return TenantRepositoryMapper.ToDomain(document);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

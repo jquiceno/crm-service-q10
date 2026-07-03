@@ -22,7 +22,7 @@ public sealed class CacheKey
     }
 
     public string Resource(string resource, object id) =>
-        Build($"{Segment(resource, nameof(resource))}:{id}");
+        Build($"{Segment(resource, nameof(resource))}:{Segment(id?.ToString(), nameof(id))}");
 
     public string Prefix(string prefix)
     {
@@ -38,7 +38,7 @@ public sealed class CacheKey
         return $"ctx:{_context}:{SchemaVersion}:{tenant}{tail}";
     }
 
-    private static string Segment(string value, string name)
+    private static string Segment(string? value, string name)
     {
         if (string.IsNullOrWhiteSpace(value))
             throw new ArgumentException($"'{name}' must be non-empty.", name);

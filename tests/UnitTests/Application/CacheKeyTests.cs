@@ -37,6 +37,14 @@ public sealed class CacheKeyTests
     public void Tenant_RejectsColon() =>
         Should.Throw<ArgumentException>(() => CacheKey.For("orders").Tenant("a:b"));
 
+    [Fact]
+    public void Resource_RejectsNullId() =>
+        Should.Throw<ArgumentException>(() => CacheKey.For("orders").Resource("order", null!));
+
+    [Fact]
+    public void Resource_RejectsIdWithColon() =>
+        Should.Throw<ArgumentException>(() => CacheKey.For("orders").Resource("order", "a:b"));
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

@@ -1,19 +1,15 @@
 namespace Shared.Domain.Entities;
 
-public abstract class EntityRoot
+public abstract class EntityRoot<TId> where TId : notnull
 {
+    public TId Id { get; protected set; } = default!;
     public DateTime? CreatedAt { get; protected set; }
     public DateTime? UpdatedAt { get; protected set; }
 
+    protected EntityRoot() { }
+
     protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
     protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
-}
-
-public abstract class EntityRoot<TId> : EntityRoot where TId : notnull
-{
-    public TId Id { get; protected set; } = default!;
-
-    protected EntityRoot() { }
 
     public override bool Equals(object? obj) =>
         obj is EntityRoot<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);

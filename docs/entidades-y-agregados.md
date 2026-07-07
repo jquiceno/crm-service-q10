@@ -3,9 +3,8 @@
 ## Jerarquía de tipos
 
 ```
-EntityRoot
-└── EntityRoot<TId>
-        └── AggregateRoot<TId>   ← heredado por cada agregado de contexto
+EntityRoot<TId>
+└── AggregateRoot<TId>   ← heredado por cada agregado de contexto
 ```
 
 Todos los tipos base viven en `Shared.Domain`.
@@ -16,10 +15,16 @@ Todos los tipos base viven en `Shared.Domain`.
 ## `EntityRoot<TId>` — clase base de entidades
 
 ```csharp
-public abstract class EntityRoot<TId> : EntityRoot where TId : notnull
+public abstract class EntityRoot<TId> where TId : notnull
 {
     public TId Id { get; protected set; } = default!;
+    public DateTime? CreatedAt { get; protected set; }
+    public DateTime? UpdatedAt { get; protected set; }
+
     protected EntityRoot() { }
+
+    protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
+    protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
 
     // igualdad por Id
     public override bool Equals(object? obj) =>
@@ -27,19 +32,6 @@ public abstract class EntityRoot<TId> : EntityRoot where TId : notnull
     public override int GetHashCode() => Id?.GetHashCode() ?? 0;
     public static bool operator ==(EntityRoot<TId>? left, EntityRoot<TId>? right) => Equals(left, right);
     public static bool operator !=(EntityRoot<TId>? left, EntityRoot<TId>? right) => !Equals(left, right);
-}
-```
-
-La clase `EntityRoot` no genérica aporta los campos de auditoría:
-
-```csharp
-public abstract class EntityRoot
-{
-    public DateTime? CreatedAt { get; protected set; }
-    public DateTime? UpdatedAt { get; protected set; }
-
-    protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
-    protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
 }
 ```
 

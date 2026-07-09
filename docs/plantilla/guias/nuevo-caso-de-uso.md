@@ -85,7 +85,7 @@ public static class UpdateProductMapping
             aggregate.Id,
             aggregate.Name,
             aggregate.Price,
-            aggregate.UpdatedAtUtc ?? aggregate.CreatedAtUtc);
+            aggregate.UpdatedAt ?? aggregate.CreatedAt);
     }
 }
 ```
@@ -113,7 +113,7 @@ public Result Update(string? name, decimal price)
 
     Entity.Name  = name;
     Entity.Price = priceResult.Value;
-    Entity.SetUpdatedAtUtc();
+    Entity.SetUpdatedAt();
 
     return Result.Success();
 }
@@ -122,7 +122,7 @@ public Result Update(string? name, decimal price)
 Puntos clave:
 
 - Retorna `Result` (no `Result<T>`) porque la operación no produce un nuevo valor — solo indica éxito o fracaso.
-- `Entity.SetUpdatedAtUtc()` actualiza la propiedad `UpdatedAtUtc` de la entidad base (`Entity<TId>`), que EF Core persiste en la columna de auditoría.
+- `Entity.SetUpdatedAt()` actualiza la propiedad `UpdatedAt` de la entidad base (`Entity<TId>`), que EF Core persiste en la columna de auditoría.
 - La validación sigue el mismo patrón que `Create()`: falla rápido en el primer error, enriquece con `Context` y `Origin`.
 
 ---
@@ -246,8 +246,77 @@ Use Cases se registran como `Scoped` para que compartan el mismo `DbContext` dur
 
 ---
 
+## Paso opcional — Provider
+
+Si el use case necesita resolver datos auxiliares antes de ejecutar su lógica principal (por ejemplo, aplicar un valor por defecto cuando el cliente no envía ciertos campos), extrae esa responsabilidad a un Provider en lugar de manejarla dentro del use case.
+
+**Señales de que necesitas un Provider:**
+
+- El use case depende de más de un repositorio.
+- Hay una condición de tipo "si viene vacío, busca en BD" que enturbia el flujo principal.
+- La misma lógica de resolución podría reutilizarse desde otro use case.
+
+```csharp
+// Application/Providers/ProductCategoriesProvider.cs
+public sealed class ProductCategoriesProvider(ICategoryRepositoryPort repository)
+{
+    public async Task<Result<IReadOnlyList<string>>> GetAsync(
+        IReadOnlyList<string>? categories,
+        CancellationToken ct = default)
+    {
+        if (categories is { Count: > 0 })
+            return Result<IReadOnlyList<string>>.Success(categories);
+
+        var result = await repository.GetAllAsync(isActive: true, ct).ConfigureAwait(false);
+        if (result.IsFailure)
+            return result.Error;
+
+        IReadOnlyList<string> resolved = result.Value
+            .Select(c => c.Code)
+            .Distinct()
+            .ToList();
+
+        return Result<IReadOnlyList<string>>.Success(resolved);
+    }
+}
+```
+
+El use case recibe el Provider por constructor y lo invoca al inicio, antes de construir el aggregate:
+
+```csharp
+public sealed class CreateProductUseCase(
+    IProductRepositoryPort repository,
+    ProductCategoriesProvider categoriesProvider) : ICreateProductPort
+{
+    public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
+        CreateProductInputDto input, CancellationToken ct = default)
+    {
+        var categoriesResult = await categoriesProvider.GetAsync(input.Categories, ct).ConfigureAwait(false);
+        if (categoriesResult.IsFailure)
+            return categoriesResult.Error with { Origin = Origin };
+
+        input = input with { Categories = categoriesResult.Value };
+
+        var aggregateResult = input.ToAggregate();
+        // ...
+    }
+}
+```
+
+Registrar el Provider como `Scoped` antes de los use cases en el `*ServiceExtensions`:
+
+```csharp
+services.AddScoped<ProductCategoriesProvider>();
+services.AddScoped<ICreateProductPort, CreateProductUseCase>();
+```
+
+> Ver [providers.md](../providers.md) para el patrón completo y convenciones de naming.
+
+---
+
 ## Ver también
 
 - [patron-result.md](../patron-result.md) — patrón de manejo de errores en use cases
+- [providers.md](../providers.md) — cuándo y cómo extraer lógica auxiliar a un Provider
 - [repositorio.md](../repositorio.md) — contratos de repositorio y Unit of Work
 - [nuevo-contexto.md](nuevo-contexto.md) — crear un contexto completo desde cero

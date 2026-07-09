@@ -110,6 +110,59 @@ public async Task ExecuteAsync_WithValidInput_PersistsAggregateAndReturnsSuccess
 }
 ```
 
+### Providers — application services de resolución
+
+Los Providers son clases concretas que se instancian directamente en el test con el mock del repositorio del que dependen. No se mockea el Provider en sí: se testea su comportamiento real.
+
+```csharp
+public sealed class ProductCategoriesProviderTests
+{
+    private readonly ICategoryRepositoryPort _repository =
+        Substitute.For<ICategoryRepositoryPort>();
+    private readonly ProductCategoriesProvider _sut;
+
+    public ProductCategoriesProviderTests()
+    {
+        _sut = new ProductCategoriesProvider(_repository);
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenCategoriesProvided_ReturnsThem()
+    {
+        IReadOnlyList<string> categories = ["electronics"];
+
+        var result = await _sut.GetAsync(categories);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBe(categories);
+        await _repository.DidNotReceive().GetAllAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetAsync_WhenCategoriesNull_FetchesFromRepository()
+    {
+        IReadOnlyList<CategoryData> activeCategories = [...];
+        _repository.GetAllAsync(isActive: true, Arg.Any<CancellationToken>())
+            .Returns(Result<IReadOnlyList<CategoryData>>.Success(activeCategories));
+
+        var result = await _sut.GetAsync(null);
+
+        result.IsSuccess.ShouldBeTrue();
+        await _repository.Received(1).GetAllAsync(isActive: true, Arg.Any<CancellationToken>());
+    }
+}
+```
+
+En los tests del use case que usa el Provider, se construye el Provider con un mock del repositorio que no tiene setup — así el use case test no repite la lógica del Provider y queda enfocado en orquestación:
+
+```csharp
+_sut = new CreateProductUseCase(
+    _repository,
+    new ProductCategoriesProvider(Substitute.For<ICategoryRepositoryPort>()));
+```
+
+Dado que el `ValidInput()` de los tests del use case siempre provee `Categories` explícitas, el repositorio del Provider nunca se llama — no necesita setup.
+
 ### Mappings — funciones puras
 
 ```csharp

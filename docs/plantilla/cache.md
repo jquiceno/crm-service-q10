@@ -46,7 +46,7 @@ El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCor
 Principios:
 
 * **Opt-in por endpoint** con `[OutputCache]` en el método del controlador.
-* **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Tenant-Id", "Accept-Language")` en la política base.
+* **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Entity-Code", "Accept-Language")` en la política base.
 * **Invalidación por etiquetas (tags)**: los `GET` se etiquetan con `Tags = [...]` y las mutaciones usan el filtro `[OutputCacheInvalidate("tag")]` que llama a `IOutputCacheStore.EvictByTagAsync` tras una respuesta exitosa para invalidar esas llaves de caché.
 
 
@@ -291,7 +291,7 @@ public Task<IActionResult> AddItem(Guid orderId, ...) { ... }
 
 La política base varía la clave por dos headers:
 
-* `X-Tenant-Id` — header identificador de tenant.
+* `X-Entity-Code` — header identificador de tenant.
 * `Accept-Language` — locale del cliente.
 
 Si ambos headers están ausentes, la respuesta se guarda como "sin tenant / sin locale" y se comparte entre todas las peticiones.

@@ -56,7 +56,7 @@ public sealed class ProductEntity : Entity<Guid>
 }
 ```
 
-`Entity<TId>` incluye las propiedades de auditoría `CreatedAtUtc` y `UpdatedAtUtc` que se actualizan automáticamente en `SaveChangesAsync`.
+`Entity<TId>` incluye las propiedades de auditoría `CreatedAt` y `UpdatedAt` que se actualizan automáticamente en `SaveChangesAsync`.
 
 ### Aggregate Root
 
@@ -172,7 +172,7 @@ public static class CreateProductMapping
         => ProductAggregate.Create(Guid.NewGuid(), input.Name!, input.Price);
 
     public static CreateProductOutputDto ToOutputDto(this ProductAggregate aggregate)
-        => new(aggregate.Id, aggregate.Name, aggregate.Price, aggregate.CreatedAtUtc);
+        => new(aggregate.Id, aggregate.Name, aggregate.Price, aggregate.CreatedAt);
 }
 ```
 

@@ -91,44 +91,48 @@ Cada overlay sobreescribe mediante **patches estratégicos**:
 
 ## Deploy manual desde la máquina local
 
+> Los valores concretos de cada servicio forkeado (nombre de cluster, rol de despliegue, contexto de kubectl, etc.) deben documentarse en su propio `docs/servicio/despliegue.md`. Esta sección solo describe el mecanismo genérico.
+
 ### Prerrequisitos
 
+El cluster EKS es privado (sin endpoint público). El acceso desde una máquina local requiere un túnel SSM port-forward hacia el bastion antes de poder usar `kubectl`:
+
 ```powershell
-# kubectl configurado con el contexto del cluster privado via SSM tunnel
-# Ver docs/runbooks/kubectl-access.md en el repo cluster-infra
 aws ssm start-session `
-  --target i-03ac60c7f9681dc7f `
+  --target <bastion-instance-id> `
   --document-name AWS-StartPortForwardingSessionToRemoteHost `
-  --parameters host=B2AF5D1FB8CA8F191DD8A3E4C60919A1.gr7.us-east-1.eks.amazonaws.com,portNumber=443,localPortNumber=6443 `
-  --region us-east-1 --profile informes-staging
+  --parameters host=<endpoint-del-cluster-eks>,portNumber=443,localPortNumber=6443 `
+  --region <region> --profile <perfil-aws>
 ```
+
+El bastion se resuelve dinámicamente por tag (`Name=q10-*-ssm-bastion`), no por un ID fijo — ver la plantilla de Terraform de IAM.
 
 ### Aplicar overlays con Kustomize
 
 ```powershell
 # Verificar qué va a aplicarse (dry-run)
-kubectl kustomize k8s/overlays/dev
+kubectl kustomize k8s/overlays/{env}
 
-# Aplicar al cluster de dev
-kubectl apply -k k8s/overlays/dev --context q10-dev-eks-local
+# Aplicar al cluster
+kubectl apply -k k8s/overlays/{env} --context {contexto-kubectl}
 
 # Verificar rollout
-kubectl rollout status deployment/service-template -n service-template --context q10-dev-eks-local
+kubectl rollout status deployment/{servicio} -n {servicio} --context {contexto-kubectl}
 
 # Ver pods
-kubectl get pods -n service-template --context q10-dev-eks-local
+kubectl get pods -n {servicio} --context {contexto-kubectl}
 
 # Ver variables de entorno inyectadas en un pod
-kubectl exec -n service-template deploy/service-template --context q10-dev-eks-local \
+kubectl exec -n {servicio} deploy/{servicio} --context {contexto-kubectl} \
   -- env | sort
 ```
 
 ### Verificar que el ClusterSecretStore esté listo (lo gestiona el equipo de plataforma)
 
 ```powershell
-# El ClusterSecretStore es gestionado por cluster-infra/environments/dev/addons/
+# Gestionado centralmente por el repo de infraestructura del cluster.
 # Solo verificar que exista antes del primer deploy:
-kubectl get clustersecretstore aws-secrets-manager --context q10-dev-eks-local
+kubectl get clustersecretstore aws-secrets-manager --context {contexto-kubectl}
 ```
 
 
@@ -136,7 +140,7 @@ kubectl get clustersecretstore aws-secrets-manager --context q10-dev-eks-local
 
 ## CI/CD en cluster privado
 
-El cluster EKS no tiene endpoint público. El job `deploy` en `cd.yml` resuelve esto abriendo un túnel SSM port-forward a través del bastion antes de ejecutar `kubectl`. No se requiere self-hosted runner.
+El cluster EKS no tiene endpoint público. El job `deploy` del pipeline resuelve esto abriendo un túnel SSM port-forward a través del bastion antes de ejecutar `kubectl`. No se requiere self-hosted runner.
 
 ### Variables requeridas en GitHub (Settings → Environments)
 
@@ -144,16 +148,15 @@ El cluster EKS no tiene endpoint público. El job `deploy` en `cd.yml` resuelve 
 |----------|-------------|
 | `IMAGE_NAME` | URI completo del repositorio ECR |
 | `AWS_DEPLOY_ROLE_ARN` | ARN del rol IAM con permisos de ECR + EKS + SSM |
-| `BASTION_INSTANCE_ID` | ID de la instancia EC2 del bastion SSM (ej. `i-0abc...`) |
 
-El rol de deploy necesita: `ecr:*`, `eks:DescribeCluster`, `eks:GetToken`, `ssm:StartSession`, `ssm:TerminateSession`, `ssm:ResumeSession`.
+El rol de deploy necesita: `ecr:*`, `eks:DescribeCluster`, `eks:GetToken`, `ssm:StartSession`, `ssm:TerminateSession`, `ssm:ResumeSession`. El bastion se resuelve por tag en tiempo de `apply`, no requiere una variable con su ID.
 
 ### Deploy manual (sin pipeline)
 
 Con el túnel SSM activo (ver sección anterior), ejecutar localmente:
 
 ```powershell
-kubectl apply -k k8s/overlays/dev --context q10-dev-eks-local
+kubectl apply -k k8s/overlays/{env} --context {contexto-kubectl}
 ```
 
 
@@ -214,12 +217,14 @@ dotnet user-secrets set "Sentry__Dsn" "https://..."
 
 ### Variables (`vars.*`) — en Settings → Environments
 
-| Variable | dev | qa  | prod |
-|----------|-----|-----|------|
-| `IMAGE_NAME` | `764283926096.dkr.ecr.us-east-1.amazonaws.com/q10-service-template` | igual | igual |
-| `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::764283926096:role/q10-github-deploy` | igual | igual |
+| Variable | Descripción |
+|----------|-------------|
+| `IMAGE_NAME` | `<account-id>.dkr.ecr.<region>.amazonaws.com/q10-{servicio}` |
+| `AWS_DEPLOY_ROLE_ARN` | `arn:aws:iam::<account-id>:role/q10-{servicio}-github-deploy` |
 
-El rol `q10-github-deploy` debe tener permisos de ECR push y EKS deploy. Ver `cluster-infra/terraform/bootstrap/` para crear el rol vía Terraform.
+> Valores reales de cada servicio en su propio `docs/servicio/despliegue.md`.
+
+El rol `q10-{servicio}-github-deploy` debe tener permisos de ECR push y EKS deploy — se crea vía el `terraform/` de este mismo repo (ver `bootstrap.yml`).
 
 
 ---

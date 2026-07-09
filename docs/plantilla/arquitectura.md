@@ -8,7 +8,7 @@
 │  Controllers · Filters · Results · Middleware       │
 ├─────────────────────────────────────────────────────┤
 │  Application                                        │
-│  Use Cases · Ports · DTOs · Mappings                │
+│  Use Cases · Ports · DTOs · Mappings · Providers    │
 ├─────────────────────────────────────────────────────┤
 │  Domain                                             │
 │  Aggregates · Entities · Value Objects · Errors     │
@@ -40,7 +40,7 @@ src/
 ├── Shared/
 │   ├── Domain/                       # Primitivos reutilizables entre contextos
 │   │   ├── Aggregates/               # AggregateRoot<TEntity, TId>
-│   │   ├── Entities/                 # Entity<TId> con CreatedAtUtc / UpdatedAtUtc
+│   │   ├── Entities/                 # Entity<TId> con CreatedAt / UpdatedAt
 │   │   ├── ValueObjects/             # ValueObject (base abstracta), Address
 │   │   ├── Interfaces/               # IRepositoryBase<T>, IAggregateRoot
 │   │   ├── Result/                   # Result<T>, PagedResult<T>
@@ -60,6 +60,7 @@ src/
 │       │   └── Errors/               # {Contexto}Errors
 │       └── Application/
 │           ├── Ports/                # I{Acción}{Contexto}Port (driving ports)
+│           ├── Providers/            # Application services de resolución auxiliar
 │           └── UseCases/
 │               └── {NombreUseCase}/  # UseCase + InputDto + OutputDto + Mapping
 │
@@ -122,4 +123,5 @@ Cada paso retorna un `Result`. Si cualquier paso falla, el use case retorna el e
 
 - [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — nomenclatura de puertos, adaptadores y extensiones DI
 - [patron-result.md](patron-result.md) — patrón transversal de manejo de errores
+- [providers.md](providers.md) — cuándo y cómo extraer lógica auxiliar de un use case a un Provider
 - [guias/nuevo-contexto.md](guias/nuevo-contexto.md) — flujo completo para implementar un nuevo contexto

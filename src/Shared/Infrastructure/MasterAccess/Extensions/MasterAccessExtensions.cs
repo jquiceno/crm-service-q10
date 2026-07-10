@@ -13,9 +13,11 @@ public static class MasterAccessExtensions
     public static IServiceCollection AddMasterAccess(this IServiceCollection services, string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
-            services.AddDbContext<MasterAccessDbContext>(options => options.UseInMemoryDatabase("MasterAccessDb"));
-        else
-            services.AddDbContext<MasterAccessDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
+        {
+            throw new ArgumentException("Connection string for master access is required.", nameof(connectionString));
+        }
+
+        services.AddDbContext<MasterAccessDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
 
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddSingleton<ITenantConnectionStringResolver, TenantConnectionStringResolver>();

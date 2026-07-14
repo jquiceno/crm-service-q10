@@ -28,6 +28,7 @@ jobs:
     name: Docker build
     needs: build-and-test
     runs-on: ubuntu-latest
+    if: hashFiles('Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
 

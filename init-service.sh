@@ -153,6 +153,18 @@ for f in "${TERRAFORM_FILES[@]}"; do
   $DRY_RUN || ok "$f"
 done
 
+title "Dockerfile"
+if [[ -f "Dockerfile.example" ]]; then
+  if $DRY_RUN; then
+    printf "    ${DIM}%-45s${NC}  ${RED}%s${NC}  →  ${GREEN}%s${NC}\n" "." "Dockerfile.example" "Dockerfile"
+  else
+    mv Dockerfile.example Dockerfile
+    ok "Dockerfile.example → Dockerfile"
+  fi
+else
+  skip "Dockerfile.example (no encontrado)"
+fi
+
 $DRY_RUN && { echo ""; warn "Dry-run completado. Ejecuta sin --dry-run para aplicar los cambios."; echo ""; exit 0; }
 
 # ── GitHub repository variables ───────────────────────────────────────────────

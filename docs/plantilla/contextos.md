@@ -440,7 +440,7 @@ Use Cases y repositorios se registran como `Scoped` para que compartan el mismo 
 ## Ver también
 
 * [arquitectura.md](arquitectura.md) — capas, regla de dependencias, estructura de carpetas completa
-* [entidades-y-agregados.md](entidades-y-agregados.md) — jerarquía `EntityRoot<TId>` / `AggregateRoot<TId>`, auditoría
+* [entidades-y-agregados.md](entidades-y-agregados.md) — jerarquía `Entity<TId>` / `AggregateRoot<TId>`, auditoría
 * [casos-de-uso.md](casos-de-uso.md) — patrones de implementación por tipo de operación
 * [controllers.md](controllers.md) — cómo se expone un caso de uso como endpoint HTTP
 * [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work, paginación

@@ -73,17 +73,17 @@ Una sola línea registra el adaptador para todos los tipos (open generic registr
 Inyectar por constructor y usar los métodos del puerto:
 
 ```csharp
-public sealed class GetWeatherForecastUseCase(
-    IWeatherForecastRepositoryPort repository,
-    ILoggerPort<GetWeatherForecastUseCase> logger)
+public sealed class GetAllProductsUseCase(
+    IProductRepository repository,
+    ILoggerPort<GetAllProductsUseCase> logger)
 {
     public async Task<...> ExecuteAsync(...)
     {
-        logger.Info("Retrieving weather forecasts (page {PageIndex}, size {PageSize})", page.PageIndex, page.PageSize);
+        logger.Info("Retrieving products (page {PageIndex}, size {PageSize})", page.PageIndex, page.PageSize);
 
         // ...
 
-        logger.Error(exception, "Failed to retrieve weather forecasts");
+        logger.Error(exception, "Failed to retrieve products");
     }
 }
 ```
@@ -102,11 +102,11 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 
 ```json
 {
-  "message": "Retrieving weather forecasts (page 1, size 20)",
+  "message": "Retrieving products (page 1, size 20)",
   "timestamp": "2026-05-21T10:30:00.000Z",
   "level": "information",
-  "sourceContext": "GetWeatherForecastUseCase",
-  "service": "WeatherService",
+  "sourceContext": "GetAllProductsUseCase",
+  "service": "ProductService",
   "environment": "production",
   "version": "1.0.0",
   "traceId": "819875943ff06821d25dcc54c02144cc",
@@ -178,7 +178,7 @@ El middleware opera en dos fases para que **todos los logs del request hereden e
   "userAgent": "Mozilla/5.0 ...",
   "remoteAddress": "::1",
   "method": "GET",
-  "route": "/api/v1/weather-forecasts"
+  "route": "/api/v1/products"
 }
 ```
 
@@ -191,7 +191,7 @@ El middleware opera en dos fases para que **todos los logs del request hereden e
     "userAgent": "Mozilla/5.0 ...",
     "remoteAddress": "::1",
     "method": "GET",
-    "route": "/api/v1/weather-forecasts",
+    "route": "/api/v1/products",
     "statusCode": 200,
     "latencyMs": 351
   },
@@ -229,13 +229,13 @@ Permite adjuntar contexto de negocio arbitrario a los logs de un scope. Es **opc
 ```csharp
 using Api.Middleware;
 
-public async Task<IActionResult> Create([FromBody] CreateOrderInputDto input, ...)
+public async Task<IActionResult> Create([FromBody] CreateProductInputDto input, ...)
 {
     using (HttpContext.PushLogProperties(new Dictionary<string, object?>
     {
-        ["userId"]   = currentUser.Id,
-        ["tenantId"] = currentUser.TenantId,
-        ["orderId"]  = input.OrderId
+        ["userId"]      = currentUser.Id,
+        ["tenantId"]    = currentUser.TenantId,
+        ["productName"] = input.Name
     }))
     {
         var result = await useCase.ExecuteAsync(input, cancellationToken);
@@ -252,15 +252,15 @@ public async Task<IActionResult> Create([FromBody] CreateOrderInputDto input, ..
 
 ```json
 {
-  "message": "Order created",
+  "message": "Product created",
   "properties": {
     "userId": "usr-123",
     "tenantId": "tenant-456",
-    "orderId": "ord-789"
+    "productName": "Keyboard"
   },
   "http": {
     "method": "POST",
-    "route": "/api/v1/orders"
+    "route": "/api/v1/products"
   }
 }
 ```
@@ -272,10 +272,10 @@ public async Task<IActionResult> Create([FromBody] CreateOrderInputDto input, ..
 ```csharp
 new Dictionary<string, object?>
 {
-    ["orderId"]     = Guid.NewGuid(),
-    ["amount"]      = 99.99m,
-    ["isPriority"]  = true,
-    ["cancelledAt"] = (DateTime?)null   // los valores null se omiten del JSON
+    ["productId"]       = Guid.NewGuid(),
+    ["price"]           = 99.99m,
+    ["isFeatured"]      = true,
+    ["discontinuedAt"]  = (DateTime?)null   // los valores null se omiten del JSON
 }
 ```
 
@@ -334,8 +334,8 @@ Usar `ILoggerPort<T>` inyectado por DI:
 
 ```csharp
 logger.Debug("Validating input: {Input}", input);
-logger.Info("Order created with id {Id}", order.Id);
-logger.Warning("Order {Id} not found", id);
+logger.Info("Product created with id {Id}", product.Id);
+logger.Warning("Product {Id} not found", id);
 logger.Error(exception, "Failed to process order {Id}", id);
 ```
 

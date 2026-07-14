@@ -48,7 +48,7 @@ src/
     └── <Contexto>/
         └── Domain/
             └── ValueObjects/
-                └── Temperature.cs      ← VO exclusivo del contexto
+                └── Price.cs            ← VO exclusivo del contexto
 ```
 
 
@@ -60,15 +60,15 @@ src/
 HTTP Request
      │
      ▼
-[DTO]  CreateWeatherForecastInputDto
+[DTO]  CreateProductInputDto
      │
      ▼
 [FluentValidation]  ¿Required? ¿MaxLength? ¿rango HTTP?
      │  falla → 400 Bad Request (errores estructurales)
      ▼
-[Aggregate.Create()]  WeatherForecastAggregate.Create(primitivos)
+[Aggregate.Create()]  ProductAggregate.Create(primitivos)
      │
-     ├─▶ Temperature.Create(celsius)
+     ├─▶ Price.Create(price)
      │        falla → acumula ValidationError
      │
      ├─▶ Address.Create(street, city, zipCode)    [si aplica]
@@ -76,10 +76,7 @@ HTTP Request
      │
      │  alguno falla → DomainError.FromValidationDomainErrors(errors)
      ▼
-[Entity]  WeatherForecastEntity(id, date, temperature, summary, address?)
-     │
-     ▼
-[AggregateRoot]  WeatherForecastAggregate wrappea la entity
+[AggregateRoot]  ProductAggregate — el agregado ES la entidad, ya validado y listo para persistir
 ```
 
 
@@ -88,27 +85,25 @@ HTTP Request
 ## Anatomía de un Value Object
 
 ```csharp
-public sealed class Temperature : ValueObject          // sealed, hereda ValueObject
+public sealed class Price : ValueObject                // sealed, hereda ValueObject
 {
-    public const int MinCelsius = -60;                 // constantes del dominio
-    public const int MaxCelsius = 60;
+    public const decimal MinValue = 0m;                 // constantes del dominio
 
-    public int Celsius { get; }                        // propiedades solo lectura
-    public int Fahrenheit => (int)Math.Round(Celsius * 9.0 / 5.0 + 32);
+    public decimal Value { get; }                       // propiedades solo lectura
 
-    private Temperature(int celsius) { Celsius = celsius; }  // constructor privado
+    private Price(decimal value) { Value = value; }    // constructor privado
 
-    public static Result<Temperature, ValidationError> Create(int celsius)
+    public static Result<Price, ValidationError> Create(decimal value)
     {
-        if (celsius < MinCelsius || celsius > MaxCelsius)
-            return WeatherForecastErrors.TemperatureOutOfRange;  // error de dominio
+        if (value < MinValue)
+            return ProductErrors.InvalidPrice;           // error de dominio
 
-        return new Temperature(celsius);
+        return new Price(value);
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {
-        yield return Celsius;                          // igualdad por valor
+        yield return Value;                             // igualdad por valor
     }
 }
 ```
@@ -131,7 +126,7 @@ La clase base `ValueObject` implementa `Equals`, `GetHashCode` y los operadores 
 ```csharp
 protected override IEnumerable<object?> GetEqualityComponents()
 {
-    yield return Celsius;
+    yield return Value;
 }
 ```
 

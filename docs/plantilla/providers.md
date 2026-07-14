@@ -27,8 +27,8 @@ No extraer un Provider por anticipación. Si solo hay un use case que necesita e
 | Concepto | Diferencia |
 |----------|------------|
 | **Domain Service** | Opera solo sobre objetos del dominio, sin repositorios ni infraestructura. |
-| **Repository** | Puerto de acceso a datos — el Provider puede usarlo, pero no es uno. |
-| **Resolver (Infrastructure)** | En este proyecto los Resolvers son implementaciones de puertos de infraestructura. |
+| **Repository** | Contrato de acceso a datos del Aggregate — el Provider puede usarlo, pero no es uno (ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md)). |
+| **Resolver (Infrastructure)** | En este proyecto los Resolvers son implementaciones de puertos o repositorios de infraestructura. |
 | **Use Case** | El use case orquesta; el Provider solo resuelve un dato puntual. |
 
 
@@ -59,12 +59,12 @@ Ejemplos:
 
 ```csharp
 // Contexts/Product/Application/Providers/ProductCategoriesProvider.cs
-using Product.Domain.Ports;
+using Product.Domain.Repositories;
 using Shared.Results;
 
 namespace Product.Application.Providers;
 
-public sealed class ProductCategoriesProvider(ICategoryRepositoryPort repository)
+public sealed class ProductCategoriesProvider(ICategoryRepository repository)
 {
     public async Task<Result<IReadOnlyList<string>>> GetAsync(
         IReadOnlyList<string>? categories,
@@ -103,8 +103,8 @@ El Provider se recibe por constructor y se invoca al inicio, antes de construir 
 
 ```csharp
 public sealed class CreateProductUseCase(
-    IProductRepositoryPort repository,
-    ProductCategoriesProvider categoriesProvider) : ICreateProductPort
+    IProductRepository repository,
+    ProductCategoriesProvider categoriesProvider) : ICreateProductUseCase
 {
     private const string Origin = nameof(CreateProductUseCase);
 
@@ -134,7 +134,7 @@ Registrar como `Scoped` — los Providers dependen de repositorios que son `Scop
 public static IServiceCollection AddProductServices(this IServiceCollection services)
 {
     services.AddScoped<ProductCategoriesProvider>();              // Provider primero
-    services.AddScoped<ICreateProductPort, CreateProductUseCase>();
+    services.AddScoped<ICreateProductUseCase, CreateProductUseCase>();
     // ...
     return services;
 }
@@ -161,5 +161,5 @@ Resumen:
 ## Ver también
 
 - [arquitectura.md](arquitectura.md) — estructura de capas y carpetas
-- [guias/nuevo-caso-de-uso.md](guias/nuevo-caso-de-uso.md) — cuándo y cómo agregar un Provider a un use case existente
+- [casos-de-uso.md](casos-de-uso.md) — cuándo y cómo agregar un Provider a un use case existente
 - [testing.md](testing.md) — patrón de testing para Providers

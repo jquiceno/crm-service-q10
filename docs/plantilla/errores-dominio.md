@@ -98,26 +98,22 @@ Cada contexto centraliza sus errores en una clase estática `{Contexto}Errors` e
 **Campo `static readonly`** — para errores con mensaje fijo:
 
 ```csharp
-public static class WeatherForecastErrors
+public static class ProductErrors
 {
-    public const string Context = "WeatherForecast";
+    public const string Context = "Product";
 
-    public static readonly ValidationError DateRequired =
-        new("Date is required.", ErrorType.Validation)
+    public static readonly ValidationError NameRequired =
+        new("Product name is required.", ErrorType.Validation)
         {
-            Property = nameof(WeatherForecastAggregate.Date)
+            Property = nameof(ProductAggregate.Name)
         };
 
-    public static readonly ValidationError TemperatureOutOfRange =
-        new($"Temperature must be between {Temperature.MinCelsius} and {Temperature.MaxCelsius}.",
+    public static readonly ValidationError InvalidPrice =
+        new($"Price must be greater than or equal to {Price.MinValue}.",
             ErrorType.Validation)
         {
-            Property   = nameof(WeatherForecastAggregate.TemperatureCelsius),
-            Attributes = new Dictionary<string, object?>
-            {
-                ["min"] = Temperature.MinCelsius,
-                ["max"] = Temperature.MaxCelsius
-            }
+            Property   = nameof(ProductAggregate.Price),
+            Attributes = new Dictionary<string, object?> { ["min"] = Price.MinValue }
         };
 }
 ```
@@ -126,7 +122,7 @@ public static class WeatherForecastErrors
 
 ```csharp
 public static DomainError NotFound(Guid id)
-    => new($"WeatherForecast with id '{id}' was not found.", ErrorType.NotFound);
+    => new($"Product with id '{id}' was not found.", ErrorType.NotFound);
 ```
 
 ### Campo `Property` en `ValidationError`
@@ -135,7 +131,7 @@ Siempre debe asignarse para que el cliente sepa qué campo falló. Se asigna en 
 
 ```csharp
 // En el Aggregate — asignar Property al acumular
-errors.Add(temperatureResult.TypedError with { Property = nameof(Temperature), Value = temperature });
+errors.Add(priceResult.TypedError with { Property = nameof(Price), Value = price });
 ```
 
 ### `Attributes`
@@ -150,14 +146,14 @@ Opcional pero recomendado cuando hay parámetros relevantes para el cliente (lí
 Los errores se definen sin `Context` ni `Origin` en el dominio. Al retornarlos desde un use case se enriquecen con `with`:
 
 ```csharp
-return WeatherForecastErrors.DateAlreadyExists with
+return ProductErrors.NameAlreadyExists with
 {
-    Context = WeatherForecastErrors.Context,
-    Origin  = nameof(CreateWeatherForecastUseCase)
+    Context = ProductErrors.Context,
+    Origin  = nameof(CreateProductUseCase)
 };
 ```
 
-- **`Context`** — nombre del bounded context (`"WeatherForecast"`). Facilita el filtrado en logs.
+- **`Context`** — nombre del bounded context (`"Product"`). Facilita el filtrado en logs.
 - **`Origin`** — nombre de la clase que retorna el error. Facilita el diagnóstico.
 
 

@@ -93,15 +93,15 @@ Las conversiones implícitas eliminan el ruido del código al evitar llamadas ex
 ### Desde un valor → Result exitoso
 
 ```csharp
-// En lugar de: return Result<Temperature>.Success(new Temperature(celsius));
-return new Temperature(celsius);   // implícito: T → Result<T>
+// En lugar de: return Result<Price>.Success(new Price(value));
+return new Price(value);   // implícito: T → Result<T>
 ```
 
 ### Desde un error → Result fallido
 
 ```csharp
-// En lugar de: return Result<Temperature>.Failure(WeatherForecastErrors.TemperatureOutOfRange);
-return WeatherForecastErrors.TemperatureOutOfRange;   // implícito: DomainError → Result<T>
+// En lugar de: return Result<Price>.Failure(ProductErrors.InvalidPrice);
+return ProductErrors.InvalidPrice;   // implícito: DomainError → Result<T>
 
 // También funciona con PagedResult<T>:
 return PersistenceErrors.Failure();   // implícito: DomainError → PagedResult<T>
@@ -112,7 +112,7 @@ return PersistenceErrors.Failure();   // implícito: DomainError → PagedResult
 `Result<TValue, TError>` hereda de `Result<TValue>`, por lo que se puede asignar directamente:
 
 ```csharp
-Result<Temperature> result = Temperature.Create(celsius);
+Result<Price> result = Price.Create(value);
 ```
 
 > **Restricción importante**: `Result<T>.Success(value)` lanza `ArgumentNullException` si `value` es null. El patrón asume que un resultado exitoso siempre tiene un valor.
@@ -125,33 +125,33 @@ Result<Temperature> result = Temperature.Create(celsius);
 ### Patrón estándar de manejo
 
 ```csharp
-public async Task<Result<CreateWeatherForecastOutputDto>> ExecuteAsync(
-    CreateWeatherForecastInputDto input, CancellationToken cancellationToken = default)
+public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
+    CreateProductInputDto input, CancellationToken cancellationToken = default)
 {
     // 1. Verificar precondición de negocio
-    var existsResult = await repository.ExistsForDateAsync(input.Date, cancellationToken);
+    var existsResult = await repository.ExistsByNameAsync(input.Name!, cancellationToken);
     if (existsResult.IsFailure)
-        return existsResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
+        return existsResult.Error with { Context = ProductErrors.Context, Origin = Origin };
     if (existsResult.Value)
-        return WeatherForecastErrors.DateAlreadyExists with
-            { Context = WeatherForecastErrors.Context, Origin = Origin };
+        return ProductErrors.NameAlreadyExists with
+            { Context = ProductErrors.Context, Origin = Origin };
 
     // 2. Crear el Aggregate (validación de dominio)
     var aggregateResult = input.ToAggregate();
     if (aggregateResult.IsFailure)
-        return aggregateResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
+        return aggregateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
     // 3. Persistir — repositorio solo encola el cambio
     var addResult = await repository.AddAsync(aggregateResult.Value, cancellationToken);
     if (addResult.IsFailure)
-        return addResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
+        return addResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
     // 4. Confirmar — Unit of Work persiste todo o nada
     var commitResult = await unitOfWork.CommitAsync(cancellationToken);
     if (commitResult.IsFailure)
-        return commitResult.Error with { Context = WeatherForecastErrors.Context, Origin = Origin };
+        return commitResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
-    return aggregateResult.Value.ToCreateDto();   // implícito → Result<OutputDto>
+    return aggregateResult.Value.ToOutputDto();   // implícito → Result<OutputDto>
 }
 ```
 

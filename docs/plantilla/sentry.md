@@ -74,27 +74,27 @@ builder.AddSentry();
 
 Esto **no viola** la regla de dependencias porque `Program.cs` es el **composition root**: el único lugar del sistema que tiene permiso de conocer todas las capas concretas para cablearlas. Su única responsabilidad es construir el grafo de objetos y arrancar el host; no contiene lógica de negocio.
 
-El mismo principio aplica a `services.AddDbContext<ApplicationDbContext>()` o `services.AddScoped<IWeatherForecastRepository, WeatherForecastRepository>()`: son registros de DI en el composition root, no dependencias de negocio.
+El mismo principio aplica a `services.AddDbContext<ApplicationDbContext>()` o `services.AddScoped<IProductRepository, ProductRepositoryAdapter>()`: son registros de DI en el composition root, no dependencias de negocio.
 
 
 ---
 
 ## ¿Por qué no existe `IErrorTracker`?
 
-En el proyecto existe `ILoggerService<T>` como puerto de logging (Application → implementado por `SerilogLogger<T>` en Infrastructure). Podría preguntarse si debería existir un `IErrorTrackingService` o `IErrorTracker` como puerto para Sentry.
+En el proyecto existe `ILoggerPort<T>` como puerto de logging (Application → implementado por `SerilogLoggerAdapter<T>` en Infrastructure). Podría preguntarse si debería existir un `IErrorTrackingPort` o `IErrorTracker` como puerto para Sentry.
 
 **La respuesta es no, en el estado actual**, por esta razón: un puerto se justifica cuando una capa interna necesita **invocar activamente** un comportamiento externo. En este proyecto:
 
-* Los casos de uso solo llaman a `ILoggerService<T>.Error(exception, message)`.
+* Los casos de uso solo llaman a `ILoggerPort<T>.Error(exception, message)`.
 * El fan-out hacia Sentry ocurre automáticamente a través del sink de Serilog — sin que Application lo sepa.
 * No existe código en Application o Domain que diga "envía esto a Sentry".
 
 ```csharp
-// src/Contexts/WeatherForecast/Application/UseCases/GetWeatherForecast/GetWeatherForecastUseCase.cs
-// Solo usa ILoggerService<T>. No conoce Sentry.
-public sealed class GetWeatherForecastUseCase(
-    IWeatherForecastRepository repository,
-    ILoggerService<GetWeatherForecastUseCase> logger)
+// src/Contexts/Product/Application/UseCases/GetProductById/GetProductByIdUseCase.cs
+// Solo usa ILoggerPort<T>. No conoce Sentry.
+public sealed class GetProductByIdUseCase(
+    IProductRepository repository,
+    ILoggerPort<GetProductByIdUseCase> logger)
 ```
 
 **Cuándo sí se justificaría** `**IErrorTracker**`**:** si un caso de uso necesitara enriquecer eventos con contexto de dominio (tags, breadcrumbs de negocio, captura selectiva de excepciones manejadas con datos adicionales). En ese caso se introduciría la interfaz en `src/Shared/Application/Ports/` con un adaptador en `src/Infrastructure/Adapters/Sentry/`.
@@ -104,7 +104,7 @@ public sealed class GetWeatherForecastUseCase(
 
 ## Integración con Serilog
 
-Serilog es el adaptador del puerto `ILoggerService<T>`. El sink `WriteTo.Sentry(...)` conecta Serilog con Sentry, convirtiendo los logs de nivel `Error` o superior en eventos de Sentry:
+Serilog es el adaptador del puerto `ILoggerPort<T>`. El sink `WriteTo.Sentry(...)` conecta Serilog con Sentry, convirtiendo los logs de nivel `Error` o superior en eventos de Sentry:
 
 ```csharp
 // src/Infrastructure/Extensions/SerilogExtensions.cs

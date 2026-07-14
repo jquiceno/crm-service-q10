@@ -39,30 +39,29 @@ src/
 │
 ├── Shared/
 │   ├── Domain/                       # Primitivos reutilizables entre contextos
-│   │   ├── Aggregates/               # AggregateRoot<TEntity, TId>
-│   │   ├── Entities/                 # Entity<TId> con CreatedAt / UpdatedAt
+│   │   ├── Aggregates/               # AggregateRoot<TId>
+│   │   ├── Entities/                 # EntityRoot<TId> con CreatedAt / UpdatedAt
 │   │   ├── ValueObjects/             # ValueObject (base abstracta), Address
-│   │   ├── Interfaces/               # IRepositoryBase<T>, IAggregateRoot
+│   │   ├── Interfaces/               # IRootRepository<TAggregate, TId>, IAggregateRoot
 │   │   ├── Result/                   # Result<T>, PagedResult<T>
 │   │   ├── Errors/                   # DomainError, ValidationError, ErrorType, SharedErrors
 │   │   └── Pagination/               # PageQuery
 │   └── Application/
-│       ├── Ports/                    # IUnitOfWorkPort, ILoggerPort<T>, IRequestValidatorPort<T>
+│       ├── Ports/                    # IUnitOfWorkPort, ILoggerPort<T>, IRequestValidatorPort<T> — compartidos
 │       └── Dtos/                     # PageQueryInputDto, AddressInputDto/OutputDto
 │
 ├── Contexts/                         # Bounded Contexts — uno por dominio de negocio
 │   └── {Contexto}/
 │       ├── Domain/
-│       │   ├── Aggregates/           # {Contexto}Aggregate
-│       │   ├── Entities/             # {Contexto}Entity
+│       │   ├── Aggregates/           # {Contexto}Aggregate — el agregado ES la entidad
 │       │   ├── ValueObjects/         # VOs exclusivos del contexto
-│       │   ├── Ports/                # I{Contexto}RepositoryPort
+│       │   ├── Repositories/         # I{Contexto}Repository (persistencia del Aggregate)
 │       │   └── Errors/               # {Contexto}Errors
 │       └── Application/
-│           ├── Ports/                # I{Acción}{Contexto}Port (driving ports)
+│           ├── Ports/                # I{Capacidad}Port — capacidad externa del contexto, no persistencia (opcional)
 │           ├── Providers/            # Application services de resolución auxiliar
 │           └── UseCases/
-│               └── {NombreUseCase}/  # UseCase + InputDto + OutputDto + Mapping
+│               └── {NombreUseCase}/  # I{NombreUseCase}UseCase + UseCase + InputDto + OutputDto + Mapping
 │
 └── Infrastructure/
     ├── Adapters/
@@ -74,7 +73,7 @@ src/
     ├── Persistence/
     │   └── EntityFramework/
     │       ├── ApplicationDbContext.cs
-    │       ├── Common/               # BaseAggregateRepository<TAggregate, TEntity, TId>
+    │       ├── Common/               # RepositoryBaseEF<TAggregate, TId>
     │       └── {Contexto}/Configurations/
     ├── Extensions/                   # SerilogExtensions, SentryExtensions, EfCorePersistenceExtensions
     ├── Settings/                     # POCOs de configuración tipada
@@ -86,9 +85,9 @@ src/
 
 ## Bounded Context de ejemplo
 
-La plantilla incluye `WeatherForecast` como contexto de referencia. Todos los documentos y guías usan este contexto (o `Product` como contexto secundario en ejemplos) para mostrar los patrones implementados.
+Todos los documentos de esta carpeta usan `Product` (`Name: string`, `Price: decimal`) como contexto de ejemplo para mostrar los patrones implementados — es el mismo contexto en `casos-de-uso.md`, `contextos.md`, `controllers.md`, `repositorio.md` y `puertos-y-adaptadores.md`.
 
-Al crear un nuevo servicio, `WeatherForecast` puede eliminarse o mantenerse como referencia.
+La plantilla también incluye `WeatherForecast` como contexto scaffold real dentro del código (no como ejemplo de esta documentación). Al crear un nuevo servicio, `WeatherForecast` puede eliminarse o mantenerse como referencia de arranque.
 
 
 ---
@@ -121,7 +120,7 @@ Cada paso retorna un `Result`. Si cualquier paso falla, el use case retorna el e
 
 ## Ver también
 
-- [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — nomenclatura de puertos, adaptadores y extensiones DI
+- [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — qué son, driving vs. driven, y nomenclatura de casos de uso, repositorios, ports y adaptadores
 - [patron-result.md](patron-result.md) — patrón transversal de manejo de errores
 - [providers.md](providers.md) — cuándo y cómo extraer lógica auxiliar de un use case a un Provider
-- [guias/nuevo-contexto.md](guias/nuevo-contexto.md) — flujo completo para implementar un nuevo contexto
+- [contextos.md](contextos.md) — qué es un bounded context y flujo completo para implementar uno nuevo

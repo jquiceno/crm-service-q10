@@ -106,7 +106,7 @@ Atributo estándar de ASP.NET Core. Se coloca sobre el método del controlador.
 
 ```csharp
 [HttpGet]
-[OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
+[OutputCache(Duration = 60, Tags = ["products"])]
 public Task<IActionResult> GetAll(...) { ... }
 ```
 
@@ -206,9 +206,9 @@ Cache__ConnectionString=localhost:6379
 
 ```csharp
 [HttpGet]
-[OutputCache(Duration = 60, Tags = ["weather-forecasts"])]
+[OutputCache(Duration = 60, Tags = ["products"])]
 public async Task<IActionResult> GetAll(
-    IGetWeatherForecastPort useCase,
+    IGetAllProductsUseCase useCase,
     CancellationToken cancellationToken)
 {
     var result = await useCase.ExecuteAsync(cancellationToken);
@@ -226,7 +226,7 @@ public async Task<IActionResult> GetAll(
 [HttpGet("{id}")]
 [OutputCache(
     Duration = 120,
-    Tags = ["weather-forecasts"],
+    Tags = ["products"],
     VaryByRouteValueNames = ["id"])]
 public Task<IActionResult> GetById(Guid id, ...) { ... }
 ```
@@ -252,10 +252,10 @@ El argumento de `[OutputCacheInvalidate("...")]` debe coincidir con uno de los `
 
 ```csharp
 [HttpPost]
-[OutputCacheInvalidate("weather-forecasts")]
+[OutputCacheInvalidate("products")]
 public async Task<IActionResult> Create(
-    [FromBody] CreateWeatherForecastInputDto input,
-    ICreateWeatherForecastPort useCase,
+    [FromBody] CreateProductInputDto input,
+    ICreateProductUseCase useCase,
     CancellationToken cancellationToken)
 {
     var result = await useCase.ExecuteAsync(input, cancellationToken);
@@ -267,21 +267,21 @@ public async Task<IActionResult> Create(
 }
 
 [HttpPut("{id}")]
-[OutputCacheInvalidate("orders")]
+[OutputCacheInvalidate("products")]
 public Task<IActionResult> Update(Guid id, ...) { ... }
 
 [HttpDelete("{id}")]
-[OutputCacheInvalidate("orders")]
+[OutputCacheInvalidate("products")]
 public Task<IActionResult> Delete(Guid id, ...) { ... }
 ```
 
 #### Múltiples recursos
 
 ```csharp
-[HttpPost("{orderId}/items")]
-[OutputCacheInvalidate("orders")]
-[OutputCacheInvalidate("inventory")]
-public Task<IActionResult> AddItem(Guid orderId, ...) { ... }
+[HttpPost("{productId}/categories")]
+[OutputCacheInvalidate("products")]
+[OutputCacheInvalidate("categories")]
+public Task<IActionResult> LinkCategory(Guid productId, ...) { ... }
 ```
 
 
@@ -304,7 +304,7 @@ Si ambos headers están ausentes, la respuesta se guarda como "sin tenant / sin 
 ```
 tests/ServiceTemplate.Tests/Api/
 ├── Doubles/
-│   ├── CountingGetWeatherForecastUseCase.cs     ← decorator singleton que cuenta ejecuciones
+│   ├── CountingGetAllProductsUseCase.cs         ← decorator singleton que cuenta ejecuciones
 │   └── FakeOutputCacheStore.cs                  ← IOutputCacheStore espía para tests unitarios
 ├── TestWebApplicationFactory.cs                 ← factory con cache habilitado y use case decorado
 ├── OutputCacheTests.cs                          ← tests de integración: hit, vary, round-trip

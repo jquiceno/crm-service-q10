@@ -51,39 +51,41 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
 ## Escribir unit tests
 
-### Domain — invariantes de entidad
+### Domain — invariantes del Aggregate
 
 ```csharp
 [Fact]
-public void Create_WithEmptyGuid_ThrowsArgumentException()
+public void Create_WithEmptyName_ReturnsValidationError()
 {
-    var act = () => WeatherForecastAggregate.Create(Guid.Empty, DateTime.UtcNow, 20, "Sunny");
+    var result = ProductAggregate.Create("", 10m);
 
-    act.ShouldThrow<ArgumentException>();
+    result.IsFailure.ShouldBeTrue();
 }
 ```
+
+`Create()` retorna `Result<ProductAggregate>` — nunca lanza excepción, así que el test verifica `IsFailure`, no `ShouldThrow`.
 
 ### Validators — `FluentValidation.TestHelper`
 
 ```csharp
-private readonly CreateWeatherForecastInputValidator _validator = new();
+private readonly CreateProductInputValidator _validator = new();
 
 [Fact]
-public void Validate_WithEmptySummary_HasErrorOnSummary()
+public void Validate_WithEmptyName_HasErrorOnName()
 {
-    var input = new CreateWeatherForecastInputDto(DateTime.UtcNow, 20, "", null);
+    var input = new CreateProductInputDto("", 10m);
 
     var result = _validator.TestValidate(input);
 
-    result.ShouldHaveValidationErrorFor(x => x.Summary);
+    result.ShouldHaveValidationErrorFor(x => x.Name);
 }
 ```
 
 ### Use cases — mocks con NSubstitute
 
 ```csharp
-private readonly IWeatherForecastRepositoryPort _repository =
-        Substitute.For<IWeatherForecastRepositoryPort>();
+private readonly IProductRepository _repository =
+        Substitute.For<IProductRepository>();
 
 private readonly IUnitOfWorkPort _unitOfWork =
     Substitute.For<IUnitOfWorkPort>();
@@ -91,21 +93,20 @@ private readonly IUnitOfWorkPort _unitOfWork =
 [Fact]
 public async Task ExecuteAsync_WithValidInput_PersistsAggregateAndReturnsSuccess()
 {
-    var input = new CreateWeatherForecastInputDto(new DateTime(2026, 4, 21), 25, "Sunny", null);
-    _repository.ExistsForDateAsync(input.Date, Arg.Any<CancellationToken>()).Returns(false);
-    _repository.AddAsync(Arg.Any<WeatherForecastAggregate>(), Arg.Any<CancellationToken>())
+    var input = new CreateProductInputDto("Keyboard", 49.90m);
+    _repository.ExistsByNameAsync(input.Name!, Arg.Any<CancellationToken>()).Returns(false);
+    _repository.AddAsync(Arg.Any<ProductAggregate>(), Arg.Any<CancellationToken>())
         .Returns(Result.Success());
     _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(Result.Success());
 
     var result = await _sut.ExecuteAsync(input, CancellationToken.None);
 
     result.IsSuccess.ShouldBeTrue();
-    result.Value.Date.ShouldBe(input.Date);
-    result.Value.Temperature.ShouldBe(input.Temperature);
-    result.Value.Summary.ShouldBe(input.Summary);
+    result.Value.Name.ShouldBe(input.Name);
+    result.Value.Price.ShouldBe(input.Price);
 
-    await _repository.Received(1).ExistsForDateAsync(input.Date, Arg.Any<CancellationToken>());
-    await _repository.Received(1).AddAsync(Arg.Any<WeatherForecastAggregate>(), Arg.Any<CancellationToken>());
+    await _repository.Received(1).ExistsByNameAsync(input.Name!, Arg.Any<CancellationToken>());
+    await _repository.Received(1).AddAsync(Arg.Any<ProductAggregate>(), Arg.Any<CancellationToken>());
     await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
 }
 ```
@@ -117,8 +118,8 @@ Los Providers son clases concretas que se instancian directamente en el test con
 ```csharp
 public sealed class ProductCategoriesProviderTests
 {
-    private readonly ICategoryRepositoryPort _repository =
-        Substitute.For<ICategoryRepositoryPort>();
+    private readonly ICategoryRepository _repository =
+        Substitute.For<ICategoryRepository>();
     private readonly ProductCategoriesProvider _sut;
 
     public ProductCategoriesProviderTests()
@@ -158,7 +159,7 @@ En los tests del use case que usa el Provider, se construye el Provider con un m
 ```csharp
 _sut = new CreateProductUseCase(
     _repository,
-    new ProductCategoriesProvider(Substitute.For<ICategoryRepositoryPort>()));
+    new ProductCategoriesProvider(Substitute.For<ICategoryRepository>()));
 ```
 
 Dado que el `ValidInput()` de los tests del use case siempre provee `Categories` explícitas, el repositorio del Provider nunca se llama — no necesita setup.
@@ -169,16 +170,15 @@ Dado que el `ValidInput()` de los tests del use case siempre provee `Categories`
 [Fact]
 public void ToAggregate_PreservesInputFields_AndAssignsId()
 {
-    var input = new CreateWeatherForecastInputDto(new DateTime(2026, 4, 21), 25, "Sunny", null);
+    var input = new CreateProductInputDto("Keyboard", 49.90m);
 
     var result = input.ToAggregate();
 
     result.IsSuccess.ShouldBeTrue();
     var aggregate = result.Value;
     aggregate.Id.ShouldNotBe(Guid.Empty);
-    aggregate.Date.ShouldBe(input.Date);
-    aggregate.TemperatureCelsius.ShouldBe(input.Temperature);
-    aggregate.Summary.ShouldBe(input.Summary);
+    aggregate.Name.ShouldBe(input.Name);
+    aggregate.Price.ShouldBe(input.Price);
 }
 ```
 
@@ -191,19 +191,20 @@ Hereda de `IntegrationTestBase` y declara la colección:
 
 ```csharp
 [Collection(IntegrationTestCollection.Name)]
-public sealed class MyEndpointTests : IntegrationTestBase
+public sealed class ProductEndpointsTests : IntegrationTestBase
 {
-    public MyEndpointTests(SqlServerContainerFixture fixture) : base(fixture) { }
+    public ProductEndpointsTests(SqlServerContainerFixture fixture) : base(fixture) { }
 
     [Fact]
-    public async Task Endpoint_Scenario_ExpectedOutcome()
+    public async Task GetById_Scenario_ReturnsOk()
     {
-        // Hacer seed de datos
-        Db.Set<WeatherForecastEntity>().Add(new WeatherForecastEntity(...));
+        // Hacer seed de datos — el agregado ES la entidad, se agrega directamente
+        var product = ProductAggregate.Create("Keyboard", 49.90m).Value;
+        Db.Set<ProductAggregate>().Add(product);
         await Db.SaveChangesAsync();
 
         // Llamar al endpoint con HttpClient pre-configurado
-        var response = await Client.GetAsync("/api/v1/weather-forecast");
+        var response = await Client.GetAsync($"/api/v1/product/{product.Id}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

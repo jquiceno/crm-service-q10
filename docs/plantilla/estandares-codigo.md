@@ -38,11 +38,11 @@ Usar `var` en todos los casos.
 
 ```csharp
 // correcto
-var entity = input.ToEntity();
+var aggregate = input.ToAggregate();
 var result = await useCase.ExecuteAsync(cancellationToken);
 
 // incorrecto
-WeatherForecastEntity entity = input.ToEntity();
+ProductAggregate aggregate = input.ToAggregate();
 ```
 
 ### Declaración de namespaces
@@ -51,10 +51,10 @@ Solo namespaces con ámbito de archivo (C# 10+):
 
 ```csharp
 // correcto
-namespace WeatherForecast.Application.UseCases.GetWeatherForecast;
+namespace Product.Application.UseCases.GetProductById;
 
 // incorrecto
-namespace WeatherForecast.Application.UseCases.GetWeatherForecast { }
+namespace Product.Application.UseCases.GetProductById { }
 ```
 
 ### Modificadores de acceso
@@ -63,22 +63,22 @@ Siempre escribirlos de forma explícita — nunca depender de los valores por de
 
 ```csharp
 // correcto
-public sealed class GetWeatherForecastUseCase(...) { }
+public sealed class GetProductByIdUseCase(...) { }
 
 // incorrecto
-sealed class GetWeatherForecastUseCase(...) { }
+sealed class GetProductByIdUseCase(...) { }
 ```
 
 ### Nomenclatura
 
 | Símbolo | Convención | Ejemplo |
 |---------|------------|---------|
-| Interfaces | Prefijo `I` + PascalCase | `IWeatherForecastRepository` |
-| Parámetros de tipo | Prefijo `T` + PascalCase | `TEntity` |
+| Interfaces | Prefijo `I` + PascalCase | `IProductRepository` |
+| Parámetros de tipo | Prefijo `T` + PascalCase | `TAggregate` |
 | Campos privados | `_camelCase` | `_repository` |
 | Constantes | PascalCase | `SectionName` |
 | Métodos asíncronos | PascalCase + sufijo `Async` | `ExecuteAsync` |
-| Todos los demás miembros | PascalCase | `CreateWeatherForecastUseCase` |
+| Todos los demás miembros | PascalCase | `CreateProductUseCase` |
 
 ### Verificaciones de nulos
 
@@ -103,8 +103,8 @@ if (entity == null) return;
 Sellar toda clase concreta que no esté diseñada para herencia:
 
 ```csharp
-public sealed class CreateWeatherForecastUseCase(...) : ICreateWeatherForecastUseCase { }
-public sealed class WeatherForecastRepository(...) : BaseRepository<WeatherForecastEntity> { }
+public sealed class CreateProductUseCase(...) : ICreateProductUseCase { }
+public sealed class ProductRepositoryAdapter(...) : RepositoryBaseEF<ProductAggregate, Guid> { }
 ```
 
 ### Constructores primarios
@@ -112,9 +112,9 @@ public sealed class WeatherForecastRepository(...) : BaseRepository<WeatherForec
 Usar constructores primarios (C# 12+) para inyección de dependencias:
 
 ```csharp
-public sealed class GetWeatherForecastUseCase(
-    IWeatherForecastRepository repository,
-    ILoggerService<GetWeatherForecastUseCase> logger) : IGetWeatherForecastUseCase
+public sealed class GetProductByIdUseCase(
+    IProductRepository repository,
+    ILoggerPort<GetProductByIdUseCase> logger) : IGetProductByIdUseCase
 ```
 
 ### Manejo de excepciones

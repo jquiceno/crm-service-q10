@@ -424,3 +424,6 @@ FodyWeavers.xsd
 
 # AI tools
 .claude
+.agents
+skills
+skills*

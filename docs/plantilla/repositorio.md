@@ -1,6 +1,6 @@
 # Patrón de Repositorio
 
-El proyecto implementa **Clean Architecture** combinada con principios de **Domain-Driven Design (DDD)** y **Arquitectura Hexagonal**; la capa de persistencia se conecta al dominio mediante puertos y adaptadores. Para una visión completa de la arquitectura de capas, ver [arquitectura.md](arquitectura.md).
+El proyecto implementa **Clean Architecture** combinada con principios de **Domain-Driven Design (DDD)** y **Arquitectura Hexagonal**; la capa de persistencia se conecta al dominio mediante repositorios (el contrato de persistencia del Aggregate) y adaptadores concretos. Para una visión completa de la arquitectura de capas, ver [arquitectura.md](arquitectura.md); para por qué el repositorio no se llama "Port", ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md#2-por-qué-el-repositorio-no-es-un-port).
 
 
 ---
@@ -19,20 +19,20 @@ src/
 │       └── Dtos/                 # PageQueryInputDto
 │
 ├── Contexts/
-│   └── WeatherForecast/
+│   └── Product/
 │       └── Domain/
-│           └── Ports/            # IWeatherForecastRepositoryPort
+│           └── Repositories/     # IProductRepository
 │
 └── Infrastructure/
     ├── Persistence/EntityFramework/
     │   ├── ApplicationDbContext.cs
     │   ├── Common/
     │   │   └── RepositoryBaseEF.cs   # Repositorio genérico
-    │   └── WeatherForecast/Configurations/
+    │   └── Product/Configurations/
     └── Adapters/
         └── Persistence/
             ├── UnitOfWorkAdapter.cs
-            └── WeatherForecast/WeatherForecastRepositoryAdapter.cs
+            └── Product/ProductRepositoryAdapter.cs
 ```
 
 
@@ -58,15 +58,15 @@ public interface IRootRepository<TAggregate, TId>
 
 Todos los métodos retornan `Result` — nunca lanzan excepciones al caller.
 
-### Puerto de repositorio del contexto
+### Repositorio del contexto
 
-Extiende `IRootRepository` con queries específicas del dominio:
+Extiende `IRootRepository` con queries específicas del dominio. Vive en `Domain/Repositories/`, no en una carpeta `Ports/` — es un contrato de persistencia de Aggregate, no un `Port` (ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md#2-por-qué-el-repositorio-no-es-un-port)):
 
 ```csharp
-// Contexts/WeatherForecast/Domain/Ports/IWeatherForecastRepositoryPort.cs
-public interface IWeatherForecastRepositoryPort : IRootRepository<WeatherForecastAggregate, Guid>
+// Contexts/Product/Domain/Repositories/IProductRepository.cs
+public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 {
-    Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default);
+    Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default);
 }
 ```
 
@@ -94,32 +94,30 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(
 * `AddAsync` solo hace `DbSet.AddAsync`; el commit ocurre en `UnitOfWorkAdapter`.
 * Todos los métodos capturan excepciones y retornan `PersistenceErrors.Failure()`.
 
-### Adaptador concreto — `WeatherForecastRepositoryAdapter`
+### Adaptador concreto — `ProductRepositoryAdapter`
 
 Hereda de `RepositoryBaseEF` e implementa las queries extras del contexto:
 
 ```csharp
-// Infrastructure/Adapters/Persistence/WeatherForecast/WeatherForecastRepositoryAdapter.cs
-public sealed class WeatherForecastRepositoryAdapter(
+// Infrastructure/Adapters/Persistence/Product/ProductRepositoryAdapter.cs
+public sealed class ProductRepositoryAdapter(
     ApplicationDbContext context,
-    ILoggerPort<WeatherForecastRepositoryAdapter> logger)
-    : RepositoryBaseEF<WeatherForecastAggregate, Guid>(context, logger),
-      IWeatherForecastRepositoryPort
+    ILoggerPort<ProductRepositoryAdapter> logger)
+    : RepositoryBaseEF<ProductAggregate, Guid>(context, logger),
+      IProductRepository
 {
     protected override NotFoundError GetNotFoundError(Guid id)
-        => WeatherForecastErrors.NotFound(id);
+        => ProductErrors.NotFound(id);
 
-    public async Task<Result<bool>> ExistsForDateAsync(DateTime date, CancellationToken ct = default)
+    public async Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default)
     {
         try
         {
-            var start = date.Date;
-            var end   = start.AddDays(1);
-            return await DbSet.AnyAsync(e => e.Date >= start && e.Date < end, ct);
+            return await DbSet.AnyAsync(p => p.Name == name, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.Error(ex, "Error checking forecast for date {Date}", date);
+            logger.Error(ex, "Error checking product name {Name}", name);
             return PersistenceErrors.Failure();
         }
     }
@@ -180,10 +178,10 @@ return Result.Success();
 return Result<MyAggregate>.Success(aggregate);
 
 // Return error
-return Result.Failure(WeatherForecastErrors.NotFound(id));
+return Result.Failure(ProductErrors.NotFound(id));
 
 // Enrich with context before propagating
-return someError with { Context = WeatherForecastErrors.Context, Origin = nameof(MyUseCase) };
+return someError with { Context = ProductErrors.Context, Origin = nameof(MyUseCase) };
 ```
 
 ### Tipos de error (`ErrorType`)
@@ -225,23 +223,19 @@ public static class MyContextErrors
 
 ```csharp
 // In a Value Object
-public static readonly ValidationError InvalidTemperature
-    = new($"Temperature must be between {MinCelsius} and {MaxCelsius}.", ErrorType.Validation)
+public static readonly ValidationError InvalidPrice
+    = new($"Price must be greater than or equal to {Price.MinValue}.", ErrorType.Validation)
     {
-        Property   = nameof(Temperature),             // Name of the Value Object / property
-        Attributes = new Dictionary<string, object?>
-        {
-            ["min"] = MinCelsius,
-            ["max"] = MaxCelsius
-        }
+        Property   = nameof(Price),             // Name of the Value Object / property
+        Attributes = new Dictionary<string, object?> { ["min"] = Price.MinValue }
     };
 
 // In an Aggregate (property that fails a business rule)
-public static readonly ValidationError SummaryTooLong
-    = new($"Summary cannot exceed {MaxSummaryLength} characters.", ErrorType.Validation)
+public static readonly ValidationError NameTooLong
+    = new($"Name cannot exceed {MaxNameLength} characters.", ErrorType.Validation)
     {
-        Property   = nameof(Summary),
-        Attributes = new Dictionary<string, object?> { ["maxLength"] = MaxSummaryLength }
+        Property   = nameof(Name),
+        Attributes = new Dictionary<string, object?> { ["maxLength"] = MaxNameLength }
     };
 ```
 
@@ -282,22 +276,22 @@ Reglas de validación:
 ### Flujo de paginación de extremo a extremo
 
 ```
-GET /api/v1/weatherforecast?pageIndex=0&pageSize=20
+GET /api/v1/products?pageIndex=0&pageSize=20
         ↓
 [FromQuery] PageQueryInputDto  →  [ValidateRequest] → 400 si inválido
         ↓
 new PageQuery(input.PageIndex, input.PageSize)
         ↓
-IGetWeatherForecastPort.ExecuteAsync(page)
+IGetAllProductsUseCase.ExecuteAsync(page)
         ↓
-IWeatherForecastRepositoryPort.GetAllAsync(page)
+IProductRepository.GetAllAsync(page)
         ↓
 SELECT … OFFSET page.Skip ROWS FETCH NEXT page.PageSize ROWS ONLY
 COUNT(*) para el total
         ↓
-PagedResult<WeatherForecastAggregate> { Items, TotalCount }
+PagedResult<ProductAggregate> { Items, TotalCount }
         ↓
-PagedResult<GetWeatherForecastOutputDto> { Items, TotalCount }
+PagedResult<GetAllProductsOutputDto> { Items, TotalCount }
         ↓
 { data: { items: [...], totalCount: N }, statusCode: 200 }
 ```
@@ -356,8 +350,9 @@ public async Task<Result> CommitAsync(CancellationToken cancellationToken = defa
 
 | Tipo | Lifetime | Por qué |
 |------|----------|---------|
-| Use Cases (`IXxxPort`) | `Scoped` | Un caso de uso por request HTTP |
-| Repositorios (`IXxxRepositoryPort`) | `Scoped` | Comparten el mismo `DbContext` del request |
+| Casos de uso (`IXxxUseCase`) | `Scoped` | Un caso de uso por request HTTP |
+| Repositorios (`IXxxRepository`) | `Scoped` | Comparten el mismo `DbContext` del request |
+| `Port` específico de contexto (`IXxxPort`) | `Scoped` | Normalmente depende de servicios `Scoped` (opciones, HTTP client, etc.) |
 | `IUnitOfWorkPort` | `Scoped` | Mismo `DbContext` que los repositorios |
 | `ILoggerPort<T>` | `Singleton` | Serilog es thread-safe |
 | Validadores (`IRequestValidatorPort<T>`) | `Scoped` | Registrado automáticamente via reflection |
@@ -371,4 +366,5 @@ Los validadores de FluentValidation se registran automáticamente en `ValidatorR
 
 * [patron-result.md](patron-result.md) — jerarquía completa de tipos Result y errores de dominio
 * [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
-* [guias/nuevo-contexto.md](guias/nuevo-contexto.md) — guía paso a paso para implementar un nuevo contexto
+* [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — por qué el repositorio no se llama "Port", y nomenclatura completa
+* [contextos.md](contextos.md) — guía paso a paso para implementar un nuevo contexto

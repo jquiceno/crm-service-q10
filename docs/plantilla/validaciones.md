@@ -87,37 +87,35 @@ public static readonly ValidationError InvalidPrice
 
 **Dónde vive:** en el método `Create()` del Aggregate. Los errores se acumulan en una lista para retornar todos juntos, no uno a uno.
 
-**Por qué aquí:** el Aggregate es el responsable de que el objeto nazca en estado válido. No puede existir un `WeatherForecastAggregate` inconsistente.
+**Por qué aquí:** el Aggregate es el responsable de que el objeto nazca en estado válido. No puede existir un `ProductAggregate` inconsistente.
 
 ```csharp
-// Contexts/WeatherForecast/Domain/Aggregates/WeatherForecastAggregate.cs
-public static Result<WeatherForecastAggregate> Create(
-    Guid id, DateTime date, int temperature, string summary, ...)
+// Contexts/Product/Domain/Aggregates/ProductAggregate.cs
+public static Result<ProductAggregate> Create(string name, decimal price)
 {
     var errors = new List<ValidationError>();
 
-    var tempResult = Temperature.Create(temperature);
-    if (tempResult.IsFailure)
-        errors.Add(tempResult.TypedError with
-        {
-            Property = nameof(Temperature),
-            Value    = temperature
-        });
+    if (string.IsNullOrWhiteSpace(name))
+        errors.Add(ProductErrors.NameRequired);
 
-    var addressResult = Address.Create(street, city, zipCode);
-    if (addressResult.IsFailure)
-        errors.Add(new ValidationError("Address is invalid.", ErrorType.Validation)
+    var priceResult = Price.Create(price);
+    if (priceResult.IsFailure)
+        errors.Add(priceResult.TypedError with
         {
-            Property = nameof(Address),
-            Children = addressResult.TypedError.Errors
+            Property = nameof(Price),
+            Value    = price
         });
 
     if (errors.Count > 0)
         return DomainError.FromValidationDomainErrors(errors);
 
-    return new WeatherForecastAggregate(entity);
+    var aggregate = new ProductAggregate(Guid.NewGuid(), name, priceResult.Value.Value);
+    aggregate.Created();
+    return aggregate;
 }
 ```
+
+Si una propiedad es un Value Object compuesto (por ejemplo, una dirección con varios campos), su error se acumula igual que `Price`, pero anidando los errores internos en `Children` en lugar de un solo mensaje plano — ver el campo `Children` de `ValidationError` en [patron-result.md](patron-result.md).
 
 > `Property` se asigna en el Aggregate, no en el error estático del Value Object, porque el mismo error puede reutilizarse desde distintos agregados con distintos nombres de propiedad. Ver [patron-result.md](patron-result.md).
 

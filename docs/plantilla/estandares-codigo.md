@@ -153,11 +153,11 @@ dotnet format
 
 El repositorio incluye un hook de git en `.githooks/pre-commit` que ejecuta la compilación y los tests unitarios antes de cada commit, bloqueándolo si alguno falla.
 
-### Activar el hook (una sola vez por clon)
+### Activación automática
 
-```bash
-git config core.hooksPath .githooks
-```
+El hook se activa automáticamente la primera vez que se ejecuta `dotnet build` en el clon. No se requiere ningún paso manual.
+
+El target `ConfigureGitHooks` en `Directory.Build.props` ejecuta `git config core.hooksPath .githooks` antes de cada build (solo si existe el directorio `.git`). Es idempotente — no tiene efecto en ejecuciones posteriores.
 
 ### Qué ejecuta el hook
 

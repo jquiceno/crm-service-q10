@@ -15,4 +15,12 @@
             <IncludeAssets>analyzers</IncludeAssets>
         </PackageReference>
     </ItemGroup>
+
+    <Target Name="ConfigureGitHooks" BeforeTargets="Build" Condition="Exists('$(MSBuildThisFileDirectory).git') AND '$(CI)' != 'true'">
+        <Exec Command="git config core.hooksPath .githooks"
+              WorkingDirectory="$(MSBuildThisFileDirectory)"
+              ContinueOnError="true"
+              StandardOutputImportance="Low"
+              StandardErrorImportance="Low" />
+    </Target>
 </Project>

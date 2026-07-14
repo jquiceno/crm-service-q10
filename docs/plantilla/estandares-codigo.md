@@ -149,6 +149,32 @@ dotnet format
 
 ---
 
+## Git hooks — validación pre-commit local
+
+El repositorio incluye un hook de git en `.githooks/pre-commit` que ejecuta la compilación y los tests unitarios antes de cada commit, bloqueándolo si alguno falla.
+
+### Activación automática
+
+El hook se activa automáticamente la primera vez que se ejecuta `dotnet build` en el clon. No se requiere ningún paso manual.
+
+El target `ConfigureGitHooks` en `Directory.Build.props` ejecuta `git config core.hooksPath .githooks` antes de cada build. Solo aplica cuando existe el directorio `.git` y la variable de entorno `CI` no está definida — por lo que no tiene efecto en GitHub Actions ni en ningún otro sistema de CI estándar.
+
+### Qué ejecuta el hook
+
+1. `dotnet build -c Release --no-restore` — compila la solución con `TreatWarningsAsErrors=true` activo.
+2. `dotnet test tests/UnitTests/UnitTests.csproj -c Release --no-build --verbosity minimal` — ejecuta los tests unitarios.
+
+Los tests de integración (Testcontainers, Docker) no se incluyen en el hook para mantenerlo rápido; se ejecutan en CI.
+
+### Saltarse el hook en casos excepcionales
+
+```bash
+git commit --no-verify
+```
+
+
+---
+
 ## Agregar o suprimir reglas
 
 ### Suprimir una regla globalmente

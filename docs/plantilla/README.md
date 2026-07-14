@@ -24,7 +24,7 @@ Los documentos están organizados en dos tipos:
 
 - [patron-result.md](patron-result.md) — tipos `Result<T>`, conversiones implícitas, patrón de uso en use cases
 - [errores-dominio.md](errores-dominio.md) — `DomainError`, `ValidationError`, `ErrorType`, cómo definir errores por contexto
-- [entidades-y-agregados.md](entidades-y-agregados.md) — `EntityRoot<TId>`, `AggregateRoot<TId>`, auditoría
+- [entidades-y-agregados.md](entidades-y-agregados.md) — `Entity<TId>`, `AggregateRoot<TId>`, auditoría
 - [value-objects.md](value-objects.md) — cuándo crear un VO, anatomía, igualdad estructural
 - [validaciones.md](validaciones.md) — mapa de las cinco capas de validación y dónde vive cada una
 - [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work, paginación

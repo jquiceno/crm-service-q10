@@ -3,7 +3,7 @@
 ## Jerarquía de tipos
 
 ```
-EntityRoot<TId>
+Entity<TId>
 └── AggregateRoot<TId>   ← heredado por cada agregado de contexto
 ```
 
@@ -12,36 +12,29 @@ Todos los tipos base viven en `Shared.Domain`.
 
 ---
 
-## `EntityRoot<TId>` — clase base de entidades
+## `Entity<TId>` — clase base de entidades
+
+Define lo mínimo que hace a algo una entidad en DDD: identidad y la igualdad que se deriva de ella. No incluye auditoría ni ningún concepto de ciclo de vida de persistencia — eso es responsabilidad de `AggregateRoot<TId>` (ver abajo).
 
 ```csharp
-public abstract class EntityRoot<TId> where TId : notnull
+public abstract class Entity<TId> where TId : notnull
 {
     public TId Id { get; protected set; } = default!;
-    public DateTime? CreatedAt { get; protected set; }
-    public DateTime? UpdatedAt { get; protected set; }
 
-    protected EntityRoot() { }
-
-    protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
-    protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
+    protected Entity() { }
 
     // igualdad por Id
     public override bool Equals(object? obj) =>
-        obj is EntityRoot<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);
+        obj is Entity<TId> entity && EqualityComparer<TId>.Default.Equals(Id, entity.Id);
     public override int GetHashCode() => Id?.GetHashCode() ?? 0;
-    public static bool operator ==(EntityRoot<TId>? left, EntityRoot<TId>? right) => Equals(left, right);
-    public static bool operator !=(EntityRoot<TId>? left, EntityRoot<TId>? right) => !Equals(left, right);
+    public static bool operator ==(Entity<TId>? left, Entity<TId>? right) => Equals(left, right);
+    public static bool operator !=(Entity<TId>? left, Entity<TId>? right) => !Equals(left, right);
 }
 ```
 
 | Elemento | Descripción |
 |----------|-------------|
 | `Id` | Clave de identidad; define igualdad |
-| `CreatedAt` | Asignado en `Created()` al crear el agregado; `null` si se reconstruye desde persistencia sin el campo |
-| `UpdatedAt` | `null` hasta la primera actualización |
-| `SetCreatedAt(dt)` | Llamado dentro de `Created()` al crear un agregado nuevo |
-| `SetUpdatedAt(dt)` | Llamado dentro del método de mutación del agregado, antes de `repository.Update()` |
 | Igualdad | Por `Id`, no por valor de propiedades |
 
 
@@ -50,18 +43,30 @@ public abstract class EntityRoot<TId> where TId : notnull
 ## `AggregateRoot<TId>` — clase base de agregados
 
 ```csharp
-public abstract class AggregateRoot<TId> : EntityRoot<TId>, IAggregateRoot
+public abstract class AggregateRoot<TId> : Entity<TId>, IAggregateRoot
     where TId : notnull
 {
+    public DateTime? CreatedAt { get; protected set; }
+    public DateTime? UpdatedAt { get; protected set; }
+
+    protected void SetCreatedAt(DateTime dateTime) => CreatedAt = dateTime;
+    protected void SetUpdatedAt(DateTime dateTime) => UpdatedAt = dateTime;
+
     protected abstract void Created();
 }
 ```
 
 | Elemento | Descripción |
 |----------|-------------|
-| `EntityRoot<TId>` | El agregado **es** la entidad; hereda `Id`, `CreatedAt`, `UpdatedAt` |
+| `Entity<TId>` | El agregado **es** una entidad; hereda `Id` e igualdad |
+| `CreatedAt` | Asignado en `Created()` al crear el agregado; `null` si se reconstruye desde persistencia sin el campo |
+| `UpdatedAt` | `null` hasta la primera actualización |
+| `SetCreatedAt(dt)` | Llamado dentro de `Created()` al crear un agregado nuevo |
+| `SetUpdatedAt(dt)` | Llamado dentro del método de mutación del agregado, antes de `repository.Update()` |
 | `IAggregateRoot` | Interfaz marcadora; permite referenciar agregados sin conocer sus tipos concretos |
 | `Created()` | Método abstracto **obligatorio**. Solo se llama desde el factory `Create()`, nunca desde `Reconstruct()` |
+
+> `CreatedAt`/`UpdatedAt` viven en `AggregateRoot` y no en `Entity` porque la auditoría es un concepto del límite transaccional (el agregado como unidad de persistencia), no de cualquier entidad con identidad. Una entidad hija dentro de un agregado no tiene su propio ciclo de vida de auditoría — hereda el del agregado.
 
 > El constructor del agregado concreto se declara `private`. Solo los métodos factory `Create()` y `Reconstruct()` pueden instanciarlo.
 

@@ -20,6 +20,11 @@ public sealed class RequestLoggingMiddleware(
 
         try
         {
+            var traceId = Activity.Current?.TraceId;
+
+            if (traceId.HasValue)
+                httpContext.Response.Headers.TryAdd("traceId", traceId.Value.ToString());
+
             await next(httpContext).ConfigureAwait(false);
         }
         finally

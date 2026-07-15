@@ -27,6 +27,10 @@ ASP.NET Core aplica las capas en orden: cada capa siguiente sobreescribe la ante
 | `AppInfo__ServiceName` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
 | `Persistence__Enabled` | `false`     | `true`     | `true`       |
 | `Sentry__Enabled` | `false`     | `true`     | `true`       |
+| `Sentry__TracesSampleRate` | `0.2`       | `0.2`      | `0.2`        |
+| `Sentry__MinimumEventLevel` | `Error`     | `Error`    | `Error`      |
+| `Sentry__MinimumBreadcrumbLevel` | `Warning`   | `Warning`  | `Warning`    |
+| `Sentry__DeniedHeaders` | (lista de headers sensibles) | (idem) | (idem) |
 | `Cors__AllowedOrigins__0` | `http://localhost:3000` | `https://qa.app.q10.com` | `https://app.q10.com` |
 
 Regla: **si el valor puede exponerse en git, va en ConfigMap.**

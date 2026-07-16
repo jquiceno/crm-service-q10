@@ -44,6 +44,11 @@ public static class SentryExtensions
         var shouldScrubCookies = deniedHeaders.Contains("Cookie")
                               || deniedHeaders.Contains("Set-Cookie");
 
+        // Sentry ingest host (derived from the DSN). It is excluded from
+        // HttpClient instrumentation to avoid auto-instrumenting Sentry's own telemetry transport,
+        // which would otherwise generate noisy spans (POST .../envelope/) on every trace.
+        var sentryIngestHost = new Uri(sentrySettings.Dsn).Host;
+
         // Distributed tracing: traces are produced by OpenTelemetry and exported to Sentry
         // via OTLP. This makes Sentry's principal trace the same Activity/W3C trace id that
         // appears in the logs and in the X-Trace-Id header. Sampling is driven by the OTel
@@ -55,7 +60,9 @@ public static class SentryExtensions
                 .SetSampler(new ParentBasedSampler(
                     new TraceIdRatioBasedSampler(sentrySettings.TracesSampleRate)))
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
+                .AddHttpClientInstrumentation(o =>
+                    o.FilterHttpRequestMessage = request =>
+                        !string.Equals(request.RequestUri?.Host, sentryIngestHost, StringComparison.OrdinalIgnoreCase))
                 .AddSentryOtlpExporter(sentrySettings.Dsn));
 
         builder.WebHost.UseSentry(options =>

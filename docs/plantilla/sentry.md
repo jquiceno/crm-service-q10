@@ -2,7 +2,9 @@
 
 ## Introducción
 
-Sentry cumple dos roles en el proyecto: **error tracking** (captura automática de excepciones no manejadas con contexto de stack trace, request y entorno) y **performance monitoring** (trazas distribuidas de requests HTTP con `TracesSampleRate`).
+Sentry cumple dos roles en el proyecto: **error tracking** (captura automática de excepciones no manejadas con contexto de stack trace, request y entorno) y **performance monitoring** (trazas distribuidas de requests HTTP).
+
+> **Tracing vía OpenTelemetry + OTLP**: las trazas se generan con **OpenTelemetry** (spans de ASP.NET Core y `HttpClient`) y se exportan a Sentry por **OTLP** (`Sentry.OpenTelemetry.Exporter`), no con el tracing propio del SDK. Con `options.UseOtlp()` el trace principal de Sentry es el mismo `Activity`/W3C `traceId` que aparece en los logs y en la cabecera `X-Trace-Id`; un error capturado queda dentro de esa misma traza. Ver [logging.md](logging.md) → "Trace distribuido".
 
 La pregunta clave al integrar cualquier herramienta de observabilidad en una arquitectura hexagonal es: **¿en qué capa vive y qué capas la conocen?** Este documento explica las decisiones tomadas.
 
@@ -21,8 +23,9 @@ builder.WebHost.UseSentry(options => { ... });
 Esto significa que el SDK de Sentry actúa como middleware del framework, capturando automáticamente:
 
 * Excepciones no manejadas que llegan al pipeline HTTP
-* Trazas de requests (cuando `TracesSampleRate > 0`)
 * Logs de Serilog marcados como `Error` o superior (via el sink `WriteTo.Sentry`)
+
+Las **trazas** no las produce el SDK: llegan vía OpenTelemetry → OTLP (ver Introducción). Por eso `options.UseOtlp()` deshabilita el tracing propio del SDK (`DisableSentryTracing = true`).
 
 **Ningún caso de uso, entidad de dominio ni servicio de aplicación llama a Sentry directamente.** No hay `SentrySdk.CaptureException(...)` ni `SentrySdk.AddBreadcrumb(...)` en capas internas.
 
@@ -140,12 +143,14 @@ options.SetBeforeSend((sentryEvent, _) =>
 });
 ```
 
-Esta lógica opera sobre tipos del SDK (`SentryRequest`, `Breadcrumb`) en los hooks `SetBeforeSend`, `SetBeforeSendTransaction` y `SetBeforeBreadcrumb`. **Está en el lugar correcto** porque:
+Esta lógica opera sobre tipos del SDK (`SentryRequest`, `Breadcrumb`) en los hooks `SetBeforeSend` (eventos de error) y `SetBeforeBreadcrumb`. **Está en el lugar correcto** porque:
 
 
 1. Opera sobre el formato de payload de Sentry, no sobre datos de dominio.
 2. Pertenece a la frontera del adaptador de Infrastructure, justo antes de que los datos salgan del sistema.
 3. Moverla a Application acoplaría una capa interna a tipos concretos del SDK.
+
+> **No hay `SetBeforeSendTransaction`**: con tracing vía OTLP el SDK no produce transacciones, así que ese hook no aplica. Los **spans** exportados por OpenTelemetry no llevan headers: `AddAspNetCoreInstrumentation` no captura headers/cookies por defecto y **redacta el query string**; con `SendDefaultPii = false` no se requiere scrubbing adicional a nivel de spans.
 
 Los headers filtrados por defecto se configuran en `SentrySettings.DeniedHeaders`:
 
@@ -165,7 +170,7 @@ X-Api-Key, X-Forwarded-For, X-Real-Ip, X-Csrf-Token, X-Xsrf-Token
 |-----------|-------------|---------|
 | `Enabled` | Activa/desactiva Sentry en el arranque | `false` |
 | `Dsn`     | Data Source Name de Sentry (obligatorio si `Enabled = true`) | —       |
-| `TracesSampleRate` | Porcentaje de requests muestreados para performance (0.0 a 1.0) | `0.2` (20%) |
+| `TracesSampleRate` | Porcentaje de trazas muestreadas (0.0 a 1.0). Alimenta el **sampler de OpenTelemetry** (`ParentBased(TraceIdRatioBased)`), no el SDK de Sentry | `0.2` (20%) |
 | `MinimumEventLevel` | Nivel mínimo de log que se envía a Sentry como evento. Valores: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal` | `Error` |
 | `MinimumBreadcrumbLevel` | Nivel mínimo de log capturado como breadcrumb. Mismos valores que `MinimumEventLevel` | `Warning` |
 | `DeniedHeaders` | Headers a sanitizar antes de enviar eventos | Ver lista anterior |

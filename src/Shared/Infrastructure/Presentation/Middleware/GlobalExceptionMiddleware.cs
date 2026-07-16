@@ -22,9 +22,6 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         Exception exception,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(httpContext);
-        ArgumentNullException.ThrowIfNull(exception);
-
         if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
         {
             httpContext.Response.StatusCode = 499;

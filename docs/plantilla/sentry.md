@@ -113,11 +113,14 @@ if (sentrySettings.Enabled)
     loggerConfig.WriteTo.Sentry(options =>
     {
         options.InitializeSdk = false; // SDK ya inicializado por SentryExtensions
-        options.MinimumEventLevel = LogEventLevel.Error;
-        options.MinimumBreadcrumbLevel = LogEventLevel.Warning;
+        options.MinimumEventLevel = sentrySettings.MinimumEventLevel;
+        options.MinimumBreadcrumbLevel = sentrySettings.MinimumBreadcrumbLevel;
     });
 }
 ```
+
+Los niveles del sink (`MinimumEventLevel`, `MinimumBreadcrumbLevel`) son configurables vía
+`SentrySettings` con defaults `Error` y `Warning` respectivamente (ver sección [Configuración](#configuración)).
 
 `SerilogExtensions` lee `SentrySettings.Enabled` para decidir si registra el sink. Este es un acoplamiento **intra-capa** (ambas clases viven en `Infrastructure`) — no cruza ninguna frontera de capa. El flag `InitializeSdk = false` es crítico: documenta que `SentryExtensions.AddSentry()` es el propietario del ciclo de vida del SDK, y que el sink de Serilog solo se engancha a él.
 
@@ -163,6 +166,8 @@ X-Api-Key, X-Forwarded-For, X-Real-Ip, X-Csrf-Token, X-Xsrf-Token
 | `Enabled` | Activa/desactiva Sentry en el arranque | `false` |
 | `Dsn`     | Data Source Name de Sentry (obligatorio si `Enabled = true`) | —       |
 | `TracesSampleRate` | Porcentaje de requests muestreados para performance (0.0 a 1.0) | `0.2` (20%) |
+| `MinimumEventLevel` | Nivel mínimo de log que se envía a Sentry como evento. Valores: `Verbose`, `Debug`, `Information`, `Warning`, `Error`, `Fatal` | `Error` |
+| `MinimumBreadcrumbLevel` | Nivel mínimo de log capturado como breadcrumb. Mismos valores que `MinimumEventLevel` | `Warning` |
 | `DeniedHeaders` | Headers a sanitizar antes de enviar eventos | Ver lista anterior |
 
 Configuración en `appsettings.json`:
@@ -173,10 +178,14 @@ Configuración en `appsettings.json`:
     "Enabled": false,
     "Dsn": "",
     "TracesSampleRate": 0.2,
+    "MinimumEventLevel": "Error",
+    "MinimumBreadcrumbLevel": "Warning",
     "DeniedHeaders": "Authorization,Cookie,X-Api-Key"
   }
 }
 ```
+
+Los niveles (`MinimumEventLevel`, `MinimumBreadcrumbLevel`) se especifican por **nombre** —no por número—, y el binding es case-insensitive (aplica igual vía variable de entorno, p.ej. `Sentry__MinimumEventLevel=Warning`). Un valor inválido produce `InvalidOperationException` en el arranque (**fail-fast**): un typo no degrada silenciosamente el nivel de logging.
 
 Si `Enabled = true` y `Dsn` está vacío, la aplicación lanza `InvalidOperationException` en el arranque para evitar inicios silenciosos sin observabilidad. 
 

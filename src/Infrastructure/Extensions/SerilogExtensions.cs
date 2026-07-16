@@ -3,7 +3,6 @@ using Infrastructure.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
-using Serilog.Events;
 
 namespace Infrastructure.Extensions;
 
@@ -61,8 +60,8 @@ public static class SerilogExtensions
                     loggerConfig.WriteTo.Sentry(options =>
                     {
                         options.InitializeSdk = false; // SDK already initialized by SentryExtensions
-                        options.MinimumEventLevel = LogEventLevel.Error;
-                        options.MinimumBreadcrumbLevel = LogEventLevel.Warning;
+                        options.MinimumEventLevel = sentrySettings.MinimumEventLevel;
+                        options.MinimumBreadcrumbLevel = sentrySettings.MinimumBreadcrumbLevel;
                     });
                 }
             }

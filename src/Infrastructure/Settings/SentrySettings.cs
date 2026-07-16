@@ -1,3 +1,5 @@
+using Serilog.Events;
+
 namespace Infrastructure.Settings;
 
 public sealed class SentrySettings
@@ -12,4 +14,6 @@ public sealed class SentrySettings
     public string Dsn { get; init; } = string.Empty;
     public float TracesSampleRate { get; init; } = 0.2f; // A default value is set in case a value is not configured and to prevent Sentry from being overloaded.
     public string DeniedHeaders { get; init; } = DefaultDeniedHeaders;
+    public LogEventLevel MinimumEventLevel { get; init; } = LogEventLevel.Error;
+    public LogEventLevel MinimumBreadcrumbLevel { get; init; } = LogEventLevel.Warning;
 }

@@ -340,7 +340,7 @@ Redis ya viene implementado en `OutputCacheExtensions.ConfigureCache`. Para acti
 
 o vía variable de entorno `Cache__ConnectionString`. Cuando `ConnectionString` está vacío, el framework usa por defecto el store de memoria.
 
-El `InstanceName` usado como prefijo de las llaves de Redis se deriva de `AppInfo:ServiceName` (`"{ServiceName}:"`), lo que aísla de forma natural los keys entre servicios que compartan una misma instancia de Redis.
+El `InstanceName` usado como prefijo de las llaves de Redis se deriva de `ServiceInfo:Name` (`"{Name}:"`), lo que aísla de forma natural los keys entre servicios que compartan una misma instancia de Redis.
 
 El paquete ya está declarado en `src/Api/Api.csproj`:
 

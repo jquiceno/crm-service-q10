@@ -24,7 +24,7 @@ ASP.NET Core aplica las capas en orden: cada capa siguiente sobreescribe la ante
 |----------|-------------|------------|--------------|
 | `ASPNETCORE_ENVIRONMENT` | `Development` | `Staging`  | `Production` |
 | `ASPNETCORE_URLS` | `http://+:8080` | `http://+:8080` | `http://+:8080` |
-| `AppInfo__ServiceName` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
+| `ServiceInfo__Name` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
 | `Persistence__Enabled` | `false`     | `true`     | `true`       |
 | `Sentry__Enabled` | `false`     | `true`     | `true`       |
 | `Sentry__TracesSampleRate` | `0.2`       | `0.2`      | `0.2`        |

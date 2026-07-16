@@ -77,9 +77,9 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
         {
             builder.UseEnvironment("Testing");
 
-            // Replica el ApiFactory de integración: limpia providers y sube el nivel mínimo.
-            // El traceId debe seguir presente sin listener custom, porque el logging del host
-            // habilitado ya provoca la creación del Activity de la petición.
+            // Replicate the integration ApiFactory: clean up providers and raise the minimum level.
+            // The traceId should still be present without a custom listener, because the host's
+            // enabled logging already triggers the creation of the request Activity.
             builder.ConfigureLogging(logging =>
             {
                 logging.ClearProviders();

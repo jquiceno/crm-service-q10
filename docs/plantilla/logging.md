@@ -315,6 +315,32 @@ Cada log event recibe estas propiedades sin intervención del código de negocio
 
 `ActivityEnricher` (`src/Infrastructure/Logging/ActivityEnricher.cs`) implementa `ILogEventEnricher` y lee `Activity.Current` del sistema de diagnóstico de .NET, compatible con OpenTelemetry. Permite correlacionar logs de un mismo request a través de múltiples servicios.
 
+### Trace distribuido (W3C Trace Context)
+
+El identificador de una transacción de punta a punta es el **`traceId`** del `Activity` actual. Su propagación entre servicios se apoya en el estándar **W3C Trace Context** (cabecera `traceparent`), no en un encabezado propio:
+
+- **Entrada**: si la petición llega con `traceparent`, .NET **continúa el mismo `traceId`**; si no llega (es el primer servicio del flujo), **genera uno nuevo**. Es comportamiento nativo del runtime.
+- **Salida hacia otros servicios**: cuando se agregue una capa `HttpClient`/`IHttpClientFactory`, el handler por defecto de .NET **inyecta `traceparent` automáticamente**. No se requiere un `DelegatingHandler` para propagar el trace.
+- **Respuesta al cliente**: el `RequestLoggingMiddleware` expone la cabecera **`X-Trace-Id`** (constante `Infrastructure.Observability.TraceHeaders.TraceId`) con el valor del `traceId`, para que clientes y soporte lo capturen y lo busquen en los logs.
+
+El `Activity` de cada petición (y por tanto el `traceId`) lo crea **de forma nativa** ASP.NET Core: mientras el logging del host esté habilitado —siempre lo está, porque el servicio loguea cada request con Serilog— el runtime crea el `Activity` y continúa el `traceparent` entrante. Este es también el punto de independencia de proveedor: todo lee el `traceId` de `Activity.Current`, una primitiva del BCL; el error tracker (hoy Sentry, mañana cualquiera) es solo un consumidor.
+
+> **Exportación de trazas (OpenTelemetry + OTLP)**: cuando Sentry está habilitado (qa/prod), `SentryExtensions.AddSentry` registra **OpenTelemetry** (`AddOpenTelemetry().WithTracing(...)` con instrumentación de ASP.NET Core y `HttpClient`) y exporta las trazas a Sentry por **OTLP**. Con `options.UseOtlp()`, el trace principal de Sentry pasa a ser el mismo `Activity`/W3C `traceId`: **logs = trace de Sentry = `X-Trace-Id`**. En dev (Sentry off) no se activa OTel y el `traceId` sigue siendo nativo. El muestreo lo controla el sampler de OTel (`ParentBased(TraceIdRatioBased)`), alimentado por `Sentry:TracesSampleRate`. Ver [sentry.md](sentry.md).
+
+> **Rename**: la cabecera de respuesta pasó de `traceId` a `X-Trace-Id`. Los clientes que leyeran `traceId` deben actualizarse.
+
+#### Contrato para servicios en otros lenguajes
+
+Para que un flujo comparta un único `traceId` de punta a punta, **todos** los servicios deben hablar W3C `traceparent`:
+
+| Servicio | Cómo se cumple el contrato |
+|----------|----------------------------|
+| **.NET** (este template) | Automático: continúa e inyecta `traceparent` sin código adicional. |
+| **Node.js** | Configurar OpenTelemetry (`@opentelemetry/api` + auto-instrumentación HTTP). Sin OTel, un servicio Node rompe la cadena. |
+| **Python** | Configurar `opentelemetry-instrumentation` (propagador W3C por defecto). |
+
+> `X-Trace-Id` es solo de **salida** (para leer el id en la respuesta); la **propagación** entre servicios siempre viaja en `traceparent`.
+
 ### Sinks
 
 | Sink | Ambiente | Formato |
@@ -380,6 +406,7 @@ Los namespaces `Microsoft.*` y `System.*` se elevan a `Warning` en producción p
 | `src/Infrastructure/Adapters/Logging/SerilogLoggerAdapter.cs` | Implementación Serilog del puerto |
 | `src/Infrastructure/Extensions/SerilogExtensions.cs` | Pipeline de Serilog: enrichers, sinks y niveles |
 | `src/Infrastructure/Logging/ActivityEnricher.cs` | Enricher para `traceId` / `spanId` (OpenTelemetry) |
+| `src/Infrastructure/Observability/TraceHeaders.cs` | Constante de la cabecera de respuesta `X-Trace-Id` |
 | `src/Infrastructure/Logging/FlatJsonFormatter.cs` | Formatter JSON plano para producción |
 | `src/Infrastructure/Logging/HttpRequestLogProperties.cs` | Record con los campos del bloque `http` |
 | `src/Infrastructure/Logging/LogContextExtensions.cs` | Helpers para enriquecimiento de contexto |

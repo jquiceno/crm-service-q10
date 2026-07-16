@@ -47,7 +47,6 @@ public class Result<T> : Result
 
     public static Result<T> Success(T value)
     {
-        ArgumentNullException.ThrowIfNull(value);
         return new(value, true, DomainError.None);
     }
 

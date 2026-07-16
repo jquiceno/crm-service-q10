@@ -11,8 +11,6 @@ public sealed class ValidationErrorResult(DomainError error) : IActionResult
 {
     public async Task ExecuteResultAsync(ActionContext context)
     {
-        ArgumentNullException.ThrowIfNull(context);
-
         var response = context.HttpContext.Response;
         var statusCode = (int)ErrorHttpMapper.ToHttpStatusCode(error.Type);
         response.StatusCode = statusCode;

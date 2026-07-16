@@ -2,6 +2,9 @@ using Infrastructure.Settings;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 namespace Infrastructure.Extensions;
 
@@ -41,24 +44,48 @@ public static class SentryExtensions
         var shouldScrubCookies = deniedHeaders.Contains("Cookie")
                               || deniedHeaders.Contains("Set-Cookie");
 
+        // Sentry ingest host (derived from the DSN). It is excluded from
+        // HttpClient instrumentation to avoid auto-instrumenting Sentry's own telemetry transport,
+        // which would otherwise generate noisy spans (POST .../envelope/) on every trace.
+        var sentryIngestHost = new Uri(sentrySettings.Dsn).Host;
+
+        // Distributed tracing: traces are produced by OpenTelemetry and exported to Sentry
+        // via OTLP. This makes Sentry's principal trace the same Activity/W3C trace id that
+        // appears in the logs and in the X-Trace-Id header. Sampling is driven by the OTel
+        // sampler (ParentBased honors the upstream service's decision for a consistent trace).
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: serviceInfo.Name, serviceVersion: serviceInfo.Version))
+            .WithTracing(tracing => tracing
+                .SetSampler(new ParentBasedSampler(
+                    new TraceIdRatioBasedSampler(sentrySettings.TracesSampleRate)))
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation(o =>
+                    o.FilterHttpRequestMessage = request =>
+                        !string.Equals(request.RequestUri?.Host, sentryIngestHost, StringComparison.OrdinalIgnoreCase))
+                .AddSentryOtlpExporter(sentrySettings.Dsn));
+
         builder.WebHost.UseSentry(options =>
         {
             options.Dsn = sentrySettings.Dsn;
             options.Environment = builder.Environment.EnvironmentName;
             options.Release = serviceInfo.Version;
-            options.TracesSampleRate = sentrySettings.TracesSampleRate;
             options.SendDefaultPii = false;
 
+            // Routes traces via OTLP and makes the SDK read the trace context from the OTel
+            // Activity: errors land on the SAME trace as the spans and the logs.
+            // Sampling and transactions are no longer handled by the SDK (OTel does), which is
+            // why TracesSampleRate and SetBeforeSendTransaction are not set.
+            options.UseOtlp();
+            options.DisableSentryHttpMessageHandler = true;
+
+            // DeniedHeaders scrubbing: applies to ERROR EVENTS. Traces go via OTLP (outside the
+            // SDK pipeline); their spans carry no headers because the ASP.NET Core instrumentation
+            // does not capture them by default and redacts the query string.
             options.SetBeforeSend((sentryEvent, _) =>
             {
                 ScrubRequest(sentryEvent.Request, deniedHeaders, shouldScrubCookies);
                 return sentryEvent;
-            });
-
-            options.SetBeforeSendTransaction((transaction, _) =>
-            {
-                ScrubRequest(transaction.Request, deniedHeaders, shouldScrubCookies);
-                return transaction;
             });
 
             options.SetBeforeBreadcrumb((breadcrumb, _) =>

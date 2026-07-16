@@ -127,9 +127,9 @@ Ejemplo de salida JSON en producción (`FlatJsonFormatter`):
 | `timestamp` | Serilog | Fecha y hora UTC en ISO 8601 |
 | `level` | Serilog | Nivel: `debug`, `information`, `warning`, `error` |
 | `sourceContext` | Serilog | Clase que emitió el log |
-| `service` | `AppInfo.ServiceName` | Nombre del servicio |
+| `service` | `ServiceInfo.Name` | Nombre del servicio |
 | `environment` | `ASPNETCORE_ENVIRONMENT` | Entorno en minúsculas |
-| `version` | `AppInfo.Version` | Versión del servicio |
+| `version` | `ServiceInfo.Version` | Versión del servicio |
 
 ### Presentes durante un request HTTP
 

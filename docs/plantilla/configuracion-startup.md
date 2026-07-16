@@ -61,15 +61,15 @@ Se usa en clases de configuración que siempre deben estar presentes. Los atribu
 
 | Variable | Restricción |
 |----------|-------------|
-| `AppInfo:ServiceName` | `[Required]`, `[MinLength(1)]` |
-| `AppInfo:Version` | `[Required]`, `[MinLength(1)]` |
+| `ServiceInfo:Name` | `[Required]`, `[MinLength(1)]` |
+| `ServiceInfo:Version` | `[Required]`, `[MinLength(1)]` |
 | `Cache:DefaultTtlSeconds` | `[Range(1, int.MaxValue)]` |
 
 **Ejemplo de registro:**
 
 ```csharp
-services.AddOptions<AppInfoSettings>()
-    .Bind(configuration.GetSection(AppInfoSettings.SectionName))
+services.AddOptions<ServiceInfoSettings>()
+    .Bind(configuration.GetSection(ServiceInfoSettings.SectionName))
     .ValidateDataAnnotations()
     .ValidateOnStart();
 ```
@@ -83,7 +83,7 @@ Las validaciones se ejecutan en el orden en que se registran en `Program.cs`:
 
 
 1. **Sentry DSN** — al invocar `builder.AddSentry()`
-2. **AppInfo (ServiceName, Version)** — al invocar `builder.Host.AddSerilog()` y luego `AddApiSettings()`
+2. **ServiceInfo (Name, Version)** — al invocar `builder.Host.AddSerilog()` y luego `AddApiSettings()`
 3. **Persistence ConnectionString** — al invocar `AddInfrastructureServices()`
 4. **Cache Settings** — al invocar `ConfigureCache()`
 5. **Validaciones de** `**ValidateOnStart()**` — al invocar `builder.Build()`
@@ -134,9 +134,9 @@ services.AddOptions<MisSettings>()
 | Archivo | Responsabilidad |
 |---------|-----------------|
 | `src/Api/Program.cs` | Punto de entrada; define el orden de registro y validación |
-| `src/Api/DependencyInjection/SettingsExtensions.cs` | Registra `AppInfoSettings` con `ValidateOnStart()` |
+| `src/Api/DependencyInjection/SettingsExtensions.cs` | Registra `ServiceInfoSettings` con `ValidateOnStart()` |
 | `src/Api/DependencyInjection/InfrastructureServiceExtensions.cs` | Valida `Persistence:ConnectionString` |
 | `src/Infrastructure/Extensions/SentryExtensions.cs` | Valida `Sentry:Dsn` |
-| `src/Infrastructure/Extensions/SerilogExtensions.cs` | Valida presencia de la sección `AppInfo` |
+| `src/Infrastructure/Extensions/SerilogExtensions.cs` | Valida presencia de la sección `ServiceInfo` |
 | `src/Infrastructure/Extensions/OutputCacheExtensions.cs` | Registra `CacheSettings` con `ValidateOnStart()` |
 | `src/Infrastructure/Settings/` | Clases POCO de configuración con sus atributos de validación |

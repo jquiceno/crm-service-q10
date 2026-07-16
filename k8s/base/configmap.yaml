@@ -15,8 +15,8 @@ data:
   ASPNETCORE_PATHBASE: "/service-template"
 
   # Service info
-  AppInfo__ServiceName: "ServiceTemplate"
-  AppInfo__Version: "1.0.0"
+  ServiceInfo__Name: "ServiceTemplate"
+  ServiceInfo__Version: "1.0.0"
 
   # Persistence — connection string goes in secret, only the feature flag here
   Persistence__Enabled: "true"
@@ -30,5 +30,6 @@ data:
   Sentry__MinimumBreadcrumbLevel: "Warning"
   Sentry__DeniedHeaders: "Authorization,Proxy-Authorization,Cookie,Set-Cookie,X-Api-Key,X-Forwarded-For,X-Real-Ip,X-Csrf-Token,X-Xsrf-Token"
 
-  # CORS
-  Cors__AllowedOrigins__0: "https://app.q10.com"
+  # CORS — no default here on purpose: an unset origin fails closed (CORS blocked)
+  # instead of silently inheriting another environment's domain. Every overlay
+  # (dev/qa/prod) must set Cors__AllowedOrigins__0 explicitly.

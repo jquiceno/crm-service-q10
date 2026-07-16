@@ -63,11 +63,20 @@ done
 
 IMAGE_KEY="q10-${SERVICE_NAME}"
 
+# PascalCase derivado de --name (kebab-case), ej: my-service → MyService.
+# Se usa para el "ServiceInfo:Name" reportado por la app (appsettings, docker-compose).
+PASCAL_NAME=""
+IFS='-' read -ra NAME_PARTS <<< "$SERVICE_NAME"
+for part in "${NAME_PARTS[@]}"; do
+  PASCAL_NAME+="$(tr '[:lower:]' '[:upper:]' <<< "${part:0:1}")${part:1}"
+done
+
 # ── Resumen de parámetros ─────────────────────────────────────────────────────
 printf "\n${BOLD}%-16s${NC}%s\n"  "  service-name"  "$SERVICE_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-repo"   "$GITHUB_REPO"
 printf "${BOLD}%-16s${NC}%s\n"    "  path-base"     "$PATHBASE"
 printf "${BOLD}%-16s${NC}%s\n"    "  image-key"     "$IMAGE_KEY"
+printf "${BOLD}%-16s${NC}%s\n"    "  service-info"  "$PASCAL_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-org"    "$GITHUB_ORG"
 $DRY_RUN && printf "${YELLOW}${BOLD}%-16s${NC}%s\n" "  mode"          "DRY RUN (sin cambios)"
 
@@ -123,6 +132,12 @@ TERRAFORM_FILES=(
   terraform/env/prod.tfvars
 )
 
+APP_FILES=(
+  src/Api/appsettings.json
+  src/Api/appsettings.example.json
+  docker-compose.example.yml
+)
+
 # ── Sustituciones ─────────────────────────────────────────────────────────────
 # Orden: más específico primero para evitar sustituciones parciales.
 #   1. service-template-dotnet  → $GITHUB_REPO   (contiene "service-template")
@@ -150,6 +165,16 @@ for f in "${TERRAFORM_FILES[@]}"; do
   sub "$f" "service-template-dotnet" "$GITHUB_REPO"
   sub "$f" "/service-template"       "$PATHBASE"
   sub "$f" "service-template"        "$SERVICE_NAME"
+  $DRY_RUN || ok "$f"
+done
+
+title "app settings"
+for f in "${APP_FILES[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    skip "$f"
+    continue
+  fi
+  sub "$f" "ServiceTemplate" "$PASCAL_NAME"
   $DRY_RUN || ok "$f"
 done
 

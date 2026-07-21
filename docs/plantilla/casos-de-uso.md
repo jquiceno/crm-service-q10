@@ -169,7 +169,7 @@ public Result Update(string? name, decimal price)
 }
 ```
 
-El agregado **es** la entidad (`AggregateRoot<TId>`, sin una clase `Entity` intermedia) — por eso `Update()` asigna las propiedades directamente y llama a `SetUpdatedAt()` heredado de `EntityRoot<TId>`. Ver [entidades-y-agregados.md](entidades-y-agregados.md).
+El agregado **es** una entidad (`AggregateRoot<TId> : Entity<TId>`) — por eso `Update()` asigna las propiedades directamente y llama a `SetUpdatedAt()`, definido en `AggregateRoot<TId>`. Ver [entidades-y-agregados.md](entidades-y-agregados.md).
 
 Retorna `Result` (no `Result<T>`) porque la operación no produce un nuevo valor — solo indica éxito o fracaso.
 

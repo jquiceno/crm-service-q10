@@ -50,6 +50,12 @@ Rutas en AWS Secrets Manager:
 /platform/prod/service-template   → JSON con las claves sensibles para prod
 ```
 
+> **Importante:** el `extract.key` del ExternalSecret debe coincidir
+> **exactamente** con el nombre real del secreto en Secrets Manager, slash
+> inicial incluido. Existen secretos legados creados **sin** slash inicial
+> (p. ej. `platform/dev/announcements-service`); verifica el nombre real con
+> `aws secretsmanager list-secrets` antes de configurar los overlays.
+
 Formato del secreto (JSON):
 
 ```json

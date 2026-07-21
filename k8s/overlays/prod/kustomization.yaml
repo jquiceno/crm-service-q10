@@ -8,7 +8,7 @@ resources:
 
 images:
   - name: q10-service-template
-    newName: 764283926096.dkr.ecr.us-east-1.amazonaws.com/q10-service-template
+    newName: 451828143717.dkr.ecr.us-east-1.amazonaws.com/q10-service-template # prod account ECR
     newTag: prod-latest   # overridden in CD with the commit SHA
 
 patches:
@@ -40,7 +40,7 @@ patches:
       kind: ExternalSecret
       name: service-template-secrets
 
-  # --- Deployment: 2 replicas in prod (base default, explicit for clarity) ---
+  # --- Deployment: 1 replica in prod (HPA scales up on demand) ---
   - target:
       kind: Deployment
       name: service-template
@@ -51,7 +51,19 @@ patches:
         name: service-template
         namespace: service-template
       spec:
-        replicas: 2
+        replicas: 1
+
+  # --- PDB: with a single replica, minAvailable=1 would block node drains.
+  #     maxUnavailable=1 allows evictions (brief downtime while the pod moves). ---
+  - target:
+      kind: PodDisruptionBudget
+      name: service-template
+    patch: |-
+      - op: remove
+        path: /spec/minAvailable
+      - op: add
+        path: /spec/maxUnavailable
+        value: 1
 
   # --- Ingress: prod Internal ALB group + HTTPS ---
   # Para habilitar HTTPS: obtener cert ARN en cuenta Prod:
@@ -70,4 +82,15 @@ patches:
           alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
           alb.ingress.kubernetes.io/certificate-arn: "" # TODO: set ACM cert ARN for prod
 
-  # --- HPA: base values (min=2, max=10) apply for prod ---
+  # --- HPA: min=1 in prod (max=10 from base) ---
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: service-template
+    patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: service-template
+        namespace: service-template
+      spec:
+        minReplicas: 1

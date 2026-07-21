@@ -8,6 +8,10 @@ kind: Kustomization
 #   3. All patch target `name:` values     (ConfigMap, Deployment, Ingress, etc.)
 #   4. ASPNETCORE_PATHBASE                 (URL prefix for this service)
 #   5. ExternalSecret key paths            (/platform/dev/<service>)
+#      IMPORTANT: the extract.key must match the REAL Secrets Manager secret
+#      name EXACTLY, leading slash included. Some legacy secrets were created
+#      WITHOUT the leading slash (e.g. platform/dev/announcements-service) —
+#      check with `aws secretsmanager list-secrets` before assuming the format.
 #   6. GitHub repo variables:
 #        SERVICE_NAME = <service-name>
 #        IMAGE_KEY    = q10-<service-name>

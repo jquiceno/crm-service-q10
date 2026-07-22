@@ -599,21 +599,25 @@ Cache__ConnectionString=localhost:6379
 
 ### Ejemplo real
 
-`TenantResolverServiceClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantResolverServiceClient.cs`) ilustra el patrón completo. Como se trata de configuración de infraestructura (no DDD), lo que se cachea es un **record plano y serializable** (`TenantInfo`), sin necesidad de snapshot ni remapeo: `System.Text.Json` lo (de)serializa directamente, por lo que el valor cacheado se devuelve tal cual en cada cache hit:
+`TenantResolverServiceClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantResolverServiceClient.cs`) ilustra el patrón completo. Se trata de configuración de infraestructura (no DDD), pero con una decisión de seguridad clave: **lo que se cachea es el payload cifrado** (`TenantInfoResponse`, tal como llega del endpoint), **no** el `TenantInfo` ya descifrado. El connection string se descifra en cada lectura, de modo que Redis nunca almacena credenciales en claro. `TenantInfoResponse` es un record plano y serializable, así que `System.Text.Json` lo (de)serializa sin configuración adicional:
 
 ```csharp
 public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
 {
+    // (validación de 'code' omitida por brevedad: no vacío y sin ':')
     var key = CacheKey.For("masteraccess").Resource("tenant", code);
 
-    var cached = await cache.GetAsync<TenantInfo>(key, cancellationToken).ConfigureAwait(false);
+    // Cache hit: se devuelve el payload CIFRADO y se descifra por request (nunca se cachea el claro).
+    var cached = await cache.GetAsync<TenantInfoResponse>(key, cancellationToken).ConfigureAwait(false);
     if (cached is not null)
-        return cached;
+        return Decrypt(cached);
 
     try
     {
+        // El cliente solo appendea el código a BaseAddress: BaseUrl debe incluir ya el segmento de recurso
+        // (p. ej. https://resolver/tenants/). Ver la nota sobre BaseUrl más abajo.
         using var response = await httpClient
-            .GetAsync($"tenants/{Uri.EscapeDataString(code)}", cancellationToken)
+            .GetAsync(Uri.EscapeDataString(code), cancellationToken)
             .ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
@@ -622,19 +626,25 @@ public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationTo
         if (!response.IsSuccessStatusCode)
             return new InternalError("The tenant info service returned an error.") { Context = Context };
 
-        var payload = await response.Content
-            .ReadFromJsonAsync<TenantInfoResponse>(cancellationToken)
-            .ConfigureAwait(false);
+        var payload = (await response.Content
+            .ReadFromJsonAsync<TenantInfoEnvelope>(cancellationToken)
+            .ConfigureAwait(false))?.Data;
 
-        if (payload is null || string.IsNullOrWhiteSpace(payload.ConnectionString))
+        if (payload is null || string.IsNullOrWhiteSpace(payload.DbConnectionString))
             return new InternalError("The tenant info service returned an invalid payload.") { Context = Context };
 
-        var tenant = payload.ToTenantInfo();
-        await cache.SetAsync(key, tenant, TimeSpan.FromMinutes(_settings.CacheTtlMinutes), cancellationToken)
+        // (verificación del algoritmo de cifrado omitida por brevedad)
+
+        var tenant = Decrypt(payload);
+        if (tenant.IsFailure)
+            return tenant;
+
+        // Se cachea el payload CIFRADO
+        await cache.SetAsync(key, payload, TimeSpan.FromMinutes(_settings.CacheTtlMinutes), cancellationToken)
             .ConfigureAwait(false);
         return tenant;
     }
-    catch (Exception ex) when (ex is not OperationCanceledException)
+    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
     {
         logger.Error(ex, "Error calling tenant info endpoint for code {Code}", code);
         return new InternalError("A network error occurred while resolving the tenant.") { Context = Context };
@@ -644,9 +654,10 @@ public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationTo
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
 * TTL configurable (`TenantResolverService:CacheTtlMinutes`, por defecto 10 minutos), adecuado para datos de tenant que raramente cambian.
+* **Se cachea el ciphertext, se descifra por request**: Redis nunca contiene el connection string en claro. El coste del descifrado AES por cache hit es deliberado a cambio de esa garantía de seguridad.
 * En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta el endpoint directamente.
 * `SetAsync` solo se llama cuando la resolución es exitosa: un tenant no encontrado (`NotFound`) o un error de red/servicio **no** se cachean.
-* Se cachea el record `TenantInfo` directamente; al ser plano y serializable no requiere snapshot ni remapeo (a diferencia de un agregado con constructor privado, ver la advertencia anterior).
+* **Contrato de `BaseUrl`**: el cliente construye la petición appendeando **solo** el código del tenant a `HttpClient.BaseAddress`. Por tanto `TenantResolverService:BaseUrl` debe incluir ya la ruta del recurso con `/` final (p. ej. `https://resolver.interno/tenants/`). Un `BaseUrl` sin ese segmento resolvería contra el endpoint equivocado silenciosamente. En el configmap base va vacío a propósito: cada overlay lo fija por entorno.
 
 
 ---

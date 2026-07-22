@@ -8,7 +8,8 @@ public static class InfrastructureServiceExtensions
 {
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool multitenancyEnabled)
     {
         services.AddContextValidators();
 
@@ -18,7 +19,7 @@ public static class InfrastructureServiceExtensions
 
         var healthChecks = services.AddHealthChecks();
 
-        if (tenantSettings.Enabled)
+        if (multitenancyEnabled)
         {
             // Multitenant: the database connection is resolved per request from the tenant-resolver.
             if (!Uri.TryCreate(tenantSettings.BaseUrl, UriKind.Absolute, out var baseUri))

@@ -2,7 +2,6 @@ using Api.HostedServices;
 using Api.Middleware;
 using Api.Session;
 using Infrastructure.MasterAccess.Extensions;
-using Infrastructure.MasterAccess.Http.Tenants;
 using Shared.Application.Ports;
 
 namespace Api.DependencyInjection;
@@ -17,9 +16,10 @@ public static class SessionServiceExtensions
     /// </summary>
     public static IServiceCollection AddSessionServices(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        bool multitenancyEnabled)
     {
-        if (!IsMultitenancyEnabled(configuration))
+        if (!multitenancyEnabled)
             return services;
 
         services.AddMasterAccess(configuration);
@@ -40,16 +40,11 @@ public static class SessionServiceExtensions
     /// otherwise. Register it after <c>UseCors</c> (so it never blocks a CORS preflight) and before
     /// the output cache (whose keys vary by tenant).
     /// </summary>
-    public static WebApplication UseTenantResolution(this WebApplication app)
+    public static WebApplication UseTenantResolution(this WebApplication app, bool multitenancyEnabled)
     {
-        if (IsMultitenancyEnabled(app.Configuration))
+        if (multitenancyEnabled)
             app.UseMiddleware<TenantMiddleware>();
 
         return app;
     }
-
-    private static bool IsMultitenancyEnabled(IConfiguration configuration) =>
-        configuration
-            .GetSection(TenantResolverServiceSettings.SectionName)
-            .Get<TenantResolverServiceSettings>()?.Enabled ?? false;
 }

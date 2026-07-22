@@ -2,7 +2,6 @@ using Infrastructure.MasterAccess.Http.Tenants;
 using Infrastructure.MasterAccess.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 
 namespace Infrastructure.MasterAccess.Extensions;
 
@@ -10,6 +9,10 @@ public static class MasterAccessExtensions
 {
     public static IServiceCollection AddMasterAccess(this IServiceCollection services, IConfiguration configuration)
     {
+        var settings = configuration
+            .GetSection(TenantResolverServiceSettings.SectionName)
+            .Get<TenantResolverServiceSettings>() ?? new TenantResolverServiceSettings();
+
         services.AddOptions<TenantResolverServiceSettings>()
             .Bind(configuration.GetSection(TenantResolverServiceSettings.SectionName))
             .ValidateDataAnnotations()
@@ -17,13 +20,17 @@ public static class MasterAccessExtensions
 
         services.AddSingleton<IConnectionStringDecryptor, AesConnectionStringDecryptor>();
 
-        services.AddHttpClient<ITenantResolverServiceClient, TenantResolverServiceClient>((sp, client) =>
+        services.AddHttpClient<ITenantResolverServiceClient, TenantResolverServiceClient>(client =>
         {
-            var settings = sp.GetRequiredService<IOptions<TenantResolverServiceSettings>>().Value;
             client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
-        .AddStandardResilienceHandler();
+        .AddStandardResilienceHandler(o =>
+        {
+            o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+            o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds * 2);
+            o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(settings.TimeoutSeconds * 2);
+        });
 
         return services;
     }

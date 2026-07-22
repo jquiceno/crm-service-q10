@@ -3,6 +3,7 @@ using Api.Filters;
 using Api.Middleware;
 using Shared.Presentation.Routing;
 using Infrastructure.Extensions;
+using Infrastructure.MasterAccess.Extensions;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
@@ -13,11 +14,13 @@ builder.Configuration.AddAzureKeyVault(builder.Environment);
 builder.AddSentry();
 builder.Host.AddSerilog(builder.Configuration);
 
+var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
+
 builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
-    .AddInfrastructureServices(builder.Configuration)
-    .AddSessionServices(builder.Configuration)
+    .AddInfrastructureServices(builder.Configuration, multitenancyEnabled)
+    .AddSessionServices(builder.Configuration, multitenancyEnabled)
     .ConfigureCache(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddApiErrorHandling()
@@ -44,7 +47,7 @@ app.Use(async (context, next) =>
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
 
-app.UseTenantResolution();
+app.UseTenantResolution(multitenancyEnabled);
 
 app.UseCacheMiddleware();
 

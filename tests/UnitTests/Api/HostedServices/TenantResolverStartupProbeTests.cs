@@ -48,13 +48,27 @@ public sealed class TenantResolverStartupProbeTests
 
     [Theory]
     [InlineData(HttpStatusCode.OK)]
-    [InlineData(HttpStatusCode.NotFound)]           // any HTTP response means the endpoint is reachable
-    [InlineData(HttpStatusCode.ServiceUnavailable)] // even an unhealthy resolver is still "reachable"
-    public async Task StartingAsync_WhenEndpointResponds_CompletesWithoutThrowing(HttpStatusCode status)
+    [InlineData(HttpStatusCode.Created)]
+    [InlineData(HttpStatusCode.NoContent)]
+    public async Task StartingAsync_WhenEndpointReturnsSuccess_CompletesWithoutThrowing(HttpStatusCode status)
     {
         var probe = Build(new StubHandler(() => new HttpResponseMessage(status)));
 
         await Should.NotThrowAsync(() => probe.StartingAsync(CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Redirect)]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    [InlineData(HttpStatusCode.InternalServerError)]
+    public async Task StartingAsync_WhenEndpointReturnsNonSuccess_ThrowsAndAbortsStartup(HttpStatusCode status)
+    {
+        var probe = Build(new StubHandler(() => new HttpResponseMessage(status)));
+
+        var ex = await Should.ThrowAsync<InvalidOperationException>(
+            () => probe.StartingAsync(CancellationToken.None));
+        ex.Message.ShouldContain(((int)status).ToString());
     }
 
     [Fact]

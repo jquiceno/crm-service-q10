@@ -23,6 +23,11 @@ trim_trailing_whitespace = false
 # ─── Analyzer suppressions (Roslynator rules not suppressible via .globalconfig) ─
 dotnet_diagnostic.RCS1194.severity = none
 
+# CA1812: false positive for internal types instantiated only by reflection
+# (System.Text.Json DTOs, ASP.NET/DI-activated handlers). Disabled centrally to avoid
+# scattering [SuppressMessage] on every such type.
+dotnet_diagnostic.CA1812.severity = none
+
 # ─── Variable declarations ───────────────────────────────────────────────────
 csharp_style_var_for_built_in_types = true:suggestion
 csharp_style_var_when_type_is_apparent = true:suggestion
@@ -143,3 +148,11 @@ dotnet_naming_rule.all_members_should_be_pascal_case.style = pascal_case_style
 
 dotnet_naming_symbols.all_members.applicable_kinds = class, struct, enum, property, method, event, delegate, namespace, local_function
 dotnet_naming_symbols.all_members.applicable_accessibilities = *
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test projects
+# ─────────────────────────────────────────────────────────────────────────────
+[tests/**/*.cs]
+# CA2000: test fixtures legitimately own IDisposables across methods (created in a
+# helper, disposed in Dispose/teardown); the analyzer can't track that ownership.
+dotnet_diagnostic.CA2000.severity = none

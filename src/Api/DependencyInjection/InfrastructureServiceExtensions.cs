@@ -1,7 +1,6 @@
-using System;
 using Infrastructure.Caching;
 using Infrastructure.Extensions;
-using Infrastructure.Settings;
+using Infrastructure.MasterAccess.Http.Tenants;
 
 namespace Api.DependencyInjection;
 
@@ -13,30 +12,36 @@ public static class InfrastructureServiceExtensions
     {
         services.AddContextValidators();
 
-        var persistenceSettings = configuration
-            .GetSection(PersistenceSettings.SectionName)
-            .Get<PersistenceSettings>() ?? new PersistenceSettings();
+        var tenantSettings = configuration
+            .GetSection(TenantInfoClientSettings.SectionName)
+            .Get<TenantInfoClientSettings>() ?? new TenantInfoClientSettings();
 
         var healthChecks = services.AddHealthChecks();
 
-        if (persistenceSettings.Enabled)
+        if (tenantSettings.Enabled)
         {
-            if (string.IsNullOrWhiteSpace(persistenceSettings.ConnectionString))
+            // Multitenant: the database connection is resolved per request from the tenant-resolver.
+            if (!Uri.TryCreate(tenantSettings.BaseUrl, UriKind.Absolute, out var baseUri))
             {
                 throw new InvalidOperationException(
-                    "Critical Error: PERSISTENCE is enabled but ConnectionString is missing. "
-                    + "Set 'Persistence:ConnectionString' in appsettings.json or "
-                    + "'Persistence__ConnectionString' as an environment variable. "
-                    + "Application startup aborted.");
+                    "Critical Error: multitenancy (TenantInfoClient:Enabled) is on but TenantInfoClient:BaseUrl "
+                    + "is missing or not a valid absolute URL. Set 'TenantInfoClient:BaseUrl' in appsettings.json "
+                    + "or 'TenantInfoClient__BaseUrl' as an environment variable. Application startup aborted.");
             }
 
-            healthChecks.AddSqlServer(persistenceSettings.ConnectionString, tags: ["ready"]);
-            services.AddEfCoreSqlServer(persistenceSettings.ConnectionString);
+            // Readiness gates traffic on the resolver's own health endpoint (must return 2xx). The
+            // startup gate (TenantResolverStartupProbe, in AddSessionServices) is the harder check.
+            healthChecks.AddUrlGroup(
+                new Uri(baseUri, "health"),
+                name: "tenant-info",
+                tags: ["ready"]);
+
+            services.AddEfCoreSqlServerPerTenant();
         }
         else
         {
             // Console.WriteLine is intentional: Serilog is not yet configured during service registration.
-            Console.WriteLine("[Persistence] Persistence is disabled. Using in-memory database.");
+            Console.WriteLine("[Persistence] Multitenancy is disabled. Using in-memory database.");
 
             services.AddEfCoreInMemory();
         }

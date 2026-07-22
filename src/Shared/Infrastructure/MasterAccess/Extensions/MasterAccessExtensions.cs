@@ -1,27 +1,29 @@
-using Infrastructure.MasterAccess.Persistence.EntityFramework;
-using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
-using Infrastructure.MasterAccess.Resolvers;
-using Microsoft.EntityFrameworkCore;
+using Infrastructure.MasterAccess.Http.Tenants;
+using Infrastructure.MasterAccess.Security;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application.UseCases.GetTenant;
-using Shared.Domain.Tenants.Ports;
+using Microsoft.Extensions.Options;
 
 namespace Infrastructure.MasterAccess.Extensions;
 
 public static class MasterAccessExtensions
 {
-    public static IServiceCollection AddMasterAccess(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddMasterAccess(this IServiceCollection services, IConfiguration configuration)
     {
-        if (string.IsNullOrWhiteSpace(connectionString))
+        services.AddOptions<TenantInfoClientSettings>()
+            .Bind(configuration.GetSection(TenantInfoClientSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IConnectionStringDecryptor, AesConnectionStringDecryptor>();
+
+        services.AddHttpClient<ITenantInfoClient, TenantInfoClient>((sp, client) =>
         {
-            throw new ArgumentException("Connection string for master access is required.", nameof(connectionString));
-        }
-
-        services.AddDbContext<MasterAccessDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
-
-        services.AddScoped<ITenantRepository, TenantRepository>();
-        services.AddSingleton<ITenantConnectionStringResolver, TenantConnectionStringResolver>();
-        services.AddScoped<IGetTenantByCodeUseCase, GetTenantByCodeUseCase>();
+            var settings = sp.GetRequiredService<IOptions<TenantInfoClientSettings>>().Value;
+            client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        })
+        .AddStandardResilienceHandler();
 
         return services;
     }

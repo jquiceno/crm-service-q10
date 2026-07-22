@@ -8,17 +8,12 @@ namespace Infrastructure.Extensions;
 
 public static class EfCorePersistenceExtensions
 {
-    public static IServiceCollection AddEfCoreSqlServer(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddEfCoreSqlServerPerTenant(this IServiceCollection services)
     {
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new ArgumentNullException(nameof(connectionString),
-                "Connection string cannot be null or empty.");
-        }
-
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(connectionString, sqlOptions =>
-                sqlOptions.EnableRetryOnFailure(maxRetryCount: 3)));
+        services.AddDbContext<ApplicationDbContext>((sp, options) =>
+            options.UseSqlServer(
+                sp.GetRequiredService<IDbConnectionProvider>().ConnectionString,
+                sqlOptions => sqlOptions.EnableRetryOnFailure(maxRetryCount: 3)));
 
         RegisterPersistenceServices(services);
 

@@ -17,6 +17,7 @@ builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration)
+    .AddSessionServices(builder.Configuration)
     .ConfigureCache(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddApiErrorHandling()
@@ -42,6 +43,8 @@ app.Use(async (context, next) =>
 
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
+
+app.UseTenantResolution();
 
 app.UseCacheMiddleware();
 

@@ -592,51 +592,61 @@ Cache__ConnectionString=localhost:6379
 > * Los agregados cacheados vuelven como objetos **detached** (sin tracking de EF Core). Si se pasan a `repository.Update(...)`, pueden generar inconsistencias o excepciones de tracking.
 > * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lanze una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
 >
-> **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché (ver ejemplo real más abajo). La entidad de EF Core es un buen candidato de snapshot cuando es **plana y sin propiedades de navegación ni proxies de lazy-loading** (como `Tenant`): tiene constructor público sin parámetros y propiedades asignables, por lo que `System.Text.Json` la (de)serializa sin configuración adicional.
+> **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché. Un buen candidato de snapshot es un tipo **plano y sin propiedades de navegación ni proxies de lazy-loading** (una entidad de EF Core con constructor público sin parámetros, o un `record` simple): `System.Text.Json` lo (de)serializa sin configuración adicional. El ejemplo real más abajo cachea directamente un `record` porque los datos son configuración de infraestructura, no un agregado de dominio.
 
 
 ---
 
 ### Ejemplo real
 
-`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo aplicando la advertencia anterior. `TenantAggregate` tiene un constructor privado y no puede ser deserializado por `System.Text.Json`, por lo que el repositorio **cachea la entidad de EF Core `Tenant`** (plana y serializable) y reconstruye el agregado mediante `TenantRepositoryMapper.ToDomain` en cada cache hit:
+`TenantInfoClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantInfoClient.cs`) ilustra el patrón completo. Como se trata de configuración de infraestructura (no DDD), lo que se cachea es un **record plano y serializable** (`TenantInfo`), sin necesidad de snapshot ni remapeo: `System.Text.Json` lo (de)serializa directamente, por lo que el valor cacheado se devuelve tal cual en cada cache hit:
 
 ```csharp
-public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
 {
     var key = CacheKey.For("masteraccess").Resource("tenant", code);
 
-    // La entidad Tenant (plana, sin proxies, obtenida con AsNoTracking) es segura de cachear.
-    var cached = await cache.GetAsync<Tenant>(key, cancellationToken).ConfigureAwait(false);
+    var cached = await cache.GetAsync<TenantInfo>(key, cancellationToken).ConfigureAwait(false);
     if (cached is not null)
-        return TenantRepositoryMapper.ToDomain(cached);
+        return cached;
 
     try
     {
-        var document = await context.Tenants
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Code == code, cancellationToken)
+        using var response = await httpClient
+            .GetAsync($"tenants/{Uri.EscapeDataString(code)}", cancellationToken)
             .ConfigureAwait(false);
 
-        if (document is null)
-            return TenantErrors.NotFound(code);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return new NotFoundError($"Tenant with code '{code}' was not found.") { Context = Context };
 
-        await cache.SetAsync(key, document, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(false);
-        return TenantRepositoryMapper.ToDomain(document);
+        if (!response.IsSuccessStatusCode)
+            return new InternalError("The tenant info service returned an error.") { Context = Context };
+
+        var payload = await response.Content
+            .ReadFromJsonAsync<TenantInfoResponse>(cancellationToken)
+            .ConfigureAwait(false);
+
+        if (payload is null || string.IsNullOrWhiteSpace(payload.ConnectionString))
+            return new InternalError("The tenant info service returned an invalid payload.") { Context = Context };
+
+        var tenant = payload.ToTenantInfo();
+        await cache.SetAsync(key, tenant, TimeSpan.FromMinutes(_settings.CacheTtlMinutes), cancellationToken)
+            .ConfigureAwait(false);
+        return tenant;
     }
     catch (Exception ex) when (ex is not OperationCanceledException)
     {
-        logger.Error(ex, "Error retrieving Tenant with code {Code}", code);
-        return new DomainError("A persistence error occurred.", ErrorType.Internal);
+        logger.Error(ex, "Error calling tenant info endpoint for code {Code}", code);
+        return new InternalError("A network error occurred while resolving the tenant.") { Context = Context };
     }
 }
 ```
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
-* TTL de 10 minutos, adecuado para datos de tenant que raramente cambian.
-* En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta la BD directamente (con `AsNoTracking()`).
-* `SetAsync` solo se llama cuando el tenant existe: un tenant no encontrado (`NotFound`) o un error de BD **no** se cachean.
-* Se cachea la entidad `Tenant`, no el agregado; el mapeo `Tenant → TenantAggregate` se hace con el `TenantRepositoryMapper` existente tanto en hit como en miss.
+* TTL configurable (`TenantInfoClient:CacheTtlMinutes`, por defecto 10 minutos), adecuado para datos de tenant que raramente cambian.
+* En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta el endpoint directamente.
+* `SetAsync` solo se llama cuando la resolución es exitosa: un tenant no encontrado (`NotFound`) o un error de red/servicio **no** se cachean.
+* Se cachea el record `TenantInfo` directamente; al ser plano y serializable no requiere snapshot ni remapeo (a diferencia de un agregado con constructor privado, ver la advertencia anterior).
 
 
 ---

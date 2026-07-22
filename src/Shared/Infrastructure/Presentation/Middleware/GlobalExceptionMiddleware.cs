@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -10,10 +9,6 @@ using Shared.Results.Errors;
 
 namespace Shared.Presentation.Middleware;
 
-[SuppressMessage(
-    "Performance",
-    "CA1812:AvoidUninstantiatedInternalClasses",
-    Justification = "Instantiated by ASP.NET Core when registered via AddExceptionHandler<T>().")]
 public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger)
     : IExceptionHandler
 {

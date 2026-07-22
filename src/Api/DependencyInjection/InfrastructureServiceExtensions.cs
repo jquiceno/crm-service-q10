@@ -29,6 +29,14 @@ public static class InfrastructureServiceExtensions
                     + "or 'TenantResolverService__BaseUrl' as an environment variable. Application startup aborted.");
             }
 
+            if (string.IsNullOrWhiteSpace(tenantSettings.EncryptionKey))
+            {
+                throw new InvalidOperationException(
+                    "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:EncryptionKey "
+                    + "is missing. Set 'TenantResolverService:EncryptionKey' in appsettings.json "
+                    + "or 'TenantResolverService__EncryptionKey' as an environment variable. Application startup aborted.");
+            }
+
             // Readiness gates traffic on the resolver's own health endpoint (must return 2xx). The
             // startup gate (TenantResolverStartupProbe, in AddSessionServices) is the harder check.
             healthChecks.AddUrlGroup(

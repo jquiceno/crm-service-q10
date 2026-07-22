@@ -13,8 +13,8 @@ public static class InfrastructureServiceExtensions
         services.AddContextValidators();
 
         var tenantSettings = configuration
-            .GetSection(TenantInfoClientSettings.SectionName)
-            .Get<TenantInfoClientSettings>() ?? new TenantInfoClientSettings();
+            .GetSection(TenantResolverServiceSettings.SectionName)
+            .Get<TenantResolverServiceSettings>() ?? new TenantResolverServiceSettings();
 
         var healthChecks = services.AddHealthChecks();
 
@@ -24,9 +24,9 @@ public static class InfrastructureServiceExtensions
             if (!Uri.TryCreate(tenantSettings.BaseUrl, UriKind.Absolute, out var baseUri))
             {
                 throw new InvalidOperationException(
-                    "Critical Error: multitenancy (TenantInfoClient:Enabled) is on but TenantInfoClient:BaseUrl "
-                    + "is missing or not a valid absolute URL. Set 'TenantInfoClient:BaseUrl' in appsettings.json "
-                    + "or 'TenantInfoClient__BaseUrl' as an environment variable. Application startup aborted.");
+                    "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:BaseUrl "
+                    + "is missing or not a valid absolute URL. Set 'TenantResolverService:BaseUrl' in appsettings.json "
+                    + "or 'TenantResolverService__BaseUrl' as an environment variable. Application startup aborted.");
             }
 
             // Readiness gates traffic on the resolver's own health endpoint (must return 2xx). The

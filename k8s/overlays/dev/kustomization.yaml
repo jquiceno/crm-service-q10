@@ -41,7 +41,7 @@ patches:
       data:
         ASPNETCORE_ENVIRONMENT: "Development"
         ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
-        Persistence__Enabled: "false"
+        TenantResolverService__Enabled: "false"
         Sentry__Enabled: "false"
         Cors__AllowedOrigins__0: "http://localhost:3000"
 

@@ -11,7 +11,7 @@ using Xunit;
 
 namespace UnitTests.Infrastructure;
 
-public sealed class TenantInfoClientTests : IDisposable
+public sealed class TenantResolverServiceClientTests : IDisposable
 {
     private const string BaseUrl = "https://mock.tenants.local/api/";
     private const string PlainConnectionString = "Server=srv;Database=acme_db;";
@@ -41,22 +41,22 @@ public sealed class TenantInfoClientTests : IDisposable
 
     private static AesConnectionStringDecryptor CreateDecryptor() =>
         new(
-            Options.Create(new TenantInfoClientSettings { ConnectionStringKey = AesTestCrypto.Passphrase }),
+            Options.Create(new TenantResolverServiceSettings { EncryptionKey = AesTestCrypto.Passphrase }),
             Substitute.For<ILoggerPort<AesConnectionStringDecryptor>>());
 
-    private TenantInfoClient CreateSut(
+    private TenantResolverServiceClient CreateSut(
         StubHandler handler, ICacheStore? cache = null, IConnectionStringDecryptor? decryptor = null)
     {
         // HttpClient owns the handler (disposeHandler defaults to true), so disposing the
         // client disposes the StubHandler too.
         var client = new HttpClient(handler) { BaseAddress = new Uri(BaseUrl) };
         _clients.Add(client);
-        return new TenantInfoClient(
+        return new TenantResolverServiceClient(
             client,
             cache ?? new JsonRoundTripCacheStore(),
             decryptor ?? CreateDecryptor(),
-            Options.Create(new TenantInfoClientSettings { BaseUrl = BaseUrl }),
-            Substitute.For<ILoggerPort<TenantInfoClient>>());
+            Options.Create(new TenantResolverServiceSettings { BaseUrl = BaseUrl }),
+            Substitute.For<ILoggerPort<TenantResolverServiceClient>>());
     }
 
     public void Dispose()

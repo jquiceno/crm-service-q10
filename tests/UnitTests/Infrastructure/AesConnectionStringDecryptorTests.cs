@@ -15,7 +15,7 @@ public sealed class AesConnectionStringDecryptorTests
 
     private static AesConnectionStringDecryptor CreateSut(string passphrase) =>
         new(
-            Options.Create(new TenantInfoClientSettings { ConnectionStringKey = passphrase }),
+            Options.Create(new TenantResolverServiceSettings { EncryptionKey = passphrase }),
             Substitute.For<ILoggerPort<AesConnectionStringDecryptor>>());
 
     [Fact]

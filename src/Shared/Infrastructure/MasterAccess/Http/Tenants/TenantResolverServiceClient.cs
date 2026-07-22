@@ -9,18 +9,18 @@ using Shared.Results.Errors;
 
 namespace Infrastructure.MasterAccess.Http.Tenants;
 
-public sealed class TenantInfoClient(
+public sealed class TenantResolverServiceClient(
     HttpClient httpClient,
     ICacheStore cache,
     IConnectionStringDecryptor decryptor,
-    IOptions<TenantInfoClientSettings> options,
-    ILoggerPort<TenantInfoClient> logger) : ITenantInfoClient
+    IOptions<TenantResolverServiceSettings> options,
+    ILoggerPort<TenantResolverServiceClient> logger) : ITenantResolverServiceClient
 {
     private const string Context = "TenantInfo";
 
     private const string SupportedAlgorithm = "aes-256-cbc";
 
-    private readonly TenantInfoClientSettings _settings = options.Value;
+    private readonly TenantResolverServiceSettings _settings = options.Value;
 
     public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {

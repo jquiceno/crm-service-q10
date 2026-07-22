@@ -18,8 +18,11 @@ data:
   ServiceInfo__Name: "ServiceTemplate"
   ServiceInfo__Version: "1.0.0"
 
-  # Persistence — connection string goes in secret, only the feature flag here
-  Persistence__Enabled: "true"
+  # Tenant resolver service
+  TenantResolverService__Enabled: "true"
+  TenantResolverService__BaseUrl: ""
+  TenantResolverService__TimeoutSeconds: "15"
+  TenantResolverService__CacheTtlMinutes: "10"
 
   # Sentry — DSN goes in secret; the rest of the non-sensitive config lives here
   Sentry__Enabled: "true"

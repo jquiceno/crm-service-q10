@@ -3,9 +3,9 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace Infrastructure.MasterAccess.Http.Tenants;
 
-public sealed class TenantInfoClientSettings
+public sealed class TenantResolverServiceSettings
 {
-    public const string SectionName = "TenantInfoClient";
+    public const string SectionName = "TenantResolverService";
 
     public bool Enabled { get; init; }
 
@@ -24,5 +24,5 @@ public sealed class TenantInfoClientSettings
     public int CacheTtlMinutes { get; init; } = 10;
 
     [Required]
-    public string ConnectionStringKey { get; init; } = string.Empty;
+    public string EncryptionKey { get; init; } = string.Empty;
 }

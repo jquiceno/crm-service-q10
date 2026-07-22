@@ -9,14 +9,14 @@ using Shared.Results.Errors;
 namespace Infrastructure.MasterAccess.Security;
 
 public sealed class AesConnectionStringDecryptor(
-    IOptions<TenantInfoClientSettings> options,
+    IOptions<TenantResolverServiceSettings> options,
     ILoggerPort<AesConnectionStringDecryptor> logger) : IConnectionStringDecryptor
 {
     private const string Context = "TenantInfo";
     private const int IvSizeBytes = 16; // AES block size
 
     // Derived once: SHA-256 of the passphrase always yields the 32 bytes AES-256 requires.
-    private readonly byte[] _key = SHA256.HashData(Encoding.UTF8.GetBytes(options.Value.ConnectionStringKey));
+    private readonly byte[] _key = SHA256.HashData(Encoding.UTF8.GetBytes(options.Value.EncryptionKey));
 
     public Result<string> Decrypt(string cipherText)
     {

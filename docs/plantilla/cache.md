@@ -599,7 +599,7 @@ Cache__ConnectionString=localhost:6379
 
 ### Ejemplo real
 
-`TenantInfoClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantInfoClient.cs`) ilustra el patrón completo. Como se trata de configuración de infraestructura (no DDD), lo que se cachea es un **record plano y serializable** (`TenantInfo`), sin necesidad de snapshot ni remapeo: `System.Text.Json` lo (de)serializa directamente, por lo que el valor cacheado se devuelve tal cual en cada cache hit:
+`TenantResolverServiceClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantResolverServiceClient.cs`) ilustra el patrón completo. Como se trata de configuración de infraestructura (no DDD), lo que se cachea es un **record plano y serializable** (`TenantInfo`), sin necesidad de snapshot ni remapeo: `System.Text.Json` lo (de)serializa directamente, por lo que el valor cacheado se devuelve tal cual en cada cache hit:
 
 ```csharp
 public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
@@ -643,7 +643,7 @@ public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationTo
 ```
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
-* TTL configurable (`TenantInfoClient:CacheTtlMinutes`, por defecto 10 minutos), adecuado para datos de tenant que raramente cambian.
+* TTL configurable (`TenantResolverService:CacheTtlMinutes`, por defecto 10 minutos), adecuado para datos de tenant que raramente cambian.
 * En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta el endpoint directamente.
 * `SetAsync` solo se llama cuando la resolución es exitosa: un tenant no encontrado (`NotFound`) o un error de red/servicio **no** se cachean.
 * Se cachea el record `TenantInfo` directamente; al ser plano y serializable no requiere snapshot ni remapeo (a diferencia de un agregado con constructor privado, ver la advertencia anterior).

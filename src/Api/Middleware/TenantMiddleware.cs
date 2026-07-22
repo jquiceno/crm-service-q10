@@ -21,7 +21,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMid
 
     public async Task InvokeAsync(
         HttpContext context,
-        ITenantInfoClient tenantInfoClient,
+        ITenantResolverServiceClient tenantResolverServiceClient,
         ITenantConnectionInitializer session)
     {
         var path = context.Request.Path.Value ?? string.Empty;
@@ -46,7 +46,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMid
             return;
         }
 
-        var result = await tenantInfoClient
+        var result = await tenantResolverServiceClient
             .GetByCodeAsync(entityCode, context.RequestAborted)
             .ConfigureAwait(false);
 

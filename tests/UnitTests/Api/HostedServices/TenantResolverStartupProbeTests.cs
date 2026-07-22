@@ -42,7 +42,7 @@ public sealed class TenantResolverStartupProbeTests
 
         return new TenantResolverStartupProbe(
             factory,
-            Options.Create(new TenantInfoClientSettings { BaseUrl = "https://resolver.local/", TimeoutSeconds = 5 }),
+            Options.Create(new TenantResolverServiceSettings { BaseUrl = "https://resolver.local/", TimeoutSeconds = 5 }),
             Substitute.For<ILoggerPort<TenantResolverStartupProbe>>());
     }
 

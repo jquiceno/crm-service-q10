@@ -15,7 +15,7 @@ namespace Api.HostedServices;
 /// </summary>
 public sealed class TenantResolverStartupProbe(
     IHttpClientFactory httpClientFactory,
-    IOptions<TenantInfoClientSettings> options,
+    IOptions<TenantResolverServiceSettings> options,
     ILoggerPort<TenantResolverStartupProbe> logger) : IHostedLifecycleService
 {
     public async Task StartingAsync(CancellationToken cancellationToken)

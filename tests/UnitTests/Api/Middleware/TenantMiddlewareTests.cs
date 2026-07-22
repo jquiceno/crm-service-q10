@@ -18,7 +18,7 @@ public sealed class TenantMiddlewareTests
     private const string DbName = "acme_db";
     private const string ConnectionString = "Server=srv;Database=acme_db;";
 
-    private readonly ITenantInfoClient _client = Substitute.For<ITenantInfoClient>();
+    private readonly ITenantResolverServiceClient _client = Substitute.For<ITenantResolverServiceClient>();
     private readonly ILoggerPort<TenantMiddleware> _logger = Substitute.For<ILoggerPort<TenantMiddleware>>();
 
     private static DefaultHttpContext BuildContext(

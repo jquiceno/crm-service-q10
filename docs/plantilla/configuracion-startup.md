@@ -38,7 +38,7 @@ Se usa cuando la habilitación de un componente es opcional (`Enabled: true/fals
 | Variable | Condición de fallo |
 |----------|--------------------|
 | `Sentry:Dsn` | `Sentry:Enabled = true` y el DSN está vacío |
-| `TenantInfoClient:BaseUrl` | `TenantInfoClient:Enabled = true` y el BaseUrl está vacío o no es una URL absoluta válida |
+| `TenantResolverService:BaseUrl` | `TenantResolverService:Enabled = true` y el BaseUrl está vacío o no es una URL absoluta válida |
 
 **Ejemplo del mensaje de error (Sentry):**
 
@@ -79,7 +79,7 @@ services.AddOptions<ServiceInfoSettings>()
 
 ### 3. Sonda de dependencia externa (reachability)
 
-Además de validar **configuración**, la plantilla puede abortar el arranque si una **dependencia externa en runtime** no está disponible. Hoy aplica solo al modo multitenant: cuando `TenantInfoClient:Enabled = true`, `TenantResolverStartupProbe` (un `IHostedLifecycleService`) hace una petición HTTP a `{BaseUrl}/health` en `StartingAsync` —antes de que Kestrel abra el puerto—. Cualquier respuesta HTTP cuenta como "alcanzable"; solo un fallo de conexión o timeout aborta el arranque con `InvalidOperationException`.
+Además de validar **configuración**, la plantilla puede abortar el arranque si una **dependencia externa en runtime** no está disponible. Hoy aplica solo al modo multitenant: cuando `TenantResolverService:Enabled = true`, `TenantResolverStartupProbe` (un `IHostedLifecycleService`) hace una petición HTTP a `{BaseUrl}/health` en `StartingAsync` —antes de que Kestrel abra el puerto—. Cualquier respuesta HTTP cuenta como "alcanzable"; solo un fallo de conexión o timeout aborta el arranque con `InvalidOperationException`.
 
 > **Config vs dependencia:** un error de **configuración** (falta un valor) es irrecuperable y siempre debe abortar. Una **dependencia de red caída** es recuperable; este gate duro es una decisión deliberada de "no levantar si no puedo resolver tenants". El orquestador reintenta reiniciando la instancia.
 
@@ -95,7 +95,7 @@ Las validaciones se ejecutan en el orden en que se registran en `Program.cs`:
 
 1. **Sentry DSN** — al invocar `builder.AddSentry()`
 2. **ServiceInfo (Name, Version)** — al invocar `builder.Host.AddSerilog()` y luego `AddApiSettings()`
-3. **TenantInfoClient:BaseUrl** (modo multitenant) — al invocar `AddInfrastructureServices()`
+3. **TenantResolverService:BaseUrl** (modo multitenant) — al invocar `AddInfrastructureServices()`
 4. **Cache Settings** — al invocar `ConfigureCache()`
 5. **Validaciones de** `**ValidateOnStart()**` — al invocar `builder.Build()`
 6. **Reachability del tenant-resolver** (modo multitenant) — en `StartingAsync`, tras `builder.Build()` y antes de que Kestrel abra el puerto
@@ -147,7 +147,7 @@ services.AddOptions<MisSettings>()
 |---------|-----------------|
 | `src/Api/Program.cs` | Punto de entrada; define el orden de registro y validación |
 | `src/Api/DependencyInjection/SettingsExtensions.cs` | Registra `ServiceInfoSettings` con `ValidateOnStart()` |
-| `src/Api/DependencyInjection/InfrastructureServiceExtensions.cs` | Valida `TenantInfoClient:BaseUrl` (modo multitenant) |
+| `src/Api/DependencyInjection/InfrastructureServiceExtensions.cs` | Valida `TenantResolverService:BaseUrl` (modo multitenant) |
 | `src/Api/HostedServices/TenantResolverStartupProbe.cs` | Sonda de reachability del tenant-resolver al arranque |
 | `src/Infrastructure/Extensions/SentryExtensions.cs` | Valida `Sentry:Dsn` |
 | `src/Infrastructure/Extensions/SerilogExtensions.cs` | Valida presencia de la sección `ServiceInfo` |

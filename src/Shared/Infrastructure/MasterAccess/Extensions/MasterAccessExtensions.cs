@@ -10,16 +10,16 @@ public static class MasterAccessExtensions
 {
     public static IServiceCollection AddMasterAccess(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddOptions<TenantInfoClientSettings>()
-            .Bind(configuration.GetSection(TenantInfoClientSettings.SectionName))
+        services.AddOptions<TenantResolverServiceSettings>()
+            .Bind(configuration.GetSection(TenantResolverServiceSettings.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         services.AddSingleton<IConnectionStringDecryptor, AesConnectionStringDecryptor>();
 
-        services.AddHttpClient<ITenantInfoClient, TenantInfoClient>((sp, client) =>
+        services.AddHttpClient<ITenantResolverServiceClient, TenantResolverServiceClient>((sp, client) =>
         {
-            var settings = sp.GetRequiredService<IOptions<TenantInfoClientSettings>>().Value;
+            var settings = sp.GetRequiredService<IOptions<TenantResolverServiceSettings>>().Value;
             client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
             client.Timeout = Timeout.InfiniteTimeSpan;
         })

@@ -50,6 +50,6 @@ public static class SessionServiceExtensions
 
     private static bool IsMultitenancyEnabled(IConfiguration configuration) =>
         configuration
-            .GetSection(TenantInfoClientSettings.SectionName)
-            .Get<TenantInfoClientSettings>()?.Enabled ?? false;
+            .GetSection(TenantResolverServiceSettings.SectionName)
+            .Get<TenantResolverServiceSettings>()?.Enabled ?? false;
 }

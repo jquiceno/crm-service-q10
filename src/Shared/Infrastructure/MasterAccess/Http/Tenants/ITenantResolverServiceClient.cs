@@ -6,7 +6,7 @@ namespace Infrastructure.MasterAccess.Http.Tenants;
 /// Resolves a tenant's database configuration (culture + connection string) from the external
 /// master-access endpoint.
 /// </summary>
-public interface ITenantInfoClient
+public interface ITenantResolverServiceClient
 {
     Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
 }

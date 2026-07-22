@@ -1,6 +1,7 @@
 using Infrastructure.Caching;
 using Infrastructure.Extensions;
 using Infrastructure.MasterAccess.Http.Tenants;
+using Infrastructure.Settings;
 
 namespace Api.DependencyInjection;
 
@@ -36,6 +37,22 @@ public static class InfrastructureServiceExtensions
                     "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:EncryptionKey "
                     + "is missing. Set 'TenantResolverService:EncryptionKey' in appsettings.json "
                     + "or 'TenantResolverService__EncryptionKey' as an environment variable. Application startup aborted.");
+            }
+
+            // Multitenant resolution must be cache-backed: without L2 the resolver is called over HTTP on
+            // every request.
+            var cacheSettings = configuration
+                .GetSection(CacheSettings.SectionName)
+                .Get<CacheSettings>() ?? new CacheSettings();
+
+            if (!cacheSettings.L2Enabled || string.IsNullOrWhiteSpace(cacheSettings.ConnectionString))
+            {
+                throw new InvalidOperationException(
+                    "Critical Error: multitenancy (TenantResolverService:Enabled) is on but the L2 application cache "
+                    + "is off (Cache:L2Enabled=false or Cache:ConnectionString is empty). Without it the tenant "
+                    + "resolver is called over HTTP on every request. Set 'Cache:L2Enabled=true' and "
+                    + "'Cache:ConnectionString' in appsettings.json (or 'Cache__L2Enabled' / 'Cache__ConnectionString' "
+                    + "as environment variables). Application startup aborted.");
             }
 
             // Readiness gates traffic on the resolver's own health endpoint (must return 2xx). The

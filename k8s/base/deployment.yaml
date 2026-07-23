@@ -21,6 +21,8 @@ spec:
     metadata:
       labels:
         app: service-template
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
       topologySpreadConstraints:
         - maxSkew: 1
@@ -43,6 +45,9 @@ spec:
           envFrom:
             - configMapRef:
                 name: service-template-config
+            - secretRef:
+                name: platform-shared
+                optional: true
             - secretRef:
                 name: service-template-secrets
                 optional: true

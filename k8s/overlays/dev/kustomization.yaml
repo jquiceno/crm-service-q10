@@ -17,6 +17,10 @@ kind: Kustomization
 #        IMAGE_KEY    = q10-<service-name>
 #        IMAGE_NAME   = <account>.dkr.ecr.<region>.amazonaws.com/q10-<service-name>
 #   7. terraform/env/*.tfvars              (service_name, github_repo)
+#
+#   NOTE: shared keys (connstring encrypt key, tenant-resolver URL, redis) do
+#   NOT go in this service's own secret — they come from the cluster-managed
+#   `platform-shared` secret (see docs/plantilla/variables-entorno.md).
 # ---------------------------------------------------------------------------
 
 namespace: service-template

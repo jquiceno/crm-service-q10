@@ -243,6 +243,9 @@ $(printf "${BOLD}")Pasos manuales restantes:$(printf "${NC}")
        /platform/prod/$SERVICE_NAME
      IMPORTANTE: el extract.key de cada overlay debe coincidir EXACTAMENTE con
      el nombre real del secreto, slash inicial incluido.
+     NOTA: las claves compartidas (encrypt key, tenant-resolver URL, redis) NO
+     se ponen en el secreto propio del servicio: vienen de platform-shared
+     (Secret inyectado por el cluster; ver docs/plantilla/variables-entorno.md).
 
   5. Eliminar este script del repositorio:
        git rm init-service.sh

@@ -50,6 +50,8 @@ Application startup aborted.
 
 > En variables de entorno, los dos puntos (`:`) se reemplazan por doble guion bajo (`__`). Por ejemplo, `Sentry:Dsn` se convierte en `Sentry__Dsn`.
 
+> **Variables agnósticas de plataforma:** los valores del secreto compartido `/platform/{env}/shared` usan un nombre canónico independiente del lenguaje — `TENANT_RESOLVER_SERVICE_URL` y `CONNSTRING_ENCRYPTION_KEY` — para que todos los servicios (Node, .NET, etc.) consuman la misma variable. En el arranque, `AddTenantResolverEnvironmentAliases()` (en `TenancyConfigurationExtensions`) las mapea a `TenantResolverService:BaseUrl` y `TenantResolverService:EncryptionKey` antes de que nada lea esa sección; las claves .NET explícitas siguen funcionando para desarrollo local.
+
 
 ---
 

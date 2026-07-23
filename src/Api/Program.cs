@@ -14,6 +14,8 @@ builder.Configuration.AddAzureKeyVault(builder.Environment);
 builder.AddSentry();
 builder.Host.AddSerilog(builder.Configuration);
 
+builder.Configuration.AddTenantResolverEnvironmentAliases();
+
 var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
 
 builder.Services

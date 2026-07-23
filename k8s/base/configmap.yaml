@@ -18,8 +18,10 @@ data:
   ServiceInfo__Name: "ServiceTemplate"
   ServiceInfo__Version: "1.0.0"
 
-  # Tenant resolver service — BaseUrl and EncryptionKey come from the
-  # ExternalSecret (remapped from the /platform/{env}/shared secret)
+  # Tenant resolver service — the URL and encryption key come from the
+  # /platform/{env}/shared secret as the language-agnostic variables
+  # TENANT_RESOLVER_SERVICE_URL and CONNSTRING_ENCRYPTION_KEY (aliased to
+  # TenantResolverService:BaseUrl/:EncryptionKey at startup)
   TenantResolverService__Enabled: "true"
   TenantResolverService__TimeoutSeconds: "15"
   TenantResolverService__CacheTtlMinutes: "10"

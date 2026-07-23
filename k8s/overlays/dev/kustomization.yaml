@@ -51,13 +51,7 @@ patches:
         path: /spec/dataFrom/0/extract/key
         value: /platform/dev/service-template
       - op: replace
-        path: /spec/data/0/remoteRef/key
-        value: /platform/dev/shared
-      - op: replace
-        path: /spec/data/1/remoteRef/key
-        value: /platform/dev/shared
-      - op: replace
-        path: /spec/data/2/remoteRef/key
+        path: /spec/dataFrom/1/extract/key
         value: /platform/dev/shared
     target:
       kind: ExternalSecret

@@ -27,16 +27,18 @@ public static class InfrastructureServiceExtensions
             {
                 throw new InvalidOperationException(
                     "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:BaseUrl "
-                    + "is missing or not a valid absolute URL. Set 'TenantResolverService:BaseUrl' in appsettings.json "
-                    + "or 'TenantResolverService__BaseUrl' as an environment variable. Application startup aborted.");
+                    + "is missing or not a valid absolute URL. Set the 'TENANT_RESOLVER_SERVICE_URL' environment variable "
+                    + "(platform shared secret) or 'TenantResolverService:BaseUrl' in appsettings.json. "
+                    + "Application startup aborted.");
             }
 
             if (string.IsNullOrWhiteSpace(tenantSettings.EncryptionKey))
             {
                 throw new InvalidOperationException(
                     "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:EncryptionKey "
-                    + "is missing. Set 'TenantResolverService:EncryptionKey' in appsettings.json "
-                    + "or 'TenantResolverService__EncryptionKey' as an environment variable. Application startup aborted.");
+                    + "is missing. Set the 'CONNSTRING_ENCRYPTION_KEY' environment variable "
+                    + "(platform shared secret) or 'TenantResolverService:EncryptionKey' in appsettings.json. "
+                    + "Application startup aborted.");
             }
 
             // Multitenant resolution must be cache-backed: without L2 the resolver is called over HTTP on

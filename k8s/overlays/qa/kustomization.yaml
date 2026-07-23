@@ -28,11 +28,20 @@ patches:
         Sentry__Enabled: "true"
         Cors__AllowedOrigins__0: "https://qa.app.q10.com"
 
-  # --- ExternalSecret: Secrets Manager path for qa ---
+  # --- ExternalSecret: Secrets Manager paths for qa ---
   - patch: |-
       - op: replace
         path: /spec/dataFrom/0/extract/key
         value: /platform/qa/service-template
+      - op: replace
+        path: /spec/data/0/remoteRef/key
+        value: /platform/qa/shared
+      - op: replace
+        path: /spec/data/1/remoteRef/key
+        value: /platform/qa/shared
+      - op: replace
+        path: /spec/data/2/remoteRef/key
+        value: /platform/qa/shared
     target:
       kind: ExternalSecret
       name: service-template-secrets

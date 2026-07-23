@@ -18,11 +18,15 @@ data:
   ServiceInfo__Name: "ServiceTemplate"
   ServiceInfo__Version: "1.0.0"
 
-  # Tenant resolver service
+  # Tenant resolver service — BaseUrl and EncryptionKey come from the
+  # ExternalSecret (remapped from the /platform/{env}/shared secret)
   TenantResolverService__Enabled: "true"
-  TenantResolverService__BaseUrl: ""
   TenantResolverService__TimeoutSeconds: "15"
   TenantResolverService__CacheTtlMinutes: "10"
+
+  # Cache — L2 (Redis) is mandatory while multitenancy is enabled; the
+  # connection string comes from the ExternalSecret (shared secret)
+  Cache__L2Enabled: "true"
 
   # Sentry — DSN goes in secret; the rest of the non-sensitive config lives here
   Sentry__Enabled: "true"

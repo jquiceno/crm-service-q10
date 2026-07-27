@@ -592,51 +592,72 @@ Cache__ConnectionString=localhost:6379
 > * Los agregados cacheados vuelven como objetos **detached** (sin tracking de EF Core). Si se pasan a `repository.Update(...)`, pueden generar inconsistencias o excepciones de tracking.
 > * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lanze una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
 >
-> **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché (ver ejemplo real más abajo). La entidad de EF Core es un buen candidato de snapshot cuando es **plana y sin propiedades de navegación ni proxies de lazy-loading** (como `Tenant`): tiene constructor público sin parámetros y propiedades asignables, por lo que `System.Text.Json` la (de)serializa sin configuración adicional.
+> **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché. Un buen candidato de snapshot es un tipo **plano y sin propiedades de navegación ni proxies de lazy-loading** (una entidad de EF Core con constructor público sin parámetros, o un `record` simple): `System.Text.Json` lo (de)serializa sin configuración adicional. El ejemplo real más abajo cachea directamente un `record` porque los datos son configuración de infraestructura, no un agregado de dominio.
 
 
 ---
 
 ### Ejemplo real
 
-`TenantRepository.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Persistence/EntityFramework/Tenants/TenantRepository.cs`) ilustra el patrón completo aplicando la advertencia anterior. `TenantAggregate` tiene un constructor privado y no puede ser deserializado por `System.Text.Json`, por lo que el repositorio **cachea la entidad de EF Core `Tenant`** (plana y serializable) y reconstruye el agregado mediante `TenantRepositoryMapper.ToDomain` en cada cache hit:
+`TenantResolverServiceClient.GetByCodeAsync` (en `src/Shared/Infrastructure/MasterAccess/Http/Tenants/TenantResolverServiceClient.cs`) ilustra el patrón completo. Se trata de configuración de infraestructura (no DDD), pero con una decisión de seguridad clave: **lo que se cachea es el payload cifrado** (`TenantInfoResponse`, tal como llega del endpoint), **no** el `TenantInfo` ya descifrado. El connection string se descifra en cada lectura, de modo que Redis nunca almacena credenciales en claro. `TenantInfoResponse` es un record plano y serializable, así que `System.Text.Json` lo (de)serializa sin configuración adicional:
 
 ```csharp
-public async Task<Result<TenantAggregate>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
 {
+    // (validación de 'code' omitida por brevedad: no vacío y sin ':')
     var key = CacheKey.For("masteraccess").Resource("tenant", code);
 
-    // La entidad Tenant (plana, sin proxies, obtenida con AsNoTracking) es segura de cachear.
-    var cached = await cache.GetAsync<Tenant>(key, cancellationToken).ConfigureAwait(false);
+    // Cache hit: se devuelve el payload CIFRADO y se descifra por request (nunca se cachea el claro).
+    var cached = await cache.GetAsync<TenantInfoResponse>(key, cancellationToken).ConfigureAwait(false);
     if (cached is not null)
-        return TenantRepositoryMapper.ToDomain(cached);
+        return Decrypt(cached);
 
     try
     {
-        var document = await context.Tenants
-            .AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Code == code, cancellationToken)
+        // El cliente solo appendea el código a BaseAddress: BaseUrl debe incluir ya el segmento de recurso
+        // (p. ej. https://resolver/tenants/). Ver la nota sobre BaseUrl más abajo.
+        using var response = await httpClient
+            .GetAsync(Uri.EscapeDataString(code), cancellationToken)
             .ConfigureAwait(false);
 
-        if (document is null)
-            return TenantErrors.NotFound(code);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return new NotFoundError($"Tenant with code '{code}' was not found.") { Context = Context };
 
-        await cache.SetAsync(key, document, TimeSpan.FromMinutes(10), cancellationToken).ConfigureAwait(false);
-        return TenantRepositoryMapper.ToDomain(document);
+        if (!response.IsSuccessStatusCode)
+            return new InternalError("The tenant info service returned an error.") { Context = Context };
+
+        var payload = (await response.Content
+            .ReadFromJsonAsync<TenantInfoEnvelope>(cancellationToken)
+            .ConfigureAwait(false))?.Data;
+
+        if (payload is null || string.IsNullOrWhiteSpace(payload.DbConnectionString))
+            return new InternalError("The tenant info service returned an invalid payload.") { Context = Context };
+
+        // (verificación del algoritmo de cifrado omitida por brevedad)
+
+        var tenant = Decrypt(payload);
+        if (tenant.IsFailure)
+            return tenant;
+
+        // Se cachea el payload CIFRADO
+        await cache.SetAsync(key, payload, TimeSpan.FromMinutes(_settings.CacheTtlMinutes), cancellationToken)
+            .ConfigureAwait(false);
+        return tenant;
     }
-    catch (Exception ex) when (ex is not OperationCanceledException)
+    catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
     {
-        logger.Error(ex, "Error retrieving Tenant with code {Code}", code);
-        return new DomainError("A persistence error occurred.", ErrorType.Internal);
+        logger.Error(ex, "Error calling tenant info endpoint for code {Code}", code);
+        return new InternalError("A network error occurred while resolving the tenant.") { Context = Context };
     }
 }
 ```
 
 * La llave resultante es `ctx:masteraccess:v1:tenant:{code}`.
-* TTL de 10 minutos, adecuado para datos de tenant que raramente cambian.
-* En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta la BD directamente (con `AsNoTracking()`).
-* `SetAsync` solo se llama cuando el tenant existe: un tenant no encontrado (`NotFound`) o un error de BD **no** se cachean.
-* Se cachea la entidad `Tenant`, no el agregado; el mapeo `Tenant → TenantAggregate` se hace con el `TenantRepositoryMapper` existente tanto en hit como en miss.
+* TTL configurable (`TenantResolverService:CacheTtlMinutes`, por defecto 10 minutos), adecuado para datos de tenant que raramente cambian.
+* **Se cachea el ciphertext, se descifra por request**: Redis nunca contiene el connection string en claro. El coste del descifrado AES por cache hit es deliberado a cambio de esa garantía de seguridad.
+* En miss o fallo de Redis, `GetAsync` devuelve `null` y se consulta el endpoint directamente.
+* `SetAsync` solo se llama cuando la resolución es exitosa: un tenant no encontrado (`NotFound`) o un error de red/servicio **no** se cachean.
+* **Contrato de `BaseUrl`**: el cliente construye la petición appendeando **solo** el código del tenant a `HttpClient.BaseAddress`. Por tanto `TenantResolverService:BaseUrl` debe incluir ya la ruta del recurso con `/` final (p. ej. `https://resolver.interno/tenants/`). Un `BaseUrl` sin ese segmento resolvería contra el endpoint equivocado silenciosamente. En el configmap base va vacío a propósito: cada overlay lo fija por entorno.
 
 
 ---

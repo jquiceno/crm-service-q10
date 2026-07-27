@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
     <ProjectReference Include="..\Shared\Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\Shared\Infrastructure\MasterAccess\Infrastructure.MasterAccess.csproj" />
     <ProjectReference Include="..\Shared\Infrastructure\Presentation\Shared.Presentation.csproj" />
   </ItemGroup>
 
@@ -15,6 +16,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.*" />
+        <PackageReference Include="AspNetCore.HealthChecks.Uris" Version="9.*" />
         <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
     </ItemGroup>
 </Project>

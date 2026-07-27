@@ -49,15 +49,18 @@ patches:
       data:
         ASPNETCORE_ENVIRONMENT: "Development"
         ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
-        Persistence__Enabled: "false"
+        TenantResolverService__Enabled: "true"
         Sentry__Enabled: "false"
         Cors__AllowedOrigins__0: "http://localhost:3000"
 
-  # --- ExternalSecret: Secrets Manager path for dev ---
+  # --- ExternalSecret: Secrets Manager paths for dev ---
   - patch: |-
       - op: replace
         path: /spec/dataFrom/0/extract/key
         value: /platform/dev/service-template
+      - op: replace
+        path: /spec/dataFrom/1/extract/key
+        value: /platform/dev/shared
     target:
       kind: ExternalSecret
       name: service-template-secrets

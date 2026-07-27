@@ -1,27 +1,36 @@
-using Infrastructure.MasterAccess.Persistence.EntityFramework;
-using Infrastructure.MasterAccess.Persistence.EntityFramework.Tenants;
-using Infrastructure.MasterAccess.Resolvers;
-using Microsoft.EntityFrameworkCore;
+using Infrastructure.MasterAccess.Http.Tenants;
+using Infrastructure.MasterAccess.Security;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Shared.Application.UseCases.GetTenant;
-using Shared.Domain.Tenants.Ports;
 
 namespace Infrastructure.MasterAccess.Extensions;
 
 public static class MasterAccessExtensions
 {
-    public static IServiceCollection AddMasterAccess(this IServiceCollection services, string connectionString)
+    public static IServiceCollection AddMasterAccess(this IServiceCollection services, IConfiguration configuration)
     {
-        if (string.IsNullOrWhiteSpace(connectionString))
+        var settings = configuration
+            .GetSection(TenantResolverServiceSettings.SectionName)
+            .Get<TenantResolverServiceSettings>() ?? new TenantResolverServiceSettings();
+
+        services.AddOptions<TenantResolverServiceSettings>()
+            .Bind(configuration.GetSection(TenantResolverServiceSettings.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IConnectionStringDecryptor, AesConnectionStringDecryptor>();
+
+        services.AddHttpClient<ITenantResolverServiceClient, TenantResolverServiceClient>(client =>
         {
-            throw new ArgumentException("Connection string for master access is required.", nameof(connectionString));
-        }
-
-        services.AddDbContext<MasterAccessDbContext>(options => options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure(maxRetryCount: 3)));
-
-        services.AddScoped<ITenantRepository, TenantRepository>();
-        services.AddSingleton<ITenantConnectionStringResolver, TenantConnectionStringResolver>();
-        services.AddScoped<IGetTenantByCodeUseCase, GetTenantByCodeUseCase>();
+            client.BaseAddress = settings.BaseUri;
+            client.Timeout = Timeout.InfiniteTimeSpan;
+        })
+        .AddStandardResilienceHandler(o =>
+        {
+            o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+            o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds * 2);
+            o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(settings.TimeoutSeconds * 2);
+        });
 
         return services;
     }

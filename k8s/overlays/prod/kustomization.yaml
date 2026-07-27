@@ -28,11 +28,14 @@ patches:
         Sentry__Enabled: "true"
         Cors__AllowedOrigins__0: "https://app.q10.com"
 
-  # --- ExternalSecret: Secrets Manager path for prod ---
+  # --- ExternalSecret: Secrets Manager paths for prod ---
   - patch: |-
       - op: replace
         path: /spec/dataFrom/0/extract/key
         value: /platform/prod/service-template
+      - op: replace
+        path: /spec/dataFrom/1/extract/key
+        value: /platform/prod/shared
     target:
       kind: ExternalSecret
       name: service-template-secrets

@@ -18,8 +18,17 @@ data:
   ServiceInfo__Name: "ServiceTemplate"
   ServiceInfo__Version: "1.0.0"
 
-  # Persistence — connection string goes in secret, only the feature flag here
-  Persistence__Enabled: "true"
+  # Tenant resolver service — the URL and encryption key come from the
+  # /platform/{env}/shared secret as the language-agnostic variables
+  # TENANT_RESOLVER_SERVICE_URL and CONNSTRING_ENCRYPTION_KEY (aliased to
+  # TenantResolverService:BaseUrl/:EncryptionKey at startup)
+  TenantResolverService__Enabled: "true"
+  TenantResolverService__TimeoutSeconds: "15"
+  TenantResolverService__CacheTtlMinutes: "10"
+
+  # Cache — L2 (Redis) is mandatory while multitenancy is enabled; the
+  # connection string comes from the ExternalSecret (shared secret)
+  Cache__L2Enabled: "true"
 
   # Sentry — DSN goes in secret; the rest of the non-sensitive config lives here
   Sentry__Enabled: "true"

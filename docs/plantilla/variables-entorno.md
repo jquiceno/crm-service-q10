@@ -50,6 +50,12 @@ Rutas en AWS Secrets Manager:
 /platform/prod/service-template   → JSON con las claves sensibles para prod
 ```
 
+> **Importante:** el `extract.key` del ExternalSecret debe coincidir
+> **exactamente** con el nombre real del secreto en Secrets Manager, slash
+> inicial incluido. Existen secretos legados creados **sin** slash inicial
+> (p. ej. `platform/dev/announcements-service`); verifica el nombre real con
+> `aws secretsmanager list-secrets` antes de configurar los overlays.
+
 Formato del secreto (JSON):
 
 ```json
@@ -60,6 +66,64 @@ Formato del secreto (JSON):
 ```
 
 Regla: **si el valor es una credencial, token, DSN o connection string, va en Secrets Manager.**
+
+
+---
+
+## Secretos compartidos (platform-shared)
+
+Además del secreto propio del servicio, existe un Secret **`platform-shared`** que la
+plataforma inyecta automáticamente en cada namespace de servicio. Contiene la
+configuración común a **todos** los servicios de la plataforma, con una **fuente única**.
+
+### Qué es
+
+Un `ClusterExternalSecret` de External Secrets Operator, gestionado a nivel cluster por
+el equipo de plataforma, materializa el Secret `platform-shared` en los namespaces
+elegibles. Su origen es un único secreto en AWS Secrets Manager:
+
+```
+/platform/{env}/shared    → JSON con la configuración compartida por todos los servicios
+```
+
+### Qué claves contiene hoy
+
+| Clave | Descripción |
+|-------|-------------|
+| `CONNSTRING_ENCRYPTION_KEY` | Clave de cifrado de connection strings compartida por la plataforma |
+| `TENANT_RESOLVER_URL`       | URL del servicio de resolución de tenants |
+| `Cache__ConnectionString`   | Host del Redis compartido (ElastiCache) |
+
+### Cómo lo recibe el servicio
+
+Es **automático** — el servicio no declara nada en su propio kustomization:
+
+1. El namespace del template ya trae el label `q10.com/platform: "true"`
+   (`k8s/base/namespace.yaml`). Ese label es lo que hace que el
+   `ClusterExternalSecret` materialice `platform-shared` en el namespace del servicio.
+2. El deployment del template ya incluye `envFrom: secretRef: platform-shared`
+   (`k8s/base/deployment.yaml`), de modo que todas las claves entran como variables de
+   entorno del pod.
+
+> No agregues `platform-shared` al `kustomization.yaml` del servicio ni crees un
+> ExternalSecret para él: viene del cluster.
+
+### Precedencia
+
+En el `envFrom` del deployment, `platform-shared` va **antes** que el secreto propio del
+servicio (`service-template-secrets`). Como en .NET la última fuente gana, el servicio
+**puede sobreescribir** una clave compartida si la define en su propio secreto. En el
+caso normal no se sobreescribe nada: `platform-shared` actúa como base común.
+
+### Rotación
+
+El valor se cambia **una sola vez** en `/platform/{env}/shared`. A partir de ahí:
+
+1. External Secrets re-sincroniza `platform-shared` en todos los namespaces.
+2. Reloader reinicia el pod automáticamente, gracias a la anotación
+   `reloader.stakater.com/auto: "true"` del deployment (ya incluida en el template).
+
+No hay que tocar ningún archivo del servicio ni hacer redeploy manual.
 
 
 ---

@@ -225,18 +225,27 @@ $(printf "${BOLD}")Pasos manuales restantes:$(printf "${NC}")
   2. Bootstrap de Terraform (crea repo ECR + rol IAM por entorno):
        cd terraform
        terraform init \\
+         -backend-config="bucket=q10-terraform-state-<account_id>" \\
          -backend-config="key=services/$SERVICE_NAME/dev/terraform.tfstate" \\
          -backend-config="profile=<aws-profile-dev>"
        terraform apply -var-file=env/dev.tfvars
-       # Repetir para qa y prod con sus perfiles correspondientes.
+       # Bucket por entorno: dev/qa → q10-terraform-state-764283926096,
+       #                     prod   → q10-terraform-state-451828143717.
+       # Repetir para qa y prod con sus perfiles/buckets correspondientes
+       # (borrar .terraform/ o usar -reconfigure entre entornos).
 
   3. Overlays qa y prod — agregar ARN del certificado ACM en el patch del ingress:
        alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:<account>:certificate/<id>
 
-  4. ExternalSecret — verificar rutas en Secrets Manager:
-       /platform/dev/$SERVICE_NAME/<secret>
-       /platform/qa/$SERVICE_NAME/<secret>
-       /platform/prod/$SERVICE_NAME/<secret>
+  4. ExternalSecret — crear/verificar el secreto (un solo JSON) en Secrets Manager:
+       /platform/dev/$SERVICE_NAME
+       /platform/qa/$SERVICE_NAME
+       /platform/prod/$SERVICE_NAME
+     IMPORTANTE: el extract.key de cada overlay debe coincidir EXACTAMENTE con
+     el nombre real del secreto, slash inicial incluido.
+     NOTA: las claves compartidas (encrypt key, tenant-resolver URL, redis) NO
+     se ponen en el secreto propio del servicio: vienen de platform-shared
+     (Secret inyectado por el cluster; ver docs/plantilla/variables-entorno.md).
 
   5. Eliminar este script del repositorio:
        git rm init-service.sh

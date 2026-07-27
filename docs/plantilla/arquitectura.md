@@ -39,8 +39,8 @@ src/
 │
 ├── Shared/
 │   ├── Domain/                       # Primitivos reutilizables entre contextos
-│   │   ├── Aggregates/               # AggregateRoot<TId>
-│   │   ├── Entities/                 # EntityRoot<TId> con CreatedAt / UpdatedAt
+│   │   ├── Aggregates/               # AggregateRoot<TId> con CreatedAt / UpdatedAt
+│   │   ├── Entities/                 # Entity<TId> (Id + igualdad)
 │   │   ├── ValueObjects/             # ValueObject (base abstracta), Address
 │   │   ├── Interfaces/               # IRootRepository<TAggregate, TId>, IAggregateRoot
 │   │   ├── Result/                   # Result<T>, PagedResult<T>

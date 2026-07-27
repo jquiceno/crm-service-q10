@@ -23,7 +23,7 @@ public static class InfrastructureServiceExtensions
         if (multitenancyEnabled)
         {
             // Multitenant: the database connection is resolved per request from the tenant-resolver.
-            if (!Uri.TryCreate(tenantSettings.BaseUrl, UriKind.Absolute, out var baseUri))
+            if (!Uri.TryCreate(tenantSettings.BaseUrl, UriKind.Absolute, out _))
             {
                 throw new InvalidOperationException(
                     "Critical Error: multitenancy (TenantResolverService:Enabled) is on but TenantResolverService:BaseUrl "
@@ -59,8 +59,10 @@ public static class InfrastructureServiceExtensions
 
             // Readiness gates traffic on the resolver's own health endpoint (must return 2xx). The
             // startup gate (TenantResolverStartupProbe, in AddSessionServices) is the harder check.
+            // HealthUri is the single normalized source shared with the startup probe and the HttpClient
+            // base address, so the three can never probe divergent URLs.
             healthChecks.AddUrlGroup(
-                new Uri(baseUri, "health"),
+                tenantSettings.HealthUri,
                 name: "tenant-info",
                 tags: ["ready"]);
 

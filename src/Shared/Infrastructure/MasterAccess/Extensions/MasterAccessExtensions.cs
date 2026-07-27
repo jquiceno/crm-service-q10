@@ -22,7 +22,7 @@ public static class MasterAccessExtensions
 
         services.AddHttpClient<ITenantResolverServiceClient, TenantResolverServiceClient>(client =>
         {
-            client.BaseAddress = new Uri(settings.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+            client.BaseAddress = settings.BaseUri;
             client.Timeout = Timeout.InfiniteTimeSpan;
         })
         .AddStandardResilienceHandler(o =>

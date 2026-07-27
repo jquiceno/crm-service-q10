@@ -21,7 +21,7 @@ public sealed class TenantResolverStartupProbe(
     public async Task StartingAsync(CancellationToken cancellationToken)
     {
         var settings = options.Value;
-        var healthUrl = settings.BaseUrl.TrimEnd('/') + "/health";
+        var healthUrl = settings.HealthUri;
 
         using var client = httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);

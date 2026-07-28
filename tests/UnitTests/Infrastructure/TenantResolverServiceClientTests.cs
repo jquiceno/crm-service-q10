@@ -148,8 +148,10 @@ public sealed class TenantResolverServiceClientTests : IDisposable
     [Fact]
     public async Task GetByCodeAsync_WhenConnectionStringNotDecryptable_ReturnsInternalError()
     {
-        // Encrypted with a different passphrase than the SUT's decryptor uses.
-        var cipher = AesTestCrypto.Encrypt(PlainConnectionString, "a-different-passphrase");
+        // A wrong-passphrase payload is NOT deterministic here: garbage plaintext ends in valid
+        // PKCS7 padding ~0.4% of the time and decryption "succeeds". A ciphertext whose length is
+        // not a multiple of the AES block size always throws CryptographicException instead.
+        var cipher = $"{new string('0', 32)}:{new string('0', 24)}"; // 16-byte IV, 12-byte cipher
         var handler = new StubHandler(_ => Json(HttpStatusCode.OK, OkBody(cipher)));
         var sut = CreateSut(handler);
 

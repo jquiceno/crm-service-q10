@@ -35,6 +35,11 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
 Solo los **unit tests** cuentan para el porcentaje de cobertura. CI falla el pipeline si la cobertura de línea queda por debajo del umbral definido en la variable de repositorio de GitHub `COVERAGE_THRESHOLD` (default `90`).
 
+> El `90` es un **piso deliberadamente permisivo** (la cobertura real del servicio es mayor):
+> protege contra regresiones grandes sin bloquear PRs por fluctuaciones pequeñas. Si el equipo
+> quiere proteger el nivel actual, basta subir la variable `COVERAGE_THRESHOLD` en GitHub —
+> no requiere cambios de código.
+
 ```bash
 rm -rf TestResults coverage-report
 dotnet tool restore

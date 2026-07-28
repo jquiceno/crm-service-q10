@@ -31,7 +31,10 @@ jobs:
       - name: Integration tests
         run: dotnet test tests/IntegrationTests --no-build -c Release --verbosity normal
 
+      # always() on the coverage steps so the report survives an integration-test failure,
+      # not just a gate failure.
       - name: Generate coverage report
+        if: always()
         run: |
           dotnet tool restore
           dotnet reportgenerator \
@@ -40,10 +43,14 @@ jobs:
             -reporttypes:"Cobertura;JsonSummary;MarkdownSummaryGithub"
 
       - name: Publish coverage summary
-        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+        run: |
+          if [ -f coverage-report/SummaryGithub.md ]; then
+            cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
-      # Uploaded before the gate so the report is available even when the gate fails.
       - name: Upload coverage report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
@@ -53,9 +60,15 @@ jobs:
         env:
           THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '90' }}
         run: |
-          actual=$(jq -r '.summary.linecoverage' coverage-report/Summary.json)
+          actual=$(jq -r '.summary.linecoverage // empty' coverage-report/Summary.json)
+          # jq prints "null" (exit 0) when the key is missing; string-compared in awk,
+          # "null" >= "90" is true, silently passing the gate. Require a number first.
+          if ! [[ "$actual" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error title=Coverage gate failed::Could not read summary.linecoverage from Summary.json (got: '${actual}')"
+            exit 1
+          fi
           echo "Line coverage: ${actual}% (required: ${THRESHOLD}%)"
-          if ! awk -v a="$actual" -v t="$THRESHOLD" 'BEGIN { exit !(a >= t) }'; then
+          if ! awk -v a="$actual" -v t="$THRESHOLD" 'BEGIN { exit !(a+0 >= t+0) }'; then
             echo "::error title=Coverage gate failed::Line coverage ${actual}% is below the required ${THRESHOLD}% (repository variable COVERAGE_THRESHOLD)"
             exit 1
           fi

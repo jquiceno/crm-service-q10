@@ -65,9 +65,11 @@ jobs:
     name: Docker build
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: hashFiles('Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
 
+      # hashFiles() is not available in job-level `if`, so the Dockerfile
+      # guard lives in a step (skips gracefully on forks without Docker).
       - name: Build Docker image
+        if: hashFiles('Dockerfile') != ''
         run: docker build -t ${{ vars.SERVICE_NAME || github.event.repository.name }}:ci-${{ github.sha }} .

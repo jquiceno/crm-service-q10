@@ -68,7 +68,6 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
     {
         public TraceApiFactory()
         {
-            Environment.SetEnvironmentVariable("Persistence__Enabled", "false");
             Environment.SetEnvironmentVariable("Sentry__Enabled", "false");
             Environment.SetEnvironmentVariable("Sentry__Dsn", string.Empty);
         }

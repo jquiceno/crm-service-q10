@@ -58,7 +58,8 @@ public sealed class TenantMiddlewareTests
     [Theory]
     [InlineData("/health/ready")]
     [InlineData("/openapi/v1.json")]
-    [InlineData("/scalar")]
+    [InlineData("/openapi")]
+    [InlineData("/info")]
     public async Task InvokeAsync_OnExcludedPath_CallsNextAndSkipsResolution(string path)
     {
         var context = BuildContext(path: path);

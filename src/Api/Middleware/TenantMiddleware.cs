@@ -16,8 +16,9 @@ namespace Api.Middleware;
 /// </summary>
 public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMiddleware> logger)
 {
-    // Infrastructure endpoints that must answer without a tenant.
-    private static readonly string[] ExcludedPaths = ["/health", "/openapi", "/scalar"];
+    // Infrastructure endpoints that must answer without a tenant. "/openapi" covers both the JSON
+    // document and the Scalar UI, which is served under that same prefix — there is no /scalar route.
+    private static readonly string[] ExcludedPaths = ["/health", "/openapi", "/info"];
 
     public async Task InvokeAsync(
         HttpContext context,

@@ -5,10 +5,25 @@
 ```
 tests/
 ├── UnitTests/             # Sin Docker. Mocks con NSubstitute. Rápido (<5s).
-└── IntegrationTests/      # Boot completo del API contra SQL Server en Testcontainers.
+└── IntegrationTests/
+    ├── Infrastructure/    # ApiFactory, fixtures y helpers compartidos — y también tests
+    ├── ServiceInfo/       # Tests de endpoints, agrupados por contexto
+    └── Caching/           # Tests de los adaptadores de caché contra Redis
 ```
 
-Ambos proyectos están en `ServiceTemplate.slnx` bajo la carpeta `/tests/`.
+Ambos proyectos están en `Service.slnx` bajo la carpeta `/tests/`.
+
+Ojo con `Infrastructure/`: además de la plomería compartida contiene tests reales (`HealthProbesTests`, `PersistenceProviderTests`, `TraceContextTests`). No es una carpeta de solo-helpers.
+
+`IntegrationTests` tiene **tres** patrones, y no todos necesitan Docker:
+
+| Patrón | Contenedor | Cómo se escribe | Ejemplo |
+|--------|-----------|-----------------|---------|
+| Endpoints del API contra base real | SQL Server (`azure-sql-edge`) | Heredar `IntegrationTestBase` + `[Collection(IntegrationTestCollection.Name)]` | `ServiceInfoEndpointsTests`, `HealthProbesTests` |
+| Componente de infraestructura aislado | Redis (`redis:7-alpine`) | `IClassFixture<>` con fixture propio, instanciar el SUT a mano | `RedisCacheStoreIntegrationTests` |
+| API in-process sin base de datos | **ninguno** | `WebApplicationFactory<Program>` propia, persistencia en memoria | `TraceContextTests` |
+
+El tercero es el que conviene recordar: si lo que se verifica es del pipeline HTTP y no toca persistencia —headers, middleware, trazas— no hace falta pagar un contenedor. Que arranque con base en memoria no contradice el «no usar EF InMemory» de más abajo: esa regla es para tests **de** persistencia, y acá la base simplemente no participa de lo que se está verificando.
 
 
 ---
@@ -29,7 +44,7 @@ dotnet test tests/IntegrationTests
 dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 ```
 
-**Prerrequisitos para integration tests:** Docker Desktop corriendo. La primera ejecución descarga la imagen de SQL Server (\~500 MB).
+**Prerrequisitos para integration tests:** Docker Desktop corriendo. La primera ejecución descarga `mcr.microsoft.com/azure-sql-edge:latest` (la pesada), `redis:7-alpine` y el resource reaper de Testcontainers (`testcontainers/ryuk`).
 
 
 ---
@@ -41,10 +56,11 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 | Test framework | `xunit`  | Estándar en .NET moderno |
 | Aserciones | `Shouldly` | MIT. **No usar FluentAssertions v8+** (licencia comercial) |
 | Mocks    | `NSubstitute` | Sintaxis limpia, sin SponsorLink |
-| Fake data | `Bogus`  | Datos realistas para DTOs y propiedades primitivas |
+| Fake data | `Bogus`  | Datos realistas para DTOs y propiedades primitivas. Disponible en ambos proyectos; hoy ningún test lo usa todavía |
 | Web host de pruebas | `Microsoft.AspNetCore.Mvc.Testing` | Pipeline ASP.NET completo, in-process |
 | Base de datos | `Testcontainers.MsSql` | SQL Server real. **No usar EF InMemory** (ignora constraints y transacciones) |
-| Reset de BD | `Respawn` | Trunca todas las tablas entre tests en \~50ms |
+| Reset de BD | `Respawn` | Borra las filas de todas las tablas entre tests |
+| Redis | `Testcontainers.Redis` + `StackExchange.Redis` | Redis real para los tests de caché |
 
 
 ---
@@ -187,6 +203,8 @@ public void ToAggregate_PreservesInputFields_AndAssignsId()
 
 ## Escribir integration tests
 
+### Endpoints del API — heredar `IntegrationTestBase`
+
 Hereda de `IntegrationTestBase` y declara la colección:
 
 ```csharp
@@ -204,12 +222,47 @@ public sealed class ProductEndpointsTests : IntegrationTestBase
         await Db.SaveChangesAsync();
 
         // Llamar al endpoint con HttpClient pre-configurado
-        var response = await Client.GetAsync($"/api/v1/product/{product.Id}");
+        var response = await Client.GetAsync($"/product/{product.Id}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // El body viene envuelto: leerlo con ApiResponse<T> y assertar sobre .Data
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ProductOutputDto>>(
+            JsonSerializerOptions.Web);
+        body!.Data.Name.ShouldBe("Keyboard");
     }
 }
 ```
+
+**Ojo con las rutas:** no hay prefijo de versión ni de API. Las de controller salen de su `[Route(...)]`, con una vuelta de tuerca: `Program.cs` registra un `RouteTokenTransformerConvention` con `KebabCaseParameterTransformer`, así que los **tokens** `[controller]`/`[action]` se pasan a kebab-case antes de volverse URL (`[Route("[controller]")]` en un `ProductCatalogController` responde en `/product-catalog`). Los segmentos literales quedan tal cual. Las de health no son de controller: `/health/live` y `/health/ready` se registran con `MapHealthChecks`.
+
+En los ambientes desplegados sí hay un prefijo, `ASPNETCORE_PATHBASE=/service-template`, pero lo agrega quien llama (el ALB reenvía el path completo) y `UsePathBase` lo **quita** antes de enrutar. En los tests in-process nadie lo agrega, así que se llama siempre a la ruta pelada. Ver `ServiceInfoEndpointsTests.cs:19` (`/info`) y `HealthProbesTests.cs:15` (`/health/live`).
+
+**El envelope:** los endpoints que devuelven `HttpOkResult<T>` responden `{ "data": ..., "statusCode": ... }`, no el DTO desnudo. Para deserializarlos está `ApiResponse<T>`, en `tests/IntegrationTests/Infrastructure/`. Los paginados de `HttpOkPagedResult<T>` van **doblemente** envueltos —`{ "data": { "items": [...], "totalCount": n }, "statusCode": 200 }`— así que el tipo de lectura es `ApiResponse<ApiPagedData<T>>`, no `ApiPagedData<T>` a secas: `ApiPagedData<T>` es solo el payload interno. Assertar solo el `StatusCode` compila y pasa, pero no verifica nada del contrato.
+
+### Componentes de infraestructura aislados — fixture propio
+
+Cuando lo que se prueba es un adaptador contra un servicio externo y no hace falta el pipeline HTTP, no se hereda `IntegrationTestBase`: se usa un `IClassFixture<>` con su propio contenedor y se instancia el SUT a mano. Así lo hacen los tests de caché (`tests/IntegrationTests/Caching/`):
+
+```csharp
+public sealed class RedisCacheStoreIntegrationTests : IClassFixture<RedisContainerFixture>, IAsyncLifetime
+{
+    private readonly RedisContainerFixture _fixture;
+    private readonly RedisCacheStore _sut;
+
+    public RedisCacheStoreIntegrationTests(RedisContainerFixture fixture)
+    {
+        _fixture = fixture;
+        _sut = new RedisCacheStore(fixture.Connection, Substitute.For<ILoggerPort<RedisCacheStore>>());
+    }
+
+    // Aislamiento entre tests: FLUSHDB, el equivalente del Respawn de SQL Server
+    public Task InitializeAsync() => _fixture.FlushAsync();
+    public Task DisposeAsync() => Task.CompletedTask;
+}
+```
+
+Estos tests **no** están en `IntegrationTestCollection`, así que su contenedor de Redis es independiente del de SQL Server y vive lo que dure la clase.
 
 ### IntegrationTestBase
 
@@ -222,26 +275,49 @@ public sealed class ProductEndpointsTests : IntegrationTestBase
 
 ### Cómo `ApiFactory` apunta al contenedor
 
-`ApiFactory` establece tres variables de entorno en el constructor: `Persistence__Enabled=true`, `Persistence__ConnectionString=<container connection string>` y `Sentry__Dsn=""`. `InfrastructureServiceExtensions` lee esa configuración al registrar servicios y conecta el `DbContext` real contra el contenedor.
+La multitenencia queda **apagada** durante los tests. Prenderla exigiría un tenant-resolver alcanzable —`AddInfrastructureServices` aborta el arranque sin él, y `TenantResolverStartupProbe` bloquea el boot— más un Redis L2. Así que la app arranca en su modo por defecto (base en memoria) y el `ApiFactory` re-apunta el `DbContext` al contenedor SQL Server dentro de `ConfigureTestServices`:
 
-**¿Por qué variables de entorno y no** `**ConfigureAppConfiguration**`**?**
+1. Elimina del `IServiceCollection` el descriptor de `ApplicationDbContext` y **todo genérico cerrado que lo tenga entre sus argumentos de tipo**. Eso barre lo que dejó el `AddDbContext` de la app —su `DbContextOptions<ApplicationDbContext>` y los callbacks internos de configuración de EF— pero el filtro es a propósito más amplio que eso: también se llevaría, por ejemplo, un `IDbContextFactory<ApplicationDbContext>` registrado aparte.
+2. Registra de nuevo `AddDbContext<ApplicationDbContext>` con `UseSqlServer`, el connection string del contenedor y `EnableRetryOnFailure(maxRetryCount: 3)`.
 
-En .NET minimal hosting, `Program.cs` resuelve la configuración de forma **eager**: cuando `AddInfrastructureServices(builder.Configuration)` se ejecuta, la config ya está fija. El callback `ConfigureAppConfiguration` del `WebApplicationFactory` corre después de ese punto, así que cualquier fuente que se añada ahí, como `AddInMemoryCollection`, llega tarde y no tiene efecto sobre los servicios que ya se registraron.
+Aparte de eso el `ApiFactory` fija el entorno `Testing`, vacía `Sentry__Dsn` y silencia el logging (`ClearProviders` + mínimo `Warning`).
 
-Las variables de entorno, en cambio, son leídas por los providers que `CreateBuilder` inicializa al arrancar, antes de que se registre cualquier servicio. Por eso llegan a tiempo.
+**El grupo que importa del paso 1 son los callbacks de configuración, no el `DbContextOptions`.** Quitar solo `DbContextOptions<ApplicationDbContext>` no alcanza: sobrevive el `UseInMemoryDatabase` de la app junto al `UseSqlServer` que se agrega después, y EF tira al resolver el contexto:
+
+```
+Services for database providers 'Microsoft.EntityFrameworkCore.InMemory',
+'Microsoft.EntityFrameworkCore.SqlServer' have been registered in the service provider.
+Only a single database provider can be registered in a service provider.
+```
+
+O sea que una eliminación incompleta **falla ruidosamente**, no degrada el suite a in-memory en silencio.
+
+El filtro hace el match por argumento genérico en vez de nombrar el tipo de configuración, y es un trade-off deliberado, no una necesidad: `IDbContextOptionsConfiguration<T>` **es público en EF 10** (namespace `Microsoft.EntityFrameworkCore.Infrastructure`) y nombrarlo compila sin problema. El costo de la versión angosta es acoplar el helper al conjunto de registros que hace EF hoy, que cambió entre versiones. El match amplio no necesita saber nada de eso, a cambio de barrer también cualquier otra cosa registrada sobre el tipo del contexto —un `IDbContextFactory<ApplicationDbContext>`, por ejemplo—. Si algún servicio necesita que uno de esos sobreviva a sus tests, hay que angostarlo.
+
+El descriptor **no genérico** `DbContextOptions` se deja deliberadamente en paz: este contexto recibe `DbContextOptions<ApplicationDbContext>`, así que borrarlo no aporta nada, y en un servicio con un segundo `DbContext` se llevaría puestas las opciones del otro contexto.
+
+Los tests quedan así corriendo contra el provider real —consultas traducidas, constraints, transacciones— y contra la misma base donde `SqlServerContainerFixture` crea el esquema y `DatabaseResetter` limpia entre tests.
+
+**El guard:** `PersistenceProviderTests` afirma que `Db.Database.ProviderName` es `Microsoft.EntityFrameworkCore.SqlServer`. Si el override deja de aplicarse **por completo** —por ejemplo si alguien borra el bloque `ConfigureTestServices`— no hay excepción que avise: la app se queda con su in-memory y el resto del suite seguiría pasando en verde sin probar nada real. Este test falla en su lugar. Son dos `[Fact]` con un assert cada uno: el del `ProviderName` y otro que ejecuta `ExecuteSqlRawAsync("SELECT 1")` contra el contenedor. El segundo es deliberadamente **relacional** y no `CanConnectAsync()`: ese devuelve `true` también contra la base en memoria, así que no distingue nada, mientras que `ExecuteSqlRaw*` bajo in-memory lanza `InvalidOperationException` antes de tocar la red.
+
+**¿Por qué `ConfigureTestServices` y no variables de entorno o** `**ConfigureAppConfiguration**`**?**
+
+En .NET minimal hosting, `Program.cs` resuelve la configuración de forma **eager**: `IsMultitenancyEnabled()` se evalúa antes de registrar nada y su resultado entra por parámetro a `AddInfrastructureServices(builder.Configuration, multitenancyEnabled)`, así que para cuando esa llamada termina el provider en memoria ya quedó elegido. El callback `ConfigureAppConfiguration` del `WebApplicationFactory` corre después de ese punto, así que cualquier fuente que se añada ahí, como `AddInMemoryCollection`, llega tarde. Las variables de entorno sí llegan a tiempo —los providers que `CreateBuilder` inicializa las leen antes de registrar servicios— pero no sirven para esto: no existe ninguna clave de configuración que apunte el `DbContext` a una base concreta sin prender la multitenencia entera. `ConfigureTestServices`, en cambio, corre **después** de que la app registró sus servicios, que es justo lo que hace falta para reemplazar un registro ya hecho.
 
 
 ---
 
 ## Builders y Bogus
 
-**Cuándo usar un builder (**`**tests/UnitTests/TestSupport/Builders/**`**):**
+**Cuándo usar un builder:**
 
 * Entidades de dominio con setters privados, ctors con invariantes, o propiedades calculadas.
 
 **Cuándo usar Bogus directamente:**
 
 * DTOs y records sin invariantes complicadas — `new Faker<MyDto>().RuleFor(...)`.
+
+**Dónde ponerlos:** la convención de la plantilla es `tests/UnitTests/TestSupport/Builders/`, que hoy **no existe** porque el template todavía no tiene dominio propio. Los únicos helpers actuales (`AesTestCrypto`, `JsonRoundTripCacheStore`) viven junto a los tests que los usan, en `tests/UnitTests/Infrastructure/`. Para un helper de un solo test eso alcanza; al segundo consumidor, crear `TestSupport/`.
 
 **No usar AutoFixture.** No recomendado en DDD (private setters, ctors estrictos), genera datos no determinísticos, y oculta el setup.
 
@@ -260,9 +336,9 @@ El template no incluye migraciones. `SqlServerContainerFixture` usa `Database.En
 ## Convenciones
 
 * **Nombres:** `MethodUnderTest_Scenario_ExpectedOutcome` (`Endpoint_Scenario_ExpectedOutcome` para integration).
-* **Paralelismo:** UnitTests corre en paralelo (default xUnit). IntegrationTests **no** paraleliza porque comparten el contenedor SQL.
+* **Paralelismo:** UnitTests corre en paralelo (default xUnit). IntegrationTests **no** paraleliza: `AssemblyInfo.cs` lo desactiva a nivel assembly con `[assembly: CollectionBehavior(DisableTestParallelization = true)]`, porque los tests comparten contenedor y `DatabaseResetter` limpia la base entera entre tests.
 * **Aserciones:** una sola librería — Shouldly. No mezclar con `Assert.*` nativo de xUnit.
-* **Cobertura:** excluir `Program.cs`, archivos `*DependencyInjection*`, extensions de DI, migrations. Configurado en `coverlet.runsettings`.
+* **Cobertura:** configurado en `coverlet.runsettings`. Por archivo excluye `Program.cs`, `*DependencyInjection*.cs`, migrations y `**/Extensions/*Extensions.cs`; ojo que este último patrón es más amplio de lo que sugiere «extensions de DI» y también saca de la medición archivos con lógica real como `Infrastructure/Extensions/EfCorePersistenceExtensions.cs`. Además excluye los assemblies `[*.Tests]*` y `[*]*.Migrations.*`, y lo marcado con `GeneratedCode`/`ExcludeFromCodeCoverage`/`CompilerGenerated`.
 
 
 ---
@@ -277,6 +353,6 @@ El template no incluye migraciones. `SqlServerContainerFixture` usa `Database.En
 
 **¿Por qué no Moq?** [SponsorLink](https://github.com/devlooped/moq/issues/1372).
 
-**¿Cuánto tarda la suite de integration?** Primera corrida \~30–60s (descarga de imagen). Corridas siguientes \~10–15s.
+**¿Cuánto tarda la suite de integration?** La primera corrida paga la descarga de las dos imágenes; después el costo dominante es arrancar los contenedores, no los tests en sí.
 
 **¿Por qué** `**azure-sql-edge**` **y no** `**mssql/server:2022-latest**`**?** Compatibilidad con Apple Silicon. Si el servicio usa features exclusivos de SQL Server (Service Broker, Full-Text Search, CLR), se debe cambiar la imagen a `mcr.microsoft.com/mssql/server:2022-latest`.

@@ -178,7 +178,7 @@ El middleware opera en dos fases para que **todos los logs del request hereden e
   "userAgent": "Mozilla/5.0 ...",
   "remoteAddress": "::1",
   "method": "GET",
-  "route": "/api/v1/products"
+  "route": "/products"
 }
 ```
 
@@ -191,7 +191,7 @@ El middleware opera en dos fases para que **todos los logs del request hereden e
     "userAgent": "Mozilla/5.0 ...",
     "remoteAddress": "::1",
     "method": "GET",
-    "route": "/api/v1/products",
+    "route": "/products",
     "statusCode": 200,
     "latencyMs": 351
   },
@@ -260,7 +260,7 @@ public async Task<IActionResult> Create([FromBody] CreateProductInputDto input, 
   },
   "http": {
     "method": "POST",
-    "route": "/api/v1/products"
+    "route": "/products"
   }
 }
 ```

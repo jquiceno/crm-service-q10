@@ -3,8 +3,8 @@
 #
 # Path forwarding note:
 #   The ALB forwards requests preserving the full path. A request to
-#   /service-template/api/v1/health arrives at the pod as /service-template/api/v1/health.
-#   UsePathBase in Program.cs strips the prefix so ASP.NET Core sees /api/v1/health.
+#   /service-template/health/ready arrives at the pod as /service-template/health/ready.
+#   UsePathBase in Program.cs strips the prefix so ASP.NET Core sees /health/ready.
 #
 # Per-overlay overrides (see each overlay's kustomization.yaml):
 #   - group.name      : dev=q10-dev-internal  qa=q10-qa-internal  prod=q10-prod-internal

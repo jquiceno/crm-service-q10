@@ -21,8 +21,45 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
-      - name: Test
-        run: dotnet test --no-build -c Release --verbosity normal
+      - name: Unit tests (with coverage)
+        run: >
+          dotnet test tests/UnitTests --no-build -c Release --verbosity normal
+          --collect:"XPlat Code Coverage"
+          --settings coverlet.runsettings
+          --results-directory ./TestResults
+
+      - name: Integration tests
+        run: dotnet test tests/IntegrationTests --no-build -c Release --verbosity normal
+
+      - name: Generate coverage report
+        run: |
+          dotnet tool restore
+          dotnet reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"coverage-report" \
+            -reporttypes:"Cobertura;JsonSummary;MarkdownSummaryGithub"
+
+      - name: Publish coverage summary
+        run: cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+
+      # Uploaded before the gate so the report is available even when the gate fails.
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
+
+      - name: Coverage gate
+        env:
+          THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '90' }}
+        run: |
+          actual=$(jq -r '.summary.linecoverage' coverage-report/Summary.json)
+          echo "Line coverage: ${actual}% (required: ${THRESHOLD}%)"
+          if ! awk -v a="$actual" -v t="$THRESHOLD" 'BEGIN { exit !(a >= t) }'; then
+            echo "::error title=Coverage gate failed::Line coverage ${actual}% is below the required ${THRESHOLD}% (repository variable COVERAGE_THRESHOLD)"
+            exit 1
+          fi
+          echo "Coverage gate passed."
 
   docker-build:
     name: Docker build

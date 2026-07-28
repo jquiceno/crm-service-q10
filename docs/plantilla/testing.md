@@ -31,6 +31,19 @@ dotnet test --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
 **Prerrequisitos para integration tests:** Docker Desktop corriendo. La primera ejecución descarga la imagen de SQL Server (\~500 MB).
 
+### Verificar la cobertura localmente (mismo flujo que CI)
+
+Solo los **unit tests** cuentan para el porcentaje de cobertura. CI falla el pipeline si la cobertura de línea queda por debajo del umbral definido en la variable de repositorio de GitHub `COVERAGE_THRESHOLD` (default `90`).
+
+```bash
+rm -rf TestResults coverage-report
+dotnet tool restore
+dotnet test tests/UnitTests --collect:"XPlat Code Coverage" --settings coverlet.runsettings --results-directory ./TestResults
+dotnet reportgenerator -reports:"TestResults/**/coverage.cobertura.xml" -targetdir:"coverage-report" -reporttypes:"Html;JsonSummary"
+```
+
+Abrir `coverage-report/index.html` para el detalle por clase; el porcentaje de línea (`summary.linecoverage` en `coverage-report/Summary.json`) debe ser mayor o igual al umbral.
+
 
 ---
 

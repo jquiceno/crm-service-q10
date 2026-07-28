@@ -6,7 +6,7 @@
         <Configuration>
           <Format>cobertura</Format>
           <Exclude>[*.Tests]*,[*]*.Migrations.*</Exclude>
-          <ExcludeByFile>**/Program.cs,**/*DependencyInjection*.cs,**/Extensions/*Extensions.cs,**/Migrations/**/*.cs</ExcludeByFile>
+          <ExcludeByFile>**/Program.cs,**/*DependencyInjection*.cs,**/DependencyInjection/**/*.cs,**/Extensions/*Extensions.cs,**/Migrations/**/*.cs</ExcludeByFile>
           <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
           <SkipAutoProps>true</SkipAutoProps>
           <UseSourceLink>true</UseSourceLink>

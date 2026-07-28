@@ -35,7 +35,7 @@ Los documentos están organizados en dos tipos:
 
 - [controllers.md](controllers.md) — qué es un controller, su propósito, y patrones de implementación por tipo de operación
 - [contrato-api.md](contrato-api.md) — estructura uniforme de respuestas success/error
-- [openapi.md](openapi.md) — generación de documentación OpenAPI, Swagger UI, buenas prácticas
+- [openapi.md](openapi.md) — generación de documentación OpenAPI, UI de Scalar, buenas prácticas
 - [cache.md](cache.md) — L1 (Output Caching, invalidación por tags, Redis vs. memoria) y L2 (cache-aside de aplicación, `ICacheStore`, `CacheKey`)
 
 ### Cross-cutting

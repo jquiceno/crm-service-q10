@@ -366,7 +366,7 @@ Estos archivos viven bajo `Api/`, no bajo `Contexts/Product/`: invocan el caso d
 ```csharp
 // Api/Controllers/ProductController.cs
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("[controller]")]
 public sealed class ProductController : ControllerBase
 {
     [HttpPost]

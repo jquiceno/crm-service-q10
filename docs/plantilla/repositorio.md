@@ -276,7 +276,7 @@ Reglas de validación:
 ### Flujo de paginación de extremo a extremo
 
 ```
-GET /api/v1/products?pageIndex=0&pageSize=20
+GET /products?pageIndex=0&pageSize=20
         ↓
 [FromQuery] PageQueryInputDto  →  [ValidateRequest] → 400 si inválido
         ↓

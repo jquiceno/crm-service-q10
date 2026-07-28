@@ -64,7 +64,7 @@ Toda action, sin importar el tipo de operación, combina las mismas piezas:
 | Pieza | Para qué |
 |---|---|
 | `[Http{Verbo}("{ruta}")]` | Verbo HTTP y segmento de ruta relativo al `[Route]` del controller |
-| `[Tags("...")]` | Agrupación en Swagger UI — ver [openapi.md](openapi.md) |
+| `[Tags("...")]` | Agrupación en la UI de OpenAPI (Scalar) — ver [openapi.md](openapi.md) |
 | `[ValidateRequest]` | Solo en actions con `[FromBody]` o `[FromQuery]` que requieren FluentValidation — ver [validaciones.md](validaciones.md) |
 | `[ProducesResponseType(...)]` | Un atributo por cada status code posible, con el tipo exacto de la envoltura (`ApiSuccessResponse<T>` / `ApiErrorResponse`) |
 | `[EndpointSummary(...)]` / `[EndpointDescription(...)]` | Título y descripción de la operación en OpenAPI |

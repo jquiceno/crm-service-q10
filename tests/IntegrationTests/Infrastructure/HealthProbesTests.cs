@@ -18,7 +18,7 @@ public sealed class HealthProbesTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task Ready_Returns200_WhenDatabaseIsAvailable()
+    public async Task Ready_Returns200()
     {
         var response = await Client.GetAsync("/health/ready");
 

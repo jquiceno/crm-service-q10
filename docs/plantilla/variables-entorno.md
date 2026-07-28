@@ -20,12 +20,19 @@ ASP.NET Core aplica las capas en orden: cada capa siguiente sobreescribe la ante
 
 ### ConfigMap (no sensible) — `k8s/base/configmap.yaml`
 
+Las columnas son los **ambientes desplegados** (dev/qa/prod de Kubernetes), no la máquina del
+desarrollador: en local la multitenencia arranca apagada — ver
+[Variables de entorno locales](#variables-de-entorno-locales-desarrollo-en-máquina).
+
 | Variable | Ejemplo dev | Ejemplo qa | Ejemplo prod |
 |----------|-------------|------------|--------------|
 | `ASPNETCORE_ENVIRONMENT` | `Development` | `Staging`  | `Production` |
 | `ASPNETCORE_URLS` | `http://+:8080` | `http://+:8080` | `http://+:8080` |
 | `ServiceInfo__Name` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
-| `Persistence__Enabled` | `false`     | `true`     | `true`       |
+| `TenantResolverService__Enabled` | `true`      | `true`     | `true`       |
+| `TenantResolverService__TimeoutSeconds` | `15`        | `15`       | `15`         |
+| `TenantResolverService__CacheTtlMinutes` | `10`        | `10`       | `10`         |
+| `Cache__L2Enabled` | `true`      | `true`     | `true`       |
 | `Sentry__Enabled` | `false`     | `true`     | `true`       |
 | `Sentry__TracesSampleRate` | `0.2`       | `0.2`      | `0.2`        |
 | `Sentry__MinimumEventLevel` | `Error`     | `Error`    | `Error`      |
@@ -39,8 +46,11 @@ Regla: **si el valor puede exponerse en git, va en ConfigMap.**
 
 | Clave en Secrets Manager | Descripción |
 |--------------------------|-------------|
-| `Persistence__ConnectionString` | Connection string SQL Server |
 | `Sentry__Dsn`            | DSN de Sentry para error tracking |
+
+> El connection string de la base **no** va acá. Con la multitenencia activa lo entrega
+> el tenant-resolver cifrado por petición, y se descifra con `CONNSTRING_ENCRYPTION_KEY`
+> del secreto compartido (ver [Secretos compartidos](#secretos-compartidos-platform-shared)).
 
 Rutas en AWS Secrets Manager:
 
@@ -60,7 +70,6 @@ Formato del secreto (JSON):
 
 ```json
 {
-  "Persistence__ConnectionString": "Server=db.internal;Database=ServiceTemplate;User=app;Password=...",
   "Sentry__Dsn": "https://abc123@o123456.ingest.sentry.io/789"
 }
 ```
@@ -91,7 +100,7 @@ elegibles. Su origen es un único secreto en AWS Secrets Manager:
 | Clave | Descripción |
 |-------|-------------|
 | `CONNSTRING_ENCRYPTION_KEY` | Clave de cifrado de connection strings compartida por la plataforma |
-| `TENANT_RESOLVER_URL`       | URL del servicio de resolución de tenants |
+| `TENANT_RESOLVER_SERVICE_URL` | URL del servicio de resolución de tenants |
 | `Cache__ConnectionString`   | Host del Redis compartido (ElastiCache) |
 
 ### Cómo lo recibe el servicio
@@ -258,7 +267,7 @@ kubectl apply -k k8s/overlays/{env} --context {contexto-kubectl}
    # Actualizar el secreto existente (no crear nuevo)
    aws secretsmanager put-secret-value \
      --secret-id /platform/dev/service-template \
-     --secret-string '{"Persistence__ConnectionString":"...","Mi__NuevaClave":"valor"}' \
+     --secret-string '{"Sentry__Dsn":"...","Mi__NuevaClave":"valor"}' \
      --profile informes-staging
    ```
 2. El ExternalSecret lo sincronizará automáticamente en ≤1h (o forzar con `kubectl annotate`).
@@ -269,11 +278,29 @@ kubectl apply -k k8s/overlays/{env} --context {contexto-kubectl}
 
 ## Variables de entorno locales (desarrollo en máquina)
 
-Para desarrollo local usar `appsettings.Development.json` o `user-secrets`:
+Para desarrollo local usar `appsettings.Development.json` o `user-secrets`.
+
+Ningún `.csproj` de la plantilla declara un `UserSecretsId`, así que **la primera vez hay que
+inicializarlo** o `dotnet user-secrets set` falla con «Could not find the global property
+'UserSecretsId'»:
 
 ```bash
-dotnet user-secrets set "Persistence__ConnectionString" "Server=localhost;..."
-dotnet user-secrets set "Sentry__Dsn" "https://..."
+dotnet user-secrets init --project src/Api
+dotnet user-secrets set --project src/Api "Sentry__Dsn" "https://..."
+```
+
+Por defecto la multitenencia queda **apagada** en local (`TenantResolverService:Enabled=false`
+en `appsettings.json`), y el servicio arranca con base en memoria. Para probar contra un
+tenant-resolver real hacen falta **cuatro** cosas además del toggle, y el arranque aborta con un
+error explícito si falta cualquiera: la URL del resolver, la clave de cifrado, y la caché L2
+prendida **con** su connection string.
+
+```bash
+dotnet user-secrets set --project src/Api "TenantResolverService:Enabled" "true"
+dotnet user-secrets set --project src/Api "TENANT_RESOLVER_SERVICE_URL" "http://tenant-resolver.interno"
+dotnet user-secrets set --project src/Api "CONNSTRING_ENCRYPTION_KEY" "<clave compartida de plataforma>"
+dotnet user-secrets set --project src/Api "Cache:L2Enabled" "true"
+dotnet user-secrets set --project src/Api "Cache:ConnectionString" "localhost:6379"
 ```
 
 **Nunca** commitear archivos `.env`, `appsettings.local.json` con credenciales, ni agregar secrets hardcodeados en manifests de Kubernetes.

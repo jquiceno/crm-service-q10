@@ -9,7 +9,9 @@
           <ExcludeByFile>**/Program.cs,**/*DependencyInjection*.cs,**/DependencyInjection/**/*.cs,**/Extensions/*Extensions.cs,**/Migrations/**/*.cs</ExcludeByFile>
           <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
           <SkipAutoProps>true</SkipAutoProps>
-          <UseSourceLink>true</UseSourceLink>
+          <!-- SourceLink puts raw.githubusercontent URLs in the coverage file; ReportGenerator
+               then 404s trying to fetch them for PR merge commits. Local paths work in CI. -->
+          <UseSourceLink>false</UseSourceLink>
         </Configuration>
       </DataCollector>
     </DataCollectors>

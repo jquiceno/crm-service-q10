@@ -21,16 +21,68 @@ jobs:
       - name: Build
         run: dotnet build --no-restore -c Release
 
-      - name: Test
-        run: dotnet test --no-build -c Release --verbosity normal
+      - name: Unit tests (with coverage)
+        run: >
+          dotnet test tests/UnitTests --no-build -c Release --verbosity normal
+          --collect:"XPlat Code Coverage"
+          --settings coverlet.runsettings
+          --results-directory ./TestResults
+
+      - name: Integration tests
+        run: dotnet test tests/IntegrationTests --no-build -c Release --verbosity normal
+
+      # always() on the coverage steps so the report survives an integration-test failure,
+      # not just a gate failure.
+      - name: Generate coverage report
+        if: always()
+        run: |
+          dotnet tool restore
+          dotnet reportgenerator \
+            -reports:"TestResults/**/coverage.cobertura.xml" \
+            -targetdir:"coverage-report" \
+            -reporttypes:"Cobertura;JsonSummary;MarkdownSummaryGithub"
+
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          if [ -f coverage-report/SummaryGithub.md ]; then
+            cat coverage-report/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report
+
+      - name: Coverage gate
+        env:
+          THRESHOLD: ${{ vars.COVERAGE_THRESHOLD || '90' }}
+        run: |
+          actual=$(jq -r '.summary.linecoverage // empty' coverage-report/Summary.json)
+          # jq prints "null" (exit 0) when the key is missing; string-compared in awk,
+          # "null" >= "90" is true, silently passing the gate. Require a number first.
+          if ! [[ "$actual" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "::error title=Coverage gate failed::Could not read summary.linecoverage from Summary.json (got: '${actual}')"
+            exit 1
+          fi
+          echo "Line coverage: ${actual}% (required: ${THRESHOLD}%)"
+          if ! awk -v a="$actual" -v t="$THRESHOLD" 'BEGIN { exit !(a+0 >= t+0) }'; then
+            echo "::error title=Coverage gate failed::Line coverage ${actual}% is below the required ${THRESHOLD}% (repository variable COVERAGE_THRESHOLD)"
+            exit 1
+          fi
+          echo "Coverage gate passed."
 
   docker-build:
     name: Docker build
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: hashFiles('Dockerfile') != ''
     steps:
       - uses: actions/checkout@v4
 
+      # hashFiles() is not available in job-level `if`, so the Dockerfile
+      # guard lives in a step (skips gracefully on forks without Docker).
       - name: Build Docker image
+        if: hashFiles('Dockerfile') != ''
         run: docker build -t ${{ vars.SERVICE_NAME || github.event.repository.name }}:ci-${{ github.sha }} .

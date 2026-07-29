@@ -45,7 +45,7 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
                 {
                     Total = g.Count(),
                     Items = g
-                        .OrderBy(x => x)
+                        .OrderBy(x => x.Id)
                         .Skip(page.Skip)
                         .Take(page.PageSize)
                         .ToList()

@@ -17,6 +17,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         _connectionString = connectionString;
 
         Environment.SetEnvironmentVariable("Sentry__Dsn", string.Empty);
+        Environment.SetEnvironmentVariable("SENTRY_DSN", string.Empty);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

@@ -298,7 +298,7 @@ La multitenencia queda **apagada** durante los tests. Prenderla exigiría un ten
 1. Elimina del `IServiceCollection` el descriptor de `ApplicationDbContext` y **todo genérico cerrado que lo tenga entre sus argumentos de tipo**. Eso barre lo que dejó el `AddDbContext` de la app —su `DbContextOptions<ApplicationDbContext>` y los callbacks internos de configuración de EF— pero el filtro es a propósito más amplio que eso: también se llevaría, por ejemplo, un `IDbContextFactory<ApplicationDbContext>` registrado aparte.
 2. Registra de nuevo `AddDbContext<ApplicationDbContext>` con `UseSqlServer`, el connection string del contenedor y `EnableRetryOnFailure(maxRetryCount: 3)`.
 
-Aparte de eso el `ApiFactory` fija el entorno `Testing`, vacía `Sentry__Dsn` y silencia el logging (`ClearProviders` + mínimo `Warning`).
+Aparte de eso el `ApiFactory` fija el entorno `Testing`, vacía `Sentry__Dsn` y `SENTRY_DSN`, y silencia el logging (`ClearProviders` + mínimo `Warning`).
 
 **El grupo que importa del paso 1 son los callbacks de configuración, no el `DbContextOptions`.** Quitar solo `DbContextOptions<ApplicationDbContext>` no alcanza: sobrevive el `UseInMemoryDatabase` de la app junto al `UseSqlServer` que se agrega después, y EF tira al resolver el contexto:
 

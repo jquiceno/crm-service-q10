@@ -46,7 +46,11 @@ Regla: **si el valor puede exponerse en git, va en ConfigMap.**
 
 | Clave en Secrets Manager | Descripción |
 |--------------------------|-------------|
-| `Sentry__Dsn`            | DSN de Sentry para error tracking |
+| _(claves propias del servicio)_ | Credenciales/tokens exclusivos de este servicio |
+
+> El DSN de Sentry **no** va acá: es una clave compartida por toda la plataforma y
+> vive en el secreto compartido como `SENTRY_DSN`
+> (ver [Secretos compartidos](#secretos-compartidos-platform-shared)).
 
 > El connection string de la base **no** va acá. Con la multitenencia activa lo entrega
 > el tenant-resolver cifrado por petición, y se descifra con `CONNSTRING_ENCRYPTION_KEY`
@@ -70,7 +74,7 @@ Formato del secreto (JSON):
 
 ```json
 {
-  "Sentry__Dsn": "https://abc123@o123456.ingest.sentry.io/789"
+  "Mi__ClavePropia": "valor-sensible-del-servicio"
 }
 ```
 
@@ -101,6 +105,7 @@ elegibles. Su origen es un único secreto en AWS Secrets Manager:
 |-------|-------------|
 | `CONNSTRING_ENCRYPTION_KEY` | Clave de cifrado de connection strings compartida por la plataforma |
 | `TENANT_RESOLVER_SERVICE_URL` | URL del servicio de resolución de tenants |
+| `SENTRY_DSN` | DSN de Sentry para error tracking (mapeada a `Sentry:Dsn` en el arranque) |
 | `Cache__ConnectionString`   | Host del Redis compartido (ElastiCache) |
 
 ### Cómo lo recibe el servicio

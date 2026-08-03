@@ -31,7 +31,7 @@ src/
 │   ├── Controllers/                  # Endpoints HTTP
 │   ├── DependencyInjection/          # Registro de servicios por contexto
 │   ├── Filters/                      # ValidateRequestFilter, OutputCacheInvalidateAttribute
-│   ├── Results/                      # HttpOkResult, HttpCreatedResult, HttpOkPagedResult
+│   ├── Results/                      # HttpOkResult, HttpCreatedResult, HttpNoContentResult, HttpOkPagedResult
 │   ├── Responses/                    # Estructura uniforme de respuesta API
 │   ├── Middleware/                   # GlobalExceptionMiddleware, RequestLoggingMiddleware
 │   ├── Mapping/                      # ErrorType → HTTP status code

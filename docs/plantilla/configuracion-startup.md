@@ -44,13 +44,13 @@ Se usa cuando la habilitación de un componente es opcional (`Enabled: true/fals
 
 ```
 Critical Error: SENTRY is enabled but Dsn is missing.
-Set 'Sentry:Dsn' in appsettings.json or 'Sentry__Dsn' as an environment variable.
+Set the 'SENTRY_DSN' environment variable (platform-shared secret) or 'Sentry:Dsn' in appsettings.json.
 Application startup aborted.
 ```
 
 > En variables de entorno, los dos puntos (`:`) se reemplazan por doble guion bajo (`__`). Por ejemplo, `Sentry:Dsn` se convierte en `Sentry__Dsn`.
 
-> **Variables agnósticas de plataforma:** los valores del secreto compartido `/platform/{env}/shared` usan un nombre canónico independiente del lenguaje — `TENANT_RESOLVER_SERVICE_URL` y `CONNSTRING_ENCRYPTION_KEY` — para que todos los servicios (Node, .NET, etc.) consuman la misma variable. En el arranque, `AddTenantResolverEnvironmentAliases()` (en `TenancyConfigurationExtensions`) las mapea a `TenantResolverService:BaseUrl` y `TenantResolverService:EncryptionKey` antes de que nada lea esa sección; las claves .NET explícitas siguen funcionando para desarrollo local.
+> **Variables agnósticas de plataforma:** los valores del secreto compartido `/platform/{env}/shared` usan un nombre canónico independiente del lenguaje — `TENANT_RESOLVER_SERVICE_URL`, `CONNSTRING_ENCRYPTION_KEY` y `SENTRY_DSN` — para que todos los servicios (Node, .NET, etc.) consuman la misma variable. En el arranque, `AddTenantResolverEnvironmentAliases()` (en `TenancyConfigurationExtensions`) mapea las dos primeras a `TenantResolverService:BaseUrl` y `TenantResolverService:EncryptionKey`, y `AddSentry()` (en `SentryExtensions`) mapea `SENTRY_DSN` a `Sentry:Dsn` antes de que nada lea esa sección; las claves .NET explícitas siguen funcionando para desarrollo local.
 
 
 ---

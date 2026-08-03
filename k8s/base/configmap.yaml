@@ -30,7 +30,9 @@ data:
   # connection string comes from the ExternalSecret (shared secret)
   Cache__L2Enabled: "true"
 
-  # Sentry — DSN goes in secret; the rest of the non-sensitive config lives here
+  # Sentry — the DSN comes from the /platform/{env}/shared secret as the
+  # language-agnostic variable SENTRY_DSN (aliased to Sentry:Dsn at startup);
+  # the rest of the non-sensitive config lives here
   Sentry__Enabled: "true"
   Sentry__TracesSampleRate: "0.2"
   # Minimum Serilog levels for the Sentry sink (bound by name, case-insensitive):

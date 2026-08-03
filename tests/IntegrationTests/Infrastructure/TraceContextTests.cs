@@ -70,6 +70,7 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
         {
             Environment.SetEnvironmentVariable("Sentry__Enabled", "false");
             Environment.SetEnvironmentVariable("Sentry__Dsn", string.Empty);
+            Environment.SetEnvironmentVariable("SENTRY_DSN", string.Empty);
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)

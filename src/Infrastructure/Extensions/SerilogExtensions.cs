@@ -52,8 +52,8 @@ public static class SerilogExtensions
                     {
                         throw new InvalidOperationException(
                             "Critical Error: SENTRY is enabled but Dsn is missing. "
-                                + "Set 'Sentry:Dsn' in appsettings.json or "
-                                + "'Sentry__Dsn' as an environment variable. "
+                                + "Set the 'SENTRY_DSN' environment variable (platform-shared secret) "
+                                + "or 'Sentry:Dsn' in appsettings.json. "
                                 + "Application startup aborted."
                         );
                     }

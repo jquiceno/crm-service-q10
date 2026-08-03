@@ -12,8 +12,19 @@ public static class SentryExtensions
 {
     private const string FilteredValue = "[Filtered]";
 
+    /// <summary>
+    /// Language-agnostic DSN variable published by the platform-shared secret.
+    /// </summary>
+    public const string SharedDsnVariable = "SENTRY_DSN";
+
     public static WebApplicationBuilder AddSentry(this WebApplicationBuilder builder)
     {
+        // The platform-shared secret publishes the DSN under the language-agnostic
+        // name SENTRY_DSN; bridge it to the .NET config key before binding.
+        var sharedDsn = builder.Configuration[SharedDsnVariable];
+        if (!string.IsNullOrWhiteSpace(sharedDsn))
+            builder.Configuration[$"{SentrySettings.SectionName}:Dsn"] = sharedDsn;
+
         var sentrySettings =
             builder.Configuration.GetSection(SentrySettings.SectionName).Get<SentrySettings>()
             ?? new SentrySettings();
@@ -25,8 +36,8 @@ public static class SentryExtensions
         {
             throw new InvalidOperationException(
                 "Critical Error: SENTRY is enabled but Dsn is missing. "
-                    + "Set 'Sentry:Dsn' in appsettings.json or "
-                    + "'Sentry__Dsn' as an environment variable. "
+                    + "Set the 'SENTRY_DSN' environment variable (platform-shared secret) "
+                    + "or 'Sentry:Dsn' in appsettings.json. "
                     + "Application startup aborted."
             );
         }

@@ -11,6 +11,8 @@ public sealed class UnitOfWorkAdapter(
     ApplicationDbContext context,
     ILoggerPort<UnitOfWorkAdapter> logger) : IUnitOfWorkPort
 {
+    private const string Origin = nameof(UnitOfWorkAdapter);
+
     public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -21,12 +23,12 @@ public sealed class UnitOfWorkAdapter(
         catch (DbUpdateException ex)
         {
             logger.Error(ex, "Database update error during commit");
-            return SqlServerErrorClassifier.Classify(ex);
+            return SqlServerErrorClassifier.Classify(ex, Origin);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Unexpected error during commit");
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 }

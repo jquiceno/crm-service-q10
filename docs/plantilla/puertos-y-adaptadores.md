@@ -155,7 +155,7 @@ public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 }
 ```
 
-El contrato genérico (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `Remove`) y su implementación base `RepositoryBaseEF<TAggregate, TId>` están documentados en [repositorio.md](repositorio.md) — este documento no los repite.
+El contrato genérico (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `RemoveAsync`) y su implementación base `RepositoryBaseEF<TAggregate, TId>` están documentados en [repositorio.md](repositorio.md) — este documento no los repite.
 
 ### 5.3 Port (puerto de salida, sin persistencia)
 

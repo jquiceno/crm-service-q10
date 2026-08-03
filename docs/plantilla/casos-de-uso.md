@@ -265,20 +265,16 @@ public sealed class DeleteProductUseCase(
 
     public async Task<Result> ExecuteAsync(Guid id, CancellationToken ct = default)
     {
-        var getResult = await repository.GetByIdAsync(id, ct).ConfigureAwait(false);   // 1. confirmar que existe
-        if (getResult.IsFailure)
-            return getResult.Error with { Context = ProductErrors.Context, Origin = Origin };
-
-        var removeResult = repository.Remove(getResult.Value);                          // 2. eliminar
+        var removeResult = await repository.RemoveAsync(id, ct).ConfigureAwait(false);   // 1. eliminar
         if (removeResult.IsFailure)
             return removeResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
-        return await unitOfWork.CommitAsync(ct).ConfigureAwait(false);                  // 3. commit
+        return await unitOfWork.CommitAsync(ct).ConfigureAwait(false);                   // 2. commit
     }
 }
 ```
 
-`GetByIdAsync` cumple doble función: valida existencia (retorna `NotFound` automáticamente si no existe) y entrega la instancia que `Remove()` necesita — el repositorio elimina por Aggregate, no por id suelto (ver `IRootRepository` en [repositorio.md](repositorio.md)).
+`RemoveAsync` recibe el id y resuelve el agregado internamente: si no existe retorna el `NotFoundError` del contexto, así que el caso de uso no necesita un `GetByIdAsync` previo solo para validar existencia (ver `IRootRepository` en [repositorio.md](repositorio.md)).
 
 **Controller:**
 

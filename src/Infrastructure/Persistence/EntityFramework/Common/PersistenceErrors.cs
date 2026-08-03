@@ -4,6 +4,6 @@ namespace Infrastructure.Persistence.EntityFramework.Common;
 
 internal static class PersistenceErrors
 {
-    internal static InternalError Failure() =>
-        new("A persistence error occurred.");
+    internal static InternalError Failure(string origin) =>
+        new("A persistence error occurred.") { Origin = origin };
 }

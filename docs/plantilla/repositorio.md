@@ -49,14 +49,19 @@ public interface IRootRepository<TAggregate, TId>
     where TId : notnull
 {
     Task<Result<TAggregate>>      GetByIdAsync(TId id, CancellationToken ct = default);
+    Task<Result<bool>>            ExistsAsync(TId id, CancellationToken ct = default);
     Task<PagedResult<TAggregate>> GetAllAsync(PageQuery page, CancellationToken ct = default);
     Task<Result>                  AddAsync(TAggregate aggregate, CancellationToken ct = default);
     Result                        Update(TAggregate aggregate);
-    Result                        Remove(TAggregate aggregate);
+    Task<Result>                  RemoveAsync(TId id, CancellationToken ct = default);
 }
 ```
 
 Todos los métodos retornan `Result` — nunca lanzan excepciones al caller.
+
+`RemoveAsync` recibe el identificador, no el agregado, y es asíncrono porque resolver ese identificador
+es una llamada a base de datos. Si el agregado no existe, falla con el `NotFoundError` del contexto; el
+caso de uso no necesita hacer un `GetByIdAsync` previo solo para poder borrar.
 
 ### Repositorio del contexto
 
@@ -84,15 +89,20 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(
 {
     protected DbSet<TAggregate> DbSet { get; } = context.Set<TAggregate>();
 
+    private string Origin => GetType().Name;
+
     // Overridable si el contexto tiene su propio error "not found"
     protected virtual NotFoundError GetNotFoundError(TId id)
-        => SharedErrors.NotFound(typeof(TAggregate).Name, id!);
+        => SharedErrors.NotFound(typeof(TAggregate).Name, id!) with { Origin = Origin };
 }
 ```
 
 * `GetAllAsync` usa `GroupBy(x => 1)` para obtener el total y los items en una sola query.
 * `AddAsync` solo hace `DbSet.AddAsync`; el commit ocurre en `UnitOfWorkAdapter`.
-* Todos los métodos capturan excepciones y retornan `PersistenceErrors.Failure()`.
+* `RemoveAsync` solo marca el agregado para borrado; el commit también ocurre en `UnitOfWorkAdapter`.
+* Todos los métodos capturan excepciones y retornan `PersistenceErrors.Failure(Origin)`.
+* `Origin` es `GetType().Name`, así que el error reporta el adaptador concreto
+  (`ProductRepositoryAdapter`), no la clase base.
 
 ### Adaptador concreto — `ProductRepositoryAdapter`
 
@@ -118,7 +128,7 @@ public sealed class ProductRepositoryAdapter(
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error checking product name {Name}", name);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(nameof(ProductRepositoryAdapter));
         }
     }
 }

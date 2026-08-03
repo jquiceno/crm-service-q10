@@ -143,6 +143,8 @@ public sealed class ProductRepositoryAdapter(
 public sealed class UnitOfWorkAdapter(ApplicationDbContext context, ILoggerPort<UnitOfWorkAdapter> logger)
     : IUnitOfWorkPort
 {
+    private const string Origin = nameof(UnitOfWorkAdapter);
+
     public async Task<Result> CommitAsync(CancellationToken ct = default)
     {
         try
@@ -153,12 +155,12 @@ public sealed class UnitOfWorkAdapter(ApplicationDbContext context, ILoggerPort<
         catch (DbUpdateException ex)
         {
             logger.Error(ex, "Database update error");
-            return SqlServerErrorClassifier.Classify(ex); // Converts DB constraints into DomainErrors
+            return SqlServerErrorClassifier.Classify(ex, Origin); // Converts DB constraints into DomainErrors
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Unexpected commit error");
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 }
@@ -334,8 +336,8 @@ public interface IUnitOfWorkPort
 public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
 {
     try   { await context.SaveChangesAsync(cancellationToken); return Result.Success(); }
-    catch (DbUpdateException ex)                              { return SqlServerErrorClassifier.Classify(ex); }
-    catch (Exception ex) when (ex is not OperationCanceledException) { return PersistenceErrors.Failure(); }
+    catch (DbUpdateException ex)                              { return SqlServerErrorClassifier.Classify(ex, Origin); }
+    catch (Exception ex) when (ex is not OperationCanceledException) { return PersistenceErrors.Failure(Origin); }
 }
 ```
 
@@ -352,6 +354,30 @@ public async Task<Result> CommitAsync(CancellationToken cancellationToken = defa
 | 8152                | Valor excede la longitud máxima | `Validation` |
 | 1205                | Víctima de deadlock | `Internal` |
 | otros               | Error genérico de persistencia | `Internal` |
+
+Ambas sobrecargas reciben un `origin` que se estampa en el error devuelto, para que el log identifique qué componente lo produjo. Por convención es un `private const string Origin = nameof(MiClase)` en el llamador.
+
+**Hay dos sobrecargas y elegir la correcta importa:**
+
+```csharp
+internal static DomainError Classify(DbUpdateException ex, string origin)
+internal static DomainError Classify(SqlException ex, string origin)
+```
+
+`ExecuteDelete` / `ExecuteUpdate` no pasan por el change tracker, así que EF **no envuelve** la excepción del driver en `DbUpdateException`: lanza la `SqlException` cruda. Un repositorio que borra en bulk y solo captura `DbUpdateException` nunca entra a ese `catch`, cae en el genérico, y reporta un `Internal` (500) donde el contrato pide un `Conflict` (409). Para esos casos va la sobrecarga de `SqlException`:
+
+```csharp
+catch (SqlException ex)
+{
+    logger.Error(ex, "Error removing ...");
+    return SqlServerErrorClassifier.Classify(ex, Origin);
+}
+catch (Exception ex) when (ex is not OperationCanceledException)
+{
+    logger.Error(ex, "Error removing ...");
+    return PersistenceErrors.Failure(Origin);
+}
+```
 
 
 ---

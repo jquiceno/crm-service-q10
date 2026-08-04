@@ -12,13 +12,16 @@ namespace Infrastructure.Adapters.Persistence.SqlServer;
 /// </summary>
 internal static class SqlServerErrorClassifier
 {
-    internal static DomainError Classify(DbUpdateException ex)
+    internal static DomainError Classify(DbUpdateException ex, string origin)
     {
         if (ex.InnerException is SqlException sqlEx)
-            return ClassifySqlException(sqlEx);
+            return ClassifySqlException(sqlEx) with { Origin = origin };
 
-        return PersistenceErrors.Failure();
+        return PersistenceErrors.Failure(origin);
     }
+
+    internal static DomainError Classify(SqlException ex, string origin) =>
+        ClassifySqlException(ex) with { Origin = origin };
 
     private static DomainError ClassifySqlException(SqlException ex) => ex.Number switch
     {
@@ -41,6 +44,6 @@ internal static class SqlServerErrorClassifier
         1205 => new InternalError("The operation was aborted due to a deadlock. Please retry."),
         
         // Default: log the error but don't expose implementation details
-        _ => PersistenceErrors.Failure()
+        _ => PersistenceErrors.Failure(string.Empty)
     };
 }

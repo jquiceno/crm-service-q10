@@ -120,6 +120,51 @@ public sealed class RepositoryBaseEFTests
         logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
     }
 
+    // ── ExistsAsync ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExistsAsync_WhenTheAggregateExists_ReturnsTrue()
+    {
+        using var context = CreateContext(nameof(ExistsAsync_WhenTheAggregateExists_ReturnsTrue));
+        context.Set<TestAggregate>().Add(TestAggregate.Create(1, "Alpha"));
+        await context.SaveChangesAsync();
+        var sut = new TestAggregateRepository(context, Substitute.For<ILoggerPort<object>>());
+
+        var result = await sut.ExistsAsync(1);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeTrue();
+    }
+
+    // Absence is a successful answer, not a NotFound failure: the caller asked whether the aggregate
+    // exists, and "no" answers that question.
+    [Fact]
+    public async Task ExistsAsync_WithAnUnknownId_SucceedsWithFalse()
+    {
+        using var context = CreateContext(nameof(ExistsAsync_WithAnUnknownId_SucceedsWithFalse));
+        var sut = new TestAggregateRepository(context, Substitute.For<ILoggerPort<object>>());
+
+        var result = await sut.ExistsAsync(404);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task ExistsAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs()
+    {
+        var context = CreateContext(nameof(ExistsAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
+        var logger = Substitute.For<ILoggerPort<object>>();
+        var sut = new TestAggregateRepository(context, logger);
+        await context.DisposeAsync();
+
+        var result = await sut.ExistsAsync(1);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.Internal);
+        logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
+    }
+
     // ── GetAllAsync ───────────────────────────────────────────────────────────
 
     [Fact]
@@ -239,33 +284,48 @@ public sealed class RepositoryBaseEFTests
         logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
     }
 
-    // ── Remove ────────────────────────────────────────────────────────────────
+    // ── RemoveAsync ───────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task Remove_WhenValid_RemovesFromContext()
+    public async Task RemoveAsync_WhenTheAggregateExists_MarksItForDeletion()
     {
-        using var context = CreateContext(nameof(Remove_WhenValid_RemovesFromContext));
-        var tracked = TestAggregate.Create(1, "Alpha");
-        context.Set<TestAggregate>().Add(tracked);
+        using var context = CreateContext(nameof(RemoveAsync_WhenTheAggregateExists_MarksItForDeletion));
+        context.Set<TestAggregate>().Add(TestAggregate.Create(1, "Alpha"));
         await context.SaveChangesAsync();
         var sut = new TestAggregateRepository(context, Substitute.For<ILoggerPort<object>>());
 
-        var result = sut.Remove(tracked);
-        await context.SaveChangesAsync();
+        var result = await sut.RemoveAsync(1);
 
         result.IsSuccess.ShouldBeTrue();
+
+        // Marked, not committed: the unit of work owns the commit, as it does for AddAsync and Update.
+        (await context.Set<TestAggregate>().CountAsync()).ShouldBe(1);
+
+        await context.SaveChangesAsync();
         (await context.Set<TestAggregate>().CountAsync()).ShouldBe(0);
     }
 
     [Fact]
-    public async Task Remove_WhenExceptionThrown_ReturnsInternalErrorAndLogs()
+    public async Task RemoveAsync_WithAnUnknownId_FailsAsNotFound()
     {
-        var context = CreateContext(nameof(Remove_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
+        using var context = CreateContext(nameof(RemoveAsync_WithAnUnknownId_FailsAsNotFound));
+        var sut = new TestAggregateRepository(context, Substitute.For<ILoggerPort<object>>());
+
+        var result = await sut.RemoveAsync(404);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.NotFound);
+    }
+
+    [Fact]
+    public async Task RemoveAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs()
+    {
+        var context = CreateContext(nameof(RemoveAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Substitute.For<ILoggerPort<object>>();
         var sut = new TestAggregateRepository(context, logger);
         await context.DisposeAsync();
 
-        var result = sut.Remove(TestAggregate.Create(1, "Alpha"));
+        var result = await sut.RemoveAsync(1);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Internal);

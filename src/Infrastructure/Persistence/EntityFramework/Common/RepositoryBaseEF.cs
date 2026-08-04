@@ -15,6 +15,8 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
 {
     protected DbSet<TAggregate> DbSet { get; } = context.Set<TAggregate>();
 
+    private string Origin => GetType().Name;
+
     public virtual async Task<Result<TAggregate>> GetByIdAsync(TId id, CancellationToken cancellationToken = default)
     {
         try
@@ -25,12 +27,26 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error retrieving {AggregateType} with id {Id}", typeof(TAggregate).Name, id);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 
     protected virtual NotFoundError GetNotFoundError(TId id) =>
-        SharedErrors.NotFound(typeof(TAggregate).Name, id!);
+        SharedErrors.NotFound(typeof(TAggregate).Name, id!) with { Origin = Origin };
+
+    public virtual async Task<Result<bool>> ExistsAsync(TId id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var exists = await DbSet.AnyAsync(e => e.Id.Equals(id), cancellationToken).ConfigureAwait(false);
+            return Result<bool>.Success(exists);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.Error(ex, "Error checking existence of {AggregateType} with id {Id}", typeof(TAggregate).Name, id);
+            return PersistenceErrors.Failure(Origin);
+        }
+    }
 
     public virtual async Task<PagedResult<TAggregate>> GetAllAsync(
         PageQuery page,
@@ -61,7 +77,7 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error retrieving all {AggregateType}", typeof(TAggregate).Name);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 
@@ -75,7 +91,7 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error adding {AggregateType}", typeof(TAggregate).Name);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 
@@ -89,21 +105,26 @@ public abstract class RepositoryBaseEF<TAggregate, TId>(ApplicationDbContext con
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error updating {AggregateType}", typeof(TAggregate).Name);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 
-    public virtual Result Remove(TAggregate aggregate)
+    public virtual async Task<Result> RemoveAsync(TId id, CancellationToken cancellationToken = default)
     {
         try
         {
+            var aggregate = await DbSet.FindAsync([id!], cancellationToken).ConfigureAwait(false);
+
+            if (aggregate is null)
+                return GetNotFoundError(id);
+
             DbSet.Remove(aggregate);
             return Result.Success();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.Error(ex, "Error removing {AggregateType}", typeof(TAggregate).Name);
-            return PersistenceErrors.Failure();
+            logger.Error(ex, "Error removing {AggregateType} with id {Id}", typeof(TAggregate).Name, id);
+            return PersistenceErrors.Failure(Origin);
         }
     }
 }

@@ -494,7 +494,7 @@ Cuando `L2Enabled = false` o `ConnectionString` está vacío, se registra `NoOpC
 
 ### Invalidación post-commit
 
-La invalidación de L2 se realiza **en el caso de uso, después de que `IUnitOfWorkPort.CommitAsync()` haya tenido éxito**. Nunca se llama a `RemoveAsync` / `RemoveByPrefixAsync` desde dentro de un repositorio (métodos `Update`, `Remove`).
+La invalidación de L2 se realiza **en el caso de uso, después de que `IUnitOfWorkPort.CommitAsync()` haya tenido éxito**. Nunca se llama a `RemoveAsync` / `RemoveByPrefixAsync` desde dentro de un repositorio (métodos `Update`, `RemoveAsync`).
 
 **Por qué:** si la transacción falla, la invalidación sería prematura — el caché habría sido vaciado pero el cambio no habría sido persistido. Llamar después del commit garantiza que el caché solo se invalida cuando hay un cambio real en la BD.
 

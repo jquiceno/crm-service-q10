@@ -208,7 +208,7 @@ public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 }
 ```
 
-Extiende `IRootRepository<TAggregate, TId>` (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `Remove`) con las queries específicas del dominio. El dominio define la interfaz; la infraestructura la implementa. No lleva sufijo `Port` — ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md#2-por-qué-el-repositorio-no-es-un-port).
+Extiende `IRootRepository<TAggregate, TId>` (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `RemoveAsync`) con las queries específicas del dominio. El dominio define la interfaz; la infraestructura la implementa. No lleva sufijo `Port` — ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md#2-por-qué-el-repositorio-no-es-un-port).
 
 
 ---
@@ -352,7 +352,7 @@ public sealed class ProductRepositoryAdapter(
 }
 ```
 
-`RepositoryBaseEF<TAggregate, TId>` implementa `GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update` y `Remove`. Solo hay que implementar `GetNotFoundError()` y las queries específicas del contexto. Ver [repositorio.md](repositorio.md).
+`RepositoryBaseEF<TAggregate, TId>` implementa `GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update` y `RemoveAsync`. Solo hay que implementar `GetNotFoundError()` y las queries específicas del contexto. Ver [repositorio.md](repositorio.md).
 
 
 ---

@@ -2,7 +2,7 @@
 
 > Jira: Definición e implementación de contrato de respuesta success/error
 
-Todas las respuestas siguen una estructura uniforme, independientemente del endpoint o del tipo de error. El cuerpo siempre es JSON y siempre incluye el `statusCode` como campo raíz junto al payload principal.
+Todas las respuestas con cuerpo siguen una estructura uniforme, independientemente del endpoint o del tipo de error: el cuerpo es JSON e incluye el `statusCode` como campo raíz junto al payload principal. La única respuesta sin cuerpo es el `204 No Content`.
 
 
 ---
@@ -39,6 +39,12 @@ Todas las respuestas siguen una estructura uniforme, independientemente del endp
 |-------|------|-------------|
 | `data.items` | `array` | Página de resultados |
 | `data.totalCount` | `int` | Total de registros sin paginar |
+
+### Sin contenido — 204 No Content
+
+Las operaciones que no devuelven un recurso (`DELETE`, y los `POST`/`DELETE` que solo vinculan o desvinculan) responden `204` con **cuerpo vacío**. No hay envelope ni `statusCode` en el cuerpo, porque un `204` no lleva contenido por definición.
+
+Lo produce `HttpNoContentResult`, al que se convierte implícitamente un `Result` sin valor. Si ese `Result` falla, la respuesta ya no es `204`: sale el status y el cuerpo de error descritos abajo.
 
 
 ---

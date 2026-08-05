@@ -190,6 +190,29 @@ else
   skip "Dockerfile.example (no encontrado)"
 fi
 
+# ── github_repo_id (claim OIDC sub con IDs inmutables) ───────────────────────
+# GitHub emite el claim OIDC sub con IDs inmutables embebidos
+# (repo:org@ORG_ID/repo@REPO_ID:environment:env). El trust policy de terraform
+# necesita el ID numérico del repo en env/*.tfvars; sin él, el primer deploy
+# falla con "Not authorized to perform sts:AssumeRoleWithWebIdentity".
+title "github_repo_id"
+GITHUB_REPO_ID=""
+if ! command -v gh &>/dev/null; then
+  warn "gh CLI no encontrado — github_repo_id queda vacío en terraform/env/*.tfvars (ver checklist)"
+elif ! gh auth status &>/dev/null 2>&1; then
+  warn "gh CLI no autenticado — github_repo_id queda vacío en terraform/env/*.tfvars (ver checklist)"
+else
+  GITHUB_REPO_ID="$(gh api "repos/${GITHUB_ORG}/${GITHUB_REPO}" --jq .id 2>/dev/null || true)"
+  if [[ -n "$GITHUB_REPO_ID" ]]; then
+    for f in terraform/env/dev.tfvars terraform/env/qa.tfvars terraform/env/prod.tfvars; do
+      sub "$f" "github_repo_id    = \"\"" "github_repo_id    = \"${GITHUB_REPO_ID}\""
+    done
+    $DRY_RUN || ok "github_repo_id = $GITHUB_REPO_ID"
+  else
+    warn "No se pudo resolver el ID de ${GITHUB_ORG}/${GITHUB_REPO} — github_repo_id queda vacío (ver checklist)"
+  fi
+fi
+
 $DRY_RUN && { echo ""; warn "Dry-run completado. Ejecuta sin --dry-run para aplicar los cambios."; echo ""; exit 0; }
 
 # ── GitHub repository variables ───────────────────────────────────────────────
@@ -223,6 +246,11 @@ $(printf "${BOLD}")Pasos manuales restantes:$(printf "${NC}")
           └─ Registrar después del primer 'terraform apply'.
 
   2. Bootstrap de Terraform (crea repo ECR + rol IAM por entorno):
+       # IMPORTANTE: si github_repo_id quedó vacío en terraform/env/*.tfvars
+       # (gh CLI no disponible o sin autenticar), rellénalo ANTES del apply:
+       #   gh api repos/$GITHUB_ORG/$GITHUB_REPO --jq .id
+       # El trust policy OIDC del rol de deploy lo necesita (claim sub con IDs
+       # inmutables); sin él, el deploy falla en AssumeRoleWithWebIdentity.
        cd terraform
        terraform init \\
          -backend-config="bucket=q10-terraform-state-<account_id>" \\

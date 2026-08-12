@@ -25,6 +25,8 @@
         <PackageReference Include="Respawn" Version="7.*" />
         <PackageReference Include="StackExchange.Redis" Version="2.8.*" />
         <PackageReference Include="Testcontainers.Redis" Version="4.*" />
+        <!-- Pin the patched SSH.NET: Testcontainers pulls 2025.1.0 transitively, which carries advisory GHSA-q939-rpr3-3284 (NU1903). -->
+        <PackageReference Include="SSH.NET" Version="2026.0.0" />
     </ItemGroup>
 
     <ItemGroup>

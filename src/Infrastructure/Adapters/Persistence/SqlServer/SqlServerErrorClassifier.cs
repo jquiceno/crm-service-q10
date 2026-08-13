@@ -12,6 +12,22 @@ namespace Infrastructure.Adapters.Persistence.SqlServer;
 /// </summary>
 internal static class SqlServerErrorClassifier
 {
+    private const int PrimaryKeyViolation = 2627;
+    private const int UniqueIndexViolation = 2601;
+    // 547 covers FOREIGN KEY, REFERENCE and CHECK alike; the number does not say which one failed.
+    private const int ConstraintConflict = 547;
+    private const int NotNullViolation = 515;
+    private const int DataTruncation = 8152;
+    private const int Deadlock = 1205;
+
+    // Lets a repository replace the generic duplicate message with one that names the offending value,
+    // without having to know the error numbers.
+    internal static bool IsUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is SqlException sqlEx && IsUniqueViolation(sqlEx.Number);
+
+    internal static bool IsUniqueViolation(int number) =>
+        number is PrimaryKeyViolation or UniqueIndexViolation;
+
     internal static DomainError Classify(DbUpdateException ex, string origin)
     {
         if (ex.InnerException is SqlException sqlEx)
@@ -25,24 +41,17 @@ internal static class SqlServerErrorClassifier
 
     private static DomainError ClassifySqlException(SqlException ex) => ex.Number switch
     {
-        // Primary key violation
-        2627 => new ConflictError("A record with this value already exists."),
+        PrimaryKeyViolation or UniqueIndexViolation =>
+            new ConflictError("A record with this value already exists."),
 
-        // Unique index violation
-        2601 => new ConflictError("A record with this value already exists."),
+        ConstraintConflict => new ConflictError("The operation conflicts with a related record."),
 
-        // Foreign key constraint violation
-        547 => new ConflictError("The operation conflicts with a related record."),
+        NotNullViolation => new PersistenceValidationError("A required field cannot be null."),
 
-        // NOT NULL constraint violation
-        515 => new PersistenceValidationError("A required field cannot be null."),
+        DataTruncation => new PersistenceValidationError("A value exceeds the maximum allowed length."),
 
-        // String or binary data would be truncated
-        8152 => new PersistenceValidationError("A value exceeds the maximum allowed length."),
+        Deadlock => new InternalError("The operation was aborted due to a deadlock. Please retry."),
 
-        // Deadlock
-        1205 => new InternalError("The operation was aborted due to a deadlock. Please retry."),
-        
         // Default: log the error but don't expose implementation details
         _ => PersistenceErrors.Failure(string.Empty)
     };

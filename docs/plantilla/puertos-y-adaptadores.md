@@ -17,7 +17,10 @@ Dentro de esta idea general, la plantilla distingue **tres contratos distintos**
 |---|---|---|---|
 | **Caso de uso** (puerto de entrada / *driving*) | Punto de entrada a una operación de negocio | `UseCase` | `Application/UseCases/{CasoDeUso}/` (coubicado con su implementación) |
 | **Repositorio** | Persistir y recuperar los Aggregates de un contexto | `Repository` | `Domain/Repositories/` |
+| **Reader** (puerto de salida de solo lectura) | Leer datos que no son el Aggregate del contexto: catálogos, tablas foráneas, vistas | `Reader` | `Application/Ports/` |
 | **Port** (puerto de salida / *driven*, no persistencia) | Cualquier otra capacidad externa que la Application necesita y que no es guardar/leer un Aggregate | `Port` | `Application/Ports/` |
+
+El **Reader** es un puerto de salida como cualquier otro y por eso su interfaz vive en `Application/Ports/`, pero se nombra `Reader` en lugar de `Port` porque el nombre ya describe con precisión qué hace — la misma razón por la que el repositorio se llama `Repository`. Cuándo es un Reader, cuándo un Provider y cuándo un Repository está en [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md).
 
 ---
 
@@ -92,6 +95,7 @@ Un `Port` nace en `Contexts/{Contexto}/Application/Ports/`; solo se promueve a `
 |---|---|
 | Agregas una operación nueva sobre un Aggregate (crear, actualizar, listar, eliminar, relacionar) | Caso de uso (`I{CasoDeUso}UseCase`) — ver [casos-de-uso.md](casos-de-uso.md) |
 | Un Use Case necesita persistir o consultar el Aggregate de su propio contexto | Repositorio del contexto (`I{Contexto}Repository`) — ver [repositorio.md](repositorio.md) |
+| Un Use Case necesita leer un catálogo, una tabla foránea o una vista que **no** es su Aggregate | `Reader` del contexto (`Application/Ports/`) — ver [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) |
 | Un Use Case necesita una capacidad externa que no es guardar/leer su Aggregate (config, servicio externo, cálculo con datos de otro sistema) | `Port` específico del contexto (`Application/Ports/`) |
 | Esa misma capacidad la necesitan dos o más contextos | `Port` compartido (`Shared/Application/Ports/`) |
 
@@ -108,13 +112,13 @@ UpdateProductUseCase : IUpdateProductUseCase
     │  conoce solo la interfaz →  IUnitOfWorkPort, ILoggerPort<T>       (ports compartidos)
     │  conoce solo la interfaz →  IProductPricingPort                   (port específico del contexto, si aplica)
     ▼
-ProductRepositoryAdapter  : IProductRepository      ← vive en Infrastructure
+ProductRepository         : IProductRepository      ← vive en Infrastructure/Persistence/EntityFramework/Products/
 UnitOfWorkAdapter         : IUnitOfWorkPort
 SerilogLoggerAdapter<T>   : ILoggerPort<T>
 ExchangeRatePricingAdapter: IProductPricingPort
 ```
 
-Ninguna flecha apunta hacia arriba: el Use Case nunca conoce `ProductRepositoryAdapter`, solo `IProductRepository`. La conexión entre interfaz e implementación concreta ocurre en un único lugar — la extensión de registro DI del contexto (ver [4.5 en casos-de-uso.md](casos-de-uso.md) y [4.5 más abajo](#45-extensión-de-registro-di)).
+Ninguna flecha apunta hacia arriba: el Use Case nunca conoce `ProductRepository`, solo `IProductRepository`. La conexión entre interfaz e implementación concreta ocurre en un único lugar — la extensión de registro DI del contexto (ver [4.5 en casos-de-uso.md](casos-de-uso.md) y [4.5 más abajo](#45-extensión-de-registro-di)).
 
 ---
 
@@ -155,7 +159,7 @@ public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 }
 ```
 
-El contrato genérico (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `RemoveAsync`) y su implementación base `RepositoryBaseEF<TAggregate, TId>` están documentados en [repositorio.md](repositorio.md) — este documento no los repite.
+El contrato genérico (`GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update`, `RemoveAsync`), la implementación concreta y el par entidad-de-persistencia + mapper están documentados en [repositorio.md](repositorio.md) — este documento no los repite.
 
 ### 5.3 Port (puerto de salida, sin persistencia)
 
@@ -194,39 +198,50 @@ public interface IRequestValidatorPort<T> : IRequestValidatorPort
 
 Ejemplo específico de un contexto — `IServiceInfoPort` (ver [sección 2](#2-por-qué-el-repositorio-no-es-un-port) para el código completo).
 
-### 5.4 Adaptador
+### 5.4 Implementaciones concretas: repositorios, readers y adaptadores
+
+No todo lo que implementa un contrato se llama `Adapter` ni vive en `Adapters/`. Hay tres familias, y la de persistencia es la excepción:
 
 ```
-{Contexto}RepositoryAdapter          → implementa I{Contexto}Repository
+{Aggregate}Repository                → implementa I{Contexto}Repository       (persistencia)
+{Concepto}Reader                     → implementa I{Concepto}Reader           (lectura, no agregados)
 {Tecnología}{Capacidad}Adapter<T>    → implementa un Port compartido
 {Contexto}Adapter                    → implementa un Port específico del contexto
 ```
 
-Ubicación: `Infrastructure/Adapters/{Concern}/{Contexto}/`. Implementa el contrato usando una tecnología concreta; solo la Infrastructure conoce esta clase.
+**Persistencia — `Persistence/EntityFramework/{Contexto}/`, sin sufijo `Adapter`.** El repositorio y los readers del contexto son piezas de EF Core inseparables de su entidad, su `IEntityTypeConfiguration<>` y su mapper, y viven junto a ellos:
 
 ```csharp
-// Infrastructure/Adapters/Persistence/Product/ProductRepositoryAdapter.cs
-public sealed class ProductRepositoryAdapter(
+// Infrastructure/Persistence/EntityFramework/Products/ProductRepository.cs
+public sealed class ProductRepository(
     ApplicationDbContext context,
-    ILoggerPort<ProductRepositoryAdapter> logger)
-    : RepositoryBaseEF<ProductAggregate, Guid>(context, logger), IProductRepository
+    ILoggerPort<ProductRepository> logger) : IProductRepository
 {
-    protected override DomainError GetNotFoundError(Guid id)
-        => ProductErrors.NotFound(id);
+    private const string Origin = nameof(ProductRepository);
 
-    public async Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default)
+    private readonly DbSet<Entities.Product> _products = context.Set<Entities.Product>();
+
+    public async Task<Result<bool>> ExistsByNameAsync(
+        string name, CancellationToken cancellationToken = default)
     {
-        try { return await DbSet.AnyAsync(p => p.Name == name, ct); }
+        try
+        {
+            return await _products.AnyAsync(p => p.Name == name, cancellationToken).ConfigureAwait(false);
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.Error(ex, "Error checking product name {Name}", name);
-            return PersistenceErrors.Failure();
+            return PersistenceErrors.Failure(Origin);
         }
     }
 }
 ```
 
-El adaptador de repositorio es también el lugar donde un `Port` compartido (`ILoggerPort<T>`) y el repositorio del contexto se cruzan — el adaptador consume uno para implementar el otro. Ver ejemplos completos de adaptador de repositorio en [repositorio.md](repositorio.md), de logging en [logging.md](logging.md), y de `Port` específico de contexto en [sección 2](#2-por-qué-el-repositorio-no-es-un-port) (`ServiceInfoAdapter`).
+En `Infrastructure/Adapters/Persistence/` solo queda lo transversal a todos los contextos: `UnitOfWorkAdapter` y `SqlServer/SqlServerErrorClassifier`.
+
+**Resto de capacidades — `Infrastructure/Adapters/{Concern}/`, con sufijo `Adapter`.** Logging, validación y los `Port` específicos de contexto sí siguen la convención clásica (`SerilogLoggerAdapter<T>`, `FluentRequestValidationAdapter<T>`, `ServiceInfoAdapter`).
+
+El repositorio es también el lugar donde un `Port` compartido (`ILoggerPort<T>`) y el repositorio del contexto se cruzan — consume uno para implementar el otro. Ver ejemplos completos de repositorio en [repositorio.md](repositorio.md), de Reader en [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md), de logging en [logging.md](logging.md), y de `Port` específico de contexto en [sección 2](#2-por-qué-el-repositorio-no-es-un-port) (`ServiceInfoAdapter`).
 
 ### 5.5 Extensión de registro DI
 
@@ -242,8 +257,10 @@ public static class ProductServiceExtensions
 {
     public static IServiceCollection AddProductServices(this IServiceCollection services)
     {
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IProductCategoryReader, ProductCategoryReader>();
+
         services.AddScoped<IUpdateProductUseCase, UpdateProductUseCase>();
-        services.AddScoped<IProductRepository, ProductRepositoryAdapter>();
         return services;
     }
 }
@@ -266,14 +283,16 @@ El detalle de qué lifetime (`Scoped` / `Singleton`) usa cada tipo de contrato e
 |---|---|---|---|
 | Caso de uso (driving) | `I{CasoDeUso}UseCase` | `Application/UseCases/{CasoDeUso}/` | `IUpdateProductUseCase` |
 | Repositorio | `I{Contexto}Repository` | `Domain/Repositories/` | `IProductRepository` |
+| Reader | `I{Concepto}Reader` | `Contexts/{Contexto}/Application/Ports/` | `IProgramClassificationReader` |
 | Port específico de contexto | `I{Capacidad}Port` | `Contexts/{Contexto}/Application/Ports/` | `IServiceInfoPort` |
 | Port compartido | `I{Capacidad}Port<T>` | `Shared/Application/Ports/` | `ILoggerPort<T>`, `IUnitOfWorkPort`, `IRequestValidatorPort<T>` |
 
-### Adaptadores
+### Implementaciones concretas
 
 | Patrón | Ubicación | Ejemplo | Contrato que implementa |
 |---|---|---|---|
-| `{Contexto}RepositoryAdapter` | `Infrastructure/Adapters/Persistence/{Contexto}/` | `ProductRepositoryAdapter` | `IProductRepository` |
+| `{Aggregate}Repository` | `Infrastructure/Persistence/EntityFramework/{Contexto}/` | `ProgramRepository`, `AuditLogRepository` | `IProgramRepository` |
+| `{Concepto}Reader` | `Infrastructure/Persistence/EntityFramework/{Contexto}/` | `ProgramClassificationReader`, `PersonNameReader` | `IProgramClassificationReader` |
 | `{Contexto}Adapter` | `Infrastructure/Adapters/{Contexto}/` | `ServiceInfoAdapter` | `IServiceInfoPort` |
 | `{Tecnología}LoggerAdapter<T>` | `Infrastructure/Adapters/Logging/` | `SerilogLoggerAdapter<T>` | `ILoggerPort<T>` |
 | `{Tecnología}RequestValidationAdapter<T>` | `Infrastructure/Adapters/Validation/` | `FluentRequestValidationAdapter<T>` | `IRequestValidatorPort<T>` |
@@ -285,7 +304,11 @@ Clases de una tecnología concreta que no son adaptadores porque no implementan 
 | Ejemplo | Ubicación |
 |---|---|
 | `ApplicationDbContext` | `Persistence/EntityFramework/` |
-| `RepositoryBaseEF<TAggregate, TId>` | `Persistence/EntityFramework/Common/` |
+| `RepositoryBaseEF<TAggregate, TId>` (no usado por los repositorios actuales — ver [repositorio.md](repositorio.md#repositorybaseeftaggregate-tid--solo-para-agregados-que-sí-son-la-entidad)) | `Persistence/EntityFramework/Common/` |
+| `Program`, `AuditLog` (entidad de persistencia) | `Persistence/EntityFramework/{Contexto}/Entities/` |
+| `ProgramConfiguration` (`IEntityTypeConfiguration<T>`) | `Persistence/EntityFramework/{Contexto}/Configurations/` |
+| `ProgramRepositoryMapper` (Aggregate ↔ entidad) | `Persistence/EntityFramework/{Contexto}/Mappers/` |
+| `SqlServerErrorClassifier` | `Adapters/Persistence/SqlServer/` |
 | `IStructuralValidator<T>` (marcador de FluentValidation) | `Validation/FluentValidation/` |
 | `CreateProductInputValidator` | `Validation/FluentValidation/Product/` |
 
@@ -306,9 +329,13 @@ Clases de una tecnología concreta que no son adaptadores porque no implementan 
 ```
 src/
 ├── Contexts/{Contexto}/
-│   ├── Domain/Repositories/       → I{Contexto}Repository (persistencia del Aggregate)
+│   ├── Domain/
+│   │   ├── Repositories/          → I{Contexto}Repository (persistencia del Aggregate)
+│   │   ├── Queries/               → objetos de filtro del contexto ({Contexto}Filter)
+│   │   └── Models/                → modelos de lectura que no son agregados
 │   └── Application/
-│       ├── Ports/                 → I{Capacidad}Port (capacidad externa específica del contexto, no persistencia)
+│       ├── Ports/                 → I{Capacidad}Port y I{Concepto}Reader
+│       ├── Providers/             → {Contexto}{Concepto}Provider (opcional)
 │       └── UseCases/{CasoDeUso}/  → I{CasoDeUso}UseCase + implementación, coubicados
 │
 ├── Shared/Application/Ports/      → Port compartidos entre todos los contextos (ILoggerPort<T>, IUnitOfWorkPort, IRequestValidatorPort<T>)
@@ -316,11 +343,15 @@ src/
 └── Infrastructure/
     ├── Adapters/
     │   ├── Logging/                  → {Tecnología}LoggerAdapter<T>
-    │   ├── Persistence/{Contexto}/   → {Contexto}RepositoryAdapter
+    │   ├── Persistence/              → UnitOfWorkAdapter, SqlServer/SqlServerErrorClassifier (transversales)
     │   ├── Validation/               → {Tecnología}RequestValidationAdapter<T>
     │   └── {Contexto}/               → {Contexto}Adapter (implementa un Port específico del contexto)
     ├── Persistence/EntityFramework/
-    │   └── Common/                   → RepositoryBaseEF<TAggregate, TId>
+    │   ├── Common/                   → RepositoryBaseEF<TAggregate, TId>, PersistenceErrors
+    │   └── {Contexto}/               → {Aggregate}Repository, {Concepto}Reader
+    │       ├── Entities/             → entidad de persistencia (fila de la tabla)
+    │       ├── Configurations/       → IEntityTypeConfiguration<T>
+    │       └── Mappers/              → {Aggregate}RepositoryMapper
     └── Extensions/                   → extensiones de registro DI
 
 Api/
@@ -335,6 +366,7 @@ Api/
 - [contextos.md](contextos.md) — dónde nacen los contratos de un contexto nuevo
 - [casos-de-uso.md](casos-de-uso.md) — implementación del caso de uso de cada tipo de operación
 - [controllers.md](controllers.md) — cómo el controller invoca un caso de uso
-- [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work, lifetimes de registro
+- [repositorio.md](repositorio.md) — `IRootRepository`, entidad de persistencia + mapper, Unit of Work, lifetimes de registro
+- [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — Reader vs. Provider vs. Repository
 - [logging.md](logging.md) — `ILoggerPort<T>` en detalle
 - [validaciones.md](validaciones.md) — `IStructuralValidator<T>` y las cinco capas de validación

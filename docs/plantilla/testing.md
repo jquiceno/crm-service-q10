@@ -145,6 +145,45 @@ public async Task ExecuteAsync_WithValidInput_PersistsAggregateAndReturnsSuccess
 }
 ```
 
+#### Assertar `Origin` en las ramas de fallo
+
+Los tests de casos de uso fijan **quién** produjo el error, no solo que falló. Es lo que evita que alguien "enriquezca" un error ajeno y borre la traza real:
+
+```csharp
+[Fact]
+public async Task ExecuteAsync_WhenRepositoryFails_PropagatesTheRepositoryOrigin()
+{
+    _repository.GetByIdAsync(Code, Arg.Any<CancellationToken>())
+        .Returns(PersistenceErrors.Failure("ProductRepository"));
+
+    var result = await _sut.ExecuteAsync(Code, CancellationToken.None);
+
+    result.IsFailure.ShouldBeTrue();
+    result.Error.Origin.ShouldBe("ProductRepository", "the use case does not replace the origin of the failure");
+}
+
+[Fact]
+public async Task ExecuteAsync_WhenDomainRejectsInput_StampsTheUseCaseOrigin()
+{
+    var result = await _sut.ExecuteAsync(InvalidInput, CancellationToken.None);
+
+    result.IsFailure.ShouldBeTrue();
+    result.Error.Origin.ShouldBe(nameof(UpdateProductUseCase));
+}
+```
+
+La regla que estos tests fijan está en [casos-de-uso.md](casos-de-uso.md#7-propagación-de-errores-context-y-origin).
+
+### Readers — dobles de las lecturas auxiliares
+
+Un Reader se mockea como cualquier otro contrato de aplicación (`Substitute.For<IProductCategoryReader>()`), y su implementación se testea aparte contra la base de datos, igual que el repositorio:
+
+```csharp
+_categoryReader.ExistsAsync(CategoryId, Arg.Any<CancellationToken>()).Returns(true);
+```
+
+Cubrir siempre las tres ramas: existe, no existe, y el Reader falla (el error se propaga con el `Origin` del Reader, no del use case).
+
 ### Providers — application services de resolución
 
 Los Providers son clases concretas que se instancian directamente en el test con el mock del repositorio del que dependen. No se mockea el Provider en sí: se testea su comportamiento real.
@@ -234,9 +273,15 @@ public sealed class ProductEndpointsTests : IntegrationTestBase
     [Fact]
     public async Task GetById_Scenario_ReturnsOk()
     {
-        // Hacer seed de datos — el agregado ES la entidad, se agrega directamente
-        var product = ProductAggregate.Create("Keyboard", 49.90m).Value;
-        Db.Set<ProductAggregate>().Add(product);
+        // Hacer seed con la ENTIDAD DE PERSISTENCIA, no con el agregado:
+        // el agregado no es el tipo que EF Core mapea (ver repositorio.md)
+        var product = new Infrastructure.Persistence.EntityFramework.Products.Entities.Product
+        {
+            Id = Guid.NewGuid(),
+            Name = "Keyboard",
+            Price = 49.90m,
+        };
+        Db.Products.Add(product);
         await Db.SaveChangesAsync();
 
         // Llamar al endpoint con HttpClient pre-configurado

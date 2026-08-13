@@ -88,7 +88,7 @@ public sealed class PagedResult<T> : Result
 
 ## Conversiones implícitas
 
-Las conversiones implícitas eliminan el ruido del código al evitar llamadas explícitas a `Success()` y `Failure()`.
+Las conversiones implícitas eliminan el ruido del código al evitar llamadas explícitas a `Success()` y `Failure()`. **Usarlas es la convención**, no una opción estilística: en Value Objects, agregados, repositorios y casos de uso se retorna el valor o el error directamente.
 
 ### Desde un valor → Result exitoso
 
@@ -115,6 +115,25 @@ return PersistenceErrors.Failure();   // implícito: DomainError → PagedResult
 Result<Price> result = Price.Create(value);
 ```
 
+### Cuándo sí hace falta `Success(...)` explícito
+
+Dos casos, y solo dos:
+
+- **`PagedResult<T>`** — `Success` recibe dos argumentos (`items`, `totalCount`) y no hay conversión implícita desde `T`; para el error, `PagedResult<T>.Failure(error)` o la conversión implícita desde `DomainError`.
+- **Cuando el compilador no puede inferir la conversión**, típicamente al construir el valor con una expresión de colección hacia una interfaz:
+
+```csharp
+IReadOnlyList<AuditStatisticsSeriesDto> dtos = [.. result.Value.Select(s => s.ToDto())];
+return Result<IReadOnlyList<AuditStatisticsSeriesDto>>.Success(dtos);
+```
+
+Fuera de esos dos casos, envolver a mano es ruido:
+
+```csharp
+return Result<UpdateProductOutputDto>.Success(aggregate.ToOutputDto());   // ✘
+return aggregate.ToOutputDto();                                          // ✔
+```
+
 > **Restricción importante**: `Result<T>.Success(value)` lanza `ArgumentNullException` si `value` es null. El patrón asume que un resultado exitoso siempre tiene un valor.
 
 
@@ -128,39 +147,55 @@ Result<Price> result = Price.Create(value);
 public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
     CreateProductInputDto input, CancellationToken cancellationToken = default)
 {
-    // 1. Verificar precondición de negocio
-    var existsResult = await repository.ExistsByNameAsync(input.Name!, cancellationToken);
-    if (existsResult.IsFailure)
-        return existsResult.Error with { Context = ProductErrors.Context, Origin = Origin };
-    if (existsResult.Value)
-        return ProductErrors.NameAlreadyExists with
-            { Context = ProductErrors.Context, Origin = Origin };
-
-    // 2. Crear el Aggregate (validación de dominio)
+    // 1. Crear el Aggregate (validación de dominio) — el error nace en el dominio: se sella
     var aggregateResult = input.ToAggregate();
     if (aggregateResult.IsFailure)
         return aggregateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
+    // 2. Precondición de negocio — el fallo de infraestructura se propaga tal cual;
+    //    la regla que decide este use case sí se sella
+    var existsResult = await repository
+        .ExistsByNameAsync(input.Name!, cancellationToken)
+        .ConfigureAwait(false);
+    if (existsResult.IsFailure)
+        return existsResult.Error;
+    if (existsResult.Value)
+        return ProductErrors.NameAlreadyExists with
+            { Context = ProductErrors.Context, Origin = Origin };
+
     // 3. Persistir — repositorio solo encola el cambio
-    var addResult = await repository.AddAsync(aggregateResult.Value, cancellationToken);
+    var addResult = await repository
+        .AddAsync(aggregateResult.Value, cancellationToken)
+        .ConfigureAwait(false);
     if (addResult.IsFailure)
-        return addResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+        return addResult.Error;
 
     // 4. Confirmar — Unit of Work persiste todo o nada
-    var commitResult = await unitOfWork.CommitAsync(cancellationToken);
+    var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
     if (commitResult.IsFailure)
-        return commitResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+        return commitResult.Error;
 
     return aggregateResult.Value.ToOutputDto();   // implícito → Result<OutputDto>
 }
 ```
 
+### Quién sella `Context` y `Origin`
+
+**Cada pieza sella los errores que ella misma origina, y no toca los que recibe.** El repositorio, los readers y el `UnitOfWorkAdapter` ya estampan su propio `Origin` (`PersistenceErrors.Failure(Origin)`, `SqlServerErrorClassifier.Classify(ex, Origin)`, `ProductErrors.NotFound(id) with { Origin = Origin }`); reescribirlo desde el caso de uso borraría la traza real del fallo.
+
+El caso de uso solo sella:
+
+- los errores que devuelve el agregado o un Value Object (el dominio no conoce el contexto ni al llamador), y
+- los errores que él mismo decide (`NotFound` tras un `ExistsAsync` en falso, un conflicto de negocio).
+
+El desarrollo completo de la regla, con la tabla de decisión, está en [casos-de-uso.md](casos-de-uso.md#7-propagación-de-errores-context-y-origin).
+
 ### Propagación del error sin transformación
 
 ```csharp
-var result = await repository.GetAllAsync(page, cancellationToken);
+var result = await repository.GetAllAsync(page, cancellationToken).ConfigureAwait(false);
 if (result.IsFailure)
-    return result.Error;   // propaga tal como viene
+    return result.Error;   // propaga tal como viene — este es el caso por defecto
 ```
 
 

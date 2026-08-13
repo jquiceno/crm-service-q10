@@ -20,15 +20,15 @@ Un caso de uso es responsable de:
 
 - **Orquestar** la operación: cargar datos, invocar al dominio, persistir, retornar.
 - **Traducir** entre el mundo HTTP (DTOs) y el mundo de dominio (Aggregates).
-- **Propagar errores** enriqueciéndolos con `Context` y `Origin` (ver [patron-result.md](patron-result.md)).
+- **Propagar errores**: sellando con `Context` y `Origin` solo los que él mismo origina, y dejando intactos los que ya vienen sellados desde otra pieza (ver [sección 7](#7-propagación-de-errores-context-y-origin)).
 
 Un caso de uso **no** es responsable de:
 
 - Validar reglas de negocio — eso vive en el Aggregate o en los Value Objects ([entidades-y-agregados.md](entidades-y-agregados.md), [value-objects.md](value-objects.md)).
 - Validar la estructura del request (campos requeridos, formatos) — eso vive en el validador de FluentValidation ([validaciones.md](validaciones.md)).
-- Saber cómo se persiste algo — eso vive en el adaptador de repositorio ([repositorio.md](repositorio.md)).
+- Saber cómo se persiste algo — eso vive en el repositorio del contexto ([repositorio.md](repositorio.md)).
 
-Si notas que un caso de uso necesita resolver datos auxiliares antes de ejecutar su lógica principal (por ejemplo, "si el cliente no envía categorías, usa las categorías activas por defecto"), esa responsabilidad se extrae a un **Provider** en lugar de crecer el use case — ver [sección 6](#6-paso-opcional--provider).
+Si notas que un caso de uso necesita datos auxiliares que no son su Aggregate —validar contra un catálogo, resolver un nombre desde otra tabla, aplicar un valor por defecto— esa responsabilidad se extrae a un **Reader** o a un **Provider** en lugar de crecer el use case — ver [sección 6](#6-paso-opcional--reader-o-provider).
 
 ---
 
@@ -37,25 +37,62 @@ Si notas que un caso de uso necesita resolver datos auxiliares antes de ejecutar
 Ciclo de una request para cualquier caso de uso:
 
 ```
-1. El Controller recibe la interfaz del caso de uso por parámetro (inyección por parámetro, no por constructor)
-2. El Controller invoca useCase.ExecuteAsync(input, ct)
+1. El Controller recibe las interfaces de sus casos de uso por el constructor primario
+2. El Controller invoca useCase.ExecuteAsync(input, cancellationToken)
 3. El Use Case orquesta: dominio → repositorio → commit
 4. El Use Case retorna un Result<TOutputDto> / Result / PagedResult<TOutputDto>
 5. El framework traduce el Result al contrato HTTP uniforme (ver contrato-api.md)
 ```
 
+**Los casos de uso se inyectan en el constructor del controller**, no como parámetro de cada action:
+
 ```csharp
-public async Task<HttpOkResult<UpdateProductOutputDto>> Update(
-    [FromRoute] Guid id,
-    [FromBody] UpdateProductInputDto input,
-    IUpdateProductUseCase updateProduct,   // ← el controller solo conoce la interfaz
-    CancellationToken ct)
+[ApiController]
+[Route("[controller]")]
+[Tags("Products")]
+public sealed class ProductsController(
+    IGetProductsUseCase getProductsUseCase,
+    IUpdateProductUseCase updateProductUseCase) : ControllerBase   // ← solo conoce las interfaces
 {
-    return await updateProduct.ExecuteAsync(id, input, ct).ConfigureAwait(false);
+    [HttpPut("{id}")]
+    public async Task<HttpOkResult<UpdateProductOutputDto>> UpdateProduct(
+        [FromRoute] Guid id,
+        [FromBody] UpdateProductInputDto input,
+        CancellationToken cancellationToken = default)
+    {
+        return await updateProductUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
+    }
 }
 ```
 
+La firma de la action queda con el contrato HTTP puro (ruta, query, body, `CancellationToken`) y sin dependencias mezcladas. El parámetro se nombra `{casoDeUso}UseCase` para que no colisione con nada del request.
+
 Los casos de uso se registran como `Scoped` en el contenedor de DI, para que compartan el mismo `DbContext` del request junto con el repositorio y el Unit of Work.
+
+### Retornar el resultado de forma implícita
+
+`Result<T>` define `implicit operator Result<T>(T value)` e `implicit operator Result<T>(DomainError error)`, y `Result` define la conversión desde `DomainError`. Aprovecharlas es la forma canónica: **no envuelvas a mano con `Result<T>.Success(...)` / `Result.Failure(...)`**.
+
+```csharp
+// ✔ implícito
+return aggregate.ToOutputDto();          // T          → Result<T>
+return result.Error;                     // DomainError → Result<T>
+return ProgramErrors.NotFound(code);     // DomainError → Result
+
+// ✘ ruido innecesario
+return Result<UpdateProductOutputDto>.Success(aggregate.ToOutputDto());
+return Result<UpdateProductOutputDto>.Failure(result.Error);
+```
+
+Las dos excepciones legítimas, donde el compilador no puede inferir la conversión:
+
+- `PagedResult<T>`, que se construye con dos argumentos: `PagedResult<T>.Success(items, totalCount)` y `PagedResult<T>.Failure(error)`.
+- Cuando el valor se construye con una expresión de colección (`[.. items.Select(...)]`) y el tipo destino es una interfaz: se declara primero la variable tipada y se retorna, o se usa `Result<IReadOnlyList<T>>.Success(dtos)`.
+
+```csharp
+IReadOnlyList<AuditStatisticsSeriesDto> dtos = [.. result.Value.Select(s => s.ToDto())];
+return Result<IReadOnlyList<AuditStatisticsSeriesDto>>.Success(dtos);
+```
 
 ---
 
@@ -86,23 +123,58 @@ Patrón resumido del Use Case:
 
 ```csharp
 public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
-    CreateProductInputDto input, CancellationToken ct = default)
+    CreateProductInputDto input, CancellationToken cancellationToken = default)
 {
     var aggregateResult = input.ToAggregate();          // 1. construir (valida dominio)
     if (aggregateResult.IsFailure)
         return aggregateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
-    var addResult = await repository.AddAsync(aggregateResult.Value, ct);  // 2. persistir
+    var addResult = await repository                    // 2. persistir
+        .AddAsync(aggregateResult.Value, cancellationToken)
+        .ConfigureAwait(false);
     if (addResult.IsFailure)
-        return addResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+        return addResult.Error;                         //    ya viene sellado por el repositorio
 
-    var commitResult = await unitOfWork.CommitAsync(ct);  // 3. commit
+    var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);  // 3. commit
     if (commitResult.IsFailure)
-        return commitResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+        return commitResult.Error;                      //    ya viene sellado por UnitOfWorkAdapter
 
-    return aggregateResult.Value.ToOutputDto();
+    return aggregateResult.Value.ToOutputDto();         // 4. implícito → Result<CreateProductOutputDto>
 }
 ```
+
+Solo el error del paso 1 se sella: nace del dominio, que no conoce ni el contexto ni quién lo invocó. Los pasos 2 y 3 devuelven errores que el repositorio y el Unit of Work ya estamparon con su propio `Origin` — ver [sección 7](#7-propagación-de-errores-context-y-origin).
+
+Cuando el `INSERT` necesita confirmarse dentro del repositorio (por ejemplo para recuperar una `IDENTITY`), el contrato del contexto expone `CreateAsync` en lugar de `AddAsync` y el caso de uso **no** inyecta `IUnitOfWorkPort`:
+
+```csharp
+public sealed class CreateAuditLogEntryUseCase(
+    IAuditLogRepository repository,
+    IPersonNameReader personNameReader) : ICreateAuditLogEntryUseCase
+{
+    public async Task<Result<CreateAuditLogEntryOutputDto>> ExecuteAsync(
+        CreateAuditLogEntryInputDto input, CancellationToken cancellationToken = default)
+    {
+        var userFullName = await personNameReader
+            .GetFullNameAsync(input.UserPersonCode, cancellationToken)
+            .ConfigureAwait(false);
+
+        var aggregateResult = input.ToAggregate(userFullName);
+        if (aggregateResult.IsFailure)
+            return aggregateResult.Error;
+
+        var persistResult = await repository
+            .CreateAsync(aggregateResult.Value, cancellationToken)
+            .ConfigureAwait(false);
+        if (persistResult.IsFailure)
+            return persistResult.Error;
+
+        return persistResult.Value.ToOutputDto();
+    }
+}
+```
+
+Ver [repositorio.md](repositorio.md#createasync--cuando-el-insert-debe-confirmarse-dentro-del-repositorio).
 
 ---
 
@@ -117,14 +189,16 @@ A diferencia de `Create`, el Aggregate no se construye — se carga del reposito
 public interface IUpdateProductUseCase
 {
     Task<Result<UpdateProductOutputDto>> ExecuteAsync(
-        Guid id, UpdateProductInputDto input, CancellationToken ct = default);
+        Guid id, UpdateProductInputDto input, CancellationToken cancellationToken = default);
 }
 ```
 
-**DTOs:**
+**DTOs** — **todas** las propiedades, tanto de entrada como de salida, llevan `[property: Description(...)]`; es lo que alimenta la documentación OpenAPI del contrato (ver [openapi.md](openapi.md#descripción-de-las-propiedades-de-los-dtos)):
 
 ```csharp
 // Contexts/Product/Application/UseCases/UpdateProduct/UpdateProductInputDto.cs
+using System.ComponentModel;
+
 public sealed record UpdateProductInputDto(
     [property: Description("Nuevo nombre del producto. Máximo 200 caracteres.")]
     string? Name,
@@ -132,42 +206,54 @@ public sealed record UpdateProductInputDto(
     decimal Price);
 
 // Contexts/Product/Application/UseCases/UpdateProduct/UpdateProductOutputDto.cs
-public sealed record UpdateProductOutputDto(Guid Id, string Name, decimal Price, DateTime UpdatedAt);
+public sealed record UpdateProductOutputDto(
+    [property: Description("Identificador del producto.")]
+    Guid Id,
+    [property: Description("Nombre del producto.")]
+    string Name,
+    [property: Description("Precio vigente del producto.")]
+    decimal Price,
+    [property: Description("Fecha de la última actualización, en UTC.")]
+    DateTime UpdatedAt);
 ```
 
 `Name` es nullable para que el validador de entrada pueda reportar el error con su `Property` correcta en lugar de que el deserializador falle con un 400 genérico.
 
-**Mapping** — solo `ToOutputDto()`, no hay `ToAggregate()`:
+**Mapping** — no hay `ToAggregate()` (el agregado ya existe); hay `ToUpdateArgs()`, que arma el `record` de argumentos del dominio, y `ToOutputDto()`:
 
 ```csharp
 // Contexts/Product/Application/UseCases/UpdateProduct/UpdateProductMapping.cs
 public static class UpdateProductMapping
 {
+    public static UpdateProductArgs ToUpdateArgs(this UpdateProductInputDto input)
+        => new(input.Name!, input.Price);
+
     public static UpdateProductOutputDto ToOutputDto(this ProductAggregate aggregate)
         => new(aggregate.Id, aggregate.Name, aggregate.Price, (aggregate.UpdatedAt ?? aggregate.CreatedAt)!.Value);
 }
 ```
 
+`UpdateProductArgs` lleva **solo primitivos**; los Value Objects los construye el agregado por dentro (ver [entidades-y-agregados.md](entidades-y-agregados.md#args-records-de-argumentos-de-los-factories)).
+
 **Método de actualización en el Aggregate** — valida los nuevos valores y, si son correctos, actualiza el estado interno y marca la entidad como modificada:
 
 ```csharp
 // Contexts/Product/Domain/Aggregates/ProductAggregate.cs  (fragmento)
-public Result Update(string? name, decimal price)
+public Result Update(UpdateProductArgs input)
 {
-    if (string.IsNullOrWhiteSpace(name))
-        return ProductErrors.NameRequired with { Context = ProductErrors.Context, Origin = nameof(Update) };
-
-    var priceResult = Price.Create(price);
+    var priceResult = Price.Create(input.Price);
     if (priceResult.IsFailure)
-        return priceResult.TypedError with { Context = ProductErrors.Context, Origin = nameof(Update) };
+        return priceResult.TypedError;
 
-    Name  = name;
+    Name  = input.Name;
     Price = priceResult.Value.Value;
     SetUpdatedAt(DateTime.UtcNow);   // actualiza la columna de auditoría que EF Core persiste
 
     return Result.Success();
 }
 ```
+
+El agregado devuelve el error sin `Context` ni `Origin`: no sabe desde dónde lo invocan. Es el caso de uso el que lo sella al propagarlo.
 
 El agregado **es** una entidad (`AggregateRoot<TId> : Entity<TId>`) — por eso `Update()` asigna las propiedades directamente y llama a `SetUpdatedAt()`, definido en `AggregateRoot<TId>`. Ver [entidades-y-agregados.md](entidades-y-agregados.md).
 
@@ -184,49 +270,57 @@ public sealed class UpdateProductUseCase(
     private const string Origin = nameof(UpdateProductUseCase);
 
     public async Task<Result<UpdateProductOutputDto>> ExecuteAsync(
-        Guid id, UpdateProductInputDto input, CancellationToken ct = default)
+        Guid id, UpdateProductInputDto input, CancellationToken cancellationToken = default)
     {
-        var getResult = await repository.GetByIdAsync(id, ct).ConfigureAwait(false);   // 1. cargar
+        var getResult = await repository                                    // 1. cargar
+            .GetByIdAsync(id, cancellationToken)
+            .ConfigureAwait(false);
         if (getResult.IsFailure)
-            return getResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return getResult.Error;
 
         var aggregate = getResult.Value;
 
-        var updateResult = aggregate.Update(input.Name, input.Price);                  // 2. aplicar cambios
+        var updateResult = aggregate.Update(input.ToUpdateArgs());          // 2. aplicar cambios
         if (updateResult.IsFailure)
             return updateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
-        var updateRepoResult = repository.Update(aggregate);                           // 3. marcar modificado
+        var updateRepoResult = repository.Update(aggregate);                // 3. marcar modificado
         if (updateRepoResult.IsFailure)
-            return updateRepoResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return updateRepoResult.Error;
 
-        var commitResult = await unitOfWork.CommitAsync(ct).ConfigureAwait(false);      // 4. commit
+        var commitResult = await unitOfWork                                 // 4. commit
+            .CommitAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (commitResult.IsFailure)
-            return commitResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return commitResult.Error;
 
         return aggregate.ToOutputDto();
     }
 }
 ```
 
-Si `GetByIdAsync` no encuentra el producto, retorna automáticamente `ProductErrors.NotFound(id)` (configurado en `GetNotFoundError()` del adaptador de repositorio), que el framework traduce a `404 Not Found`.
+De las cuatro ramas de fallo, solo la del paso 2 vuelve a sellar el error: es la única que nace dentro del dominio. Las otras tres propagan tal cual — ver [sección 7](#7-propagación-de-errores-context-y-origin).
+
+`aggregate.Update(...)` recibe un `record` de argumentos (`UpdateProductArgs`) construido por el mapping, no una lista de primitivos sueltos. Ver [entidades-y-agregados.md](entidades-y-agregados.md#args-records-de-argumentos-de-los-factories).
+
+Si `GetByIdAsync` no encuentra el producto, el repositorio retorna `ProductErrors.NotFound(id) with { Origin = Origin }`, que el framework traduce a `404 Not Found`.
 
 **Controller:**
 
 ```csharp
-// Api/Controllers/ProductController.cs  (fragmento)
+// Api/Controllers/ProductsController.cs  (fragmento)
 [HttpPut("{id}")]
-[Tags("products")]
 [ValidateRequest]
-[ProducesResponseType(typeof(HttpOkResult<UpdateProductOutputDto>), StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status400BadRequest)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<HttpOkResult<UpdateProductOutputDto>> Update(
+[ProducesResponseType(typeof(ApiSuccessResponse<UpdateProductOutputDto>), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+public async Task<HttpOkResult<UpdateProductOutputDto>> UpdateProduct(
     [FromRoute] Guid id,
     [FromBody] UpdateProductInputDto input,
-    IUpdateProductUseCase updateProduct,
-    CancellationToken ct)
-    => await updateProduct.ExecuteAsync(id, input, ct).ConfigureAwait(false);
+    CancellationToken cancellationToken = default)
+{
+    return await updateProductUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
+}
 ```
 
 Usa `[HttpPut]` y `HttpOkResult<T>` (`200 OK`) en lugar de `HttpCreatedResult<T>` (`201 Created`), ya que el recurso ya existía.
@@ -249,29 +343,29 @@ No hay DTO de salida ni Mapping — el flujo es puramente de orquestación: carg
 // Contexts/Product/Application/UseCases/DeleteProduct/IDeleteProductUseCase.cs
 public interface IDeleteProductUseCase
 {
-    Task<Result> ExecuteAsync(Guid id, CancellationToken ct = default);
+    Task<Result> ExecuteAsync(Guid id, CancellationToken cancellationToken = default);
 }
 ```
 
-**Use Case:**
+**Use Case** — cuando el `RemoveAsync` del repositorio ya confirma el borrado por su cuenta (borrado en cascada dentro de una transacción, `ExecuteDelete`, etc.), el caso de uso no inyecta `IUnitOfWorkPort` y se reduce a delegar:
 
 ```csharp
 // Contexts/Product/Application/UseCases/DeleteProduct/DeleteProductUseCase.cs
-public sealed class DeleteProductUseCase(
-    IProductRepository repository,
-    IUnitOfWorkPort unitOfWork) : IDeleteProductUseCase
+public sealed class DeleteProductUseCase(IProductRepository repository) : IDeleteProductUseCase
 {
-    private const string Origin = nameof(DeleteProductUseCase);
-
-    public async Task<Result> ExecuteAsync(Guid id, CancellationToken ct = default)
-    {
-        var removeResult = await repository.RemoveAsync(id, ct).ConfigureAwait(false);   // 1. eliminar
-        if (removeResult.IsFailure)
-            return removeResult.Error with { Context = ProductErrors.Context, Origin = Origin };
-
-        return await unitOfWork.CommitAsync(ct).ConfigureAwait(false);                   // 2. commit
-    }
+    public Task<Result> ExecuteAsync(Guid id, CancellationToken cancellationToken = default) =>
+        repository.RemoveAsync(id, cancellationToken);
 }
+```
+
+Si en cambio `RemoveAsync` solo marca el agregado para borrado, el caso de uso agrega el commit:
+
+```csharp
+var removeResult = await repository.RemoveAsync(id, cancellationToken).ConfigureAwait(false);
+if (removeResult.IsFailure)
+    return removeResult.Error;
+
+return await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
 ```
 
 `RemoveAsync` recibe el id y resuelve el agregado internamente: si no existe retorna el `NotFoundError` del contexto, así que el caso de uso no necesita un `GetByIdAsync` previo solo para validar existencia (ver `IRootRepository` en [repositorio.md](repositorio.md)).
@@ -280,12 +374,15 @@ public sealed class DeleteProductUseCase(
 
 ```csharp
 [HttpDelete("{id}")]
-[Tags("products")]
 [ProducesResponseType(StatusCodes.Status204NoContent)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<HttpNoContentResult> Delete(
-    [FromRoute] Guid id, IDeleteProductUseCase deleteProduct, CancellationToken ct)
-    => await deleteProduct.ExecuteAsync(id, ct).ConfigureAwait(false);
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+public async Task<HttpNoContentResult> DeleteProduct(
+    [FromRoute] Guid id,
+    CancellationToken cancellationToken = default)
+{
+    return await deleteProductUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+}
 ```
 
 ---
@@ -300,25 +397,25 @@ Es solo lectura: no hay Aggregate que mutar ni `IUnitOfWorkPort` que inyectar. E
 // Contexts/Product/Application/UseCases/GetProductById/IGetProductByIdUseCase.cs
 public interface IGetProductByIdUseCase
 {
-    Task<Result<GetProductByIdOutputDto>> ExecuteAsync(Guid id, CancellationToken ct = default);
+    Task<Result<GetProductByIdOutputDto>> ExecuteAsync(
+        Guid id, CancellationToken cancellationToken = default);
 }
 ```
 
-**Use Case:**
+**Use Case** — no origina ningún error propio, así que no necesita ni la constante `Origin`:
 
 ```csharp
 // Contexts/Product/Application/UseCases/GetProductById/GetProductByIdUseCase.cs
 public sealed class GetProductByIdUseCase(IProductRepository repository) : IGetProductByIdUseCase
 {
-    private const string Origin = nameof(GetProductByIdUseCase);
-
-    public async Task<Result<GetProductByIdOutputDto>> ExecuteAsync(Guid id, CancellationToken ct = default)
+    public async Task<Result<GetProductByIdOutputDto>> ExecuteAsync(
+        Guid id, CancellationToken cancellationToken = default)
     {
-        var getResult = await repository.GetByIdAsync(id, ct).ConfigureAwait(false);
-        if (getResult.IsFailure)
-            return getResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+        var result = await repository.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
+        if (result.IsFailure)
+            return result.Error;
 
-        return getResult.Value.ToOutputDto();
+        return result.Value.ToOutputDto();
     }
 }
 ```
@@ -327,12 +424,15 @@ public sealed class GetProductByIdUseCase(IProductRepository repository) : IGetP
 
 ```csharp
 [HttpGet("{id}")]
-[Tags("products")]
-[ProducesResponseType(typeof(HttpOkResult<GetProductByIdOutputDto>), StatusCodes.Status200OK)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-public async Task<HttpOkResult<GetProductByIdOutputDto>> GetById(
-    [FromRoute] Guid id, IGetProductByIdUseCase getProductById, CancellationToken ct)
-    => await getProductById.ExecuteAsync(id, ct).ConfigureAwait(false);
+[ProducesResponseType(typeof(ApiSuccessResponse<GetProductByIdOutputDto>), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+[OutputCache(Duration = 60, Tags = [CacheTag])]
+public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
+    [FromRoute] Guid id,
+    CancellationToken cancellationToken = default)
+{
+    return await getProductByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+}
 ```
 
 ---
@@ -344,9 +444,11 @@ Cuando el listado admite filtros, el contexto define un objeto de filtro propio 
 **Objeto de filtro (dominio):**
 
 ```csharp
-// Contexts/Product/Domain/Filters/ProductFilter.cs
+// Contexts/Product/Domain/Queries/ProductFilter.cs
 public sealed record ProductFilter(string? NameContains, decimal? MinPrice, decimal? MaxPrice);
 ```
+
+Los objetos de filtro viven en `Domain/Queries/`, junto con los demás modelos de consulta del contexto (filas de proyección, series). Si el filtro tiene reglas propias — un rango de fechas con ventana por defecto, por ejemplo — se construye con un factory `Create(...)` que retorna `Result<ProductFilter>` y valida, en lugar de un constructor libre.
 
 **Repositorio extendido:**
 
@@ -354,60 +456,63 @@ public sealed record ProductFilter(string? NameContains, decimal? MinPrice, deci
 // Contexts/Product/Domain/Repositories/IProductRepository.cs  (fragmento)
 public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 {
-    Task<PagedResult<ProductAggregate>> SearchAsync(
-        ProductFilter filter, PageQuery page, CancellationToken ct = default);
+    Task<PagedResult<ProductAggregate>> GetAsync(
+        ProductFilter filter, PageQuery page, CancellationToken cancellationToken = default);
 }
 ```
 
 **Interfaz del caso de uso:**
 
 ```csharp
-// Contexts/Product/Application/UseCases/GetAllProducts/IGetAllProductsUseCase.cs
-public interface IGetAllProductsUseCase
+// Contexts/Product/Application/UseCases/GetProducts/IGetProductsUseCase.cs
+public interface IGetProductsUseCase
 {
-    Task<PagedResult<GetAllProductsOutputDto>> ExecuteAsync(
-        GetAllProductsInputDto input, PageQuery page, CancellationToken ct = default);
+    Task<PagedResult<GetProductsOutputDto>> ExecuteAsync(
+        GetProductsInputDto input, PageQuery page, CancellationToken cancellationToken = default);
 }
 ```
 
 **Use Case** — construye el filtro desde el DTO de entrada y mapea cada item del resultado paginado:
 
 ```csharp
-// Contexts/Product/Application/UseCases/GetAllProducts/GetAllProductsUseCase.cs
-public sealed class GetAllProductsUseCase(IProductRepository repository) : IGetAllProductsUseCase
+// Contexts/Product/Application/UseCases/GetProducts/GetProductsUseCase.cs
+public sealed class GetProductsUseCase(IProductRepository repository) : IGetProductsUseCase
 {
-    public async Task<PagedResult<GetAllProductsOutputDto>> ExecuteAsync(
-        GetAllProductsInputDto input, PageQuery page, CancellationToken ct = default)
+    public async Task<PagedResult<GetProductsOutputDto>> ExecuteAsync(
+        GetProductsInputDto input, PageQuery page, CancellationToken cancellationToken = default)
     {
         var filter = new ProductFilter(input.NameContains, input.MinPrice, input.MaxPrice);
 
-        var result = await repository.SearchAsync(filter, page, ct).ConfigureAwait(false);
+        var result = await repository.GetAsync(filter, page, cancellationToken).ConfigureAwait(false);
         if (result.IsFailure)
-            return PagedResult<GetAllProductsOutputDto>.Failure(result.Error);
+            return PagedResult<GetProductsOutputDto>.Failure(result.Error);
 
-        return PagedResult<GetAllProductsOutputDto>.Success(
+        return PagedResult<GetProductsOutputDto>.Success(
             [.. result.Items.Select(p => p.ToOutputDto())],
             result.TotalCount);
     }
 }
 ```
 
-Al no retornar `Result<T>` sino `PagedResult<T>` directamente, no hay enriquecimiento manual de `Context`/`Origin` en este Use Case — `PagedResult.Failure` propaga el error tal como lo entrega el repositorio. Ver [repositorio.md](repositorio.md#paginación) para el flujo de paginación de punta a punta (`PageQuery`, `PageQueryInputDto`, contrato de respuesta).
+`PagedResult<T>` es la excepción al retorno implícito: `Success` toma dos argumentos y `Failure` es necesario para propagar el error, porque la conversión implícita solo existe desde `DomainError`. En ambos casos el error del repositorio se propaga **sin** tocar `Context`/`Origin`. Ver [repositorio.md](repositorio.md#paginación) para el flujo de paginación de punta a punta (`PageQuery`, `PageQueryInputDto`, contrato de respuesta).
 
 **Controller:**
 
 ```csharp
 [HttpGet]
-[Tags("products")]
 [ValidateRequest]
-public async Task<HttpOkResult<PagedResult<GetAllProductsOutputDto>>> GetAll(
-    [FromQuery] GetAllProductsInputDto input,
+[ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetProductsOutputDto>>), StatusCodes.Status200OK)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+[OutputCache(Duration = 60, Tags = [CacheTag])]
+public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
+    [FromQuery] GetProductsInputDto filter,
     [FromQuery] PageQueryInputDto pagination,
-    IGetAllProductsUseCase getAllProducts,
-    CancellationToken ct)
+    CancellationToken cancellationToken = default)
 {
-    var page = new PageQuery(pagination.PageIndex, pagination.PageSize);
-    return await getAllProducts.ExecuteAsync(input, page, ct).ConfigureAwait(false);
+    return await getProductsUseCase.ExecuteAsync(
+        filter,
+        new PageQuery(pagination.PageIndex, pagination.PageSize),
+        cancellationToken).ConfigureAwait(false);
 }
 ```
 
@@ -423,11 +528,12 @@ Cuando el caso de uso no crea ni modifica un Aggregate sino que **vincula o desv
 // Contexts/Product/Application/UseCases/LinkProductCategory/ILinkProductCategoryUseCase.cs
 public interface ILinkProductCategoryUseCase
 {
-    Task<Result> ExecuteAsync(Guid productId, Guid categoryId, CancellationToken ct = default);
+    Task<Result> ExecuteAsync(
+        Guid productId, Guid categoryId, CancellationToken cancellationToken = default);
 }
 ```
 
-**Use Case** — valida ambos lados antes de crear el vínculo, y falla explícitamente si ya existe (en lugar de un `INSERT` duplicado silencioso o un error de base de datos):
+**Use Case** — valida ambos lados antes de crear el vínculo, y falla explícitamente si ya existe (en lugar de un `INSERT` duplicado silencioso o un error de base de datos). Nótese qué se sella y qué no: los fallos de infraestructura (`.Error`) se propagan tal cual; las reglas que decide **este** caso de uso (`NotFound`, `AlreadyLinked`) sí se estampan con `Context` y `Origin`:
 
 ```csharp
 // Contexts/Product/Application/UseCases/LinkProductCategory/LinkProductCategoryUseCase.cs
@@ -438,27 +544,37 @@ public sealed class LinkProductCategoryUseCase(
 {
     private const string Origin = nameof(LinkProductCategoryUseCase);
 
-    public async Task<Result> ExecuteAsync(Guid productId, Guid categoryId, CancellationToken ct = default)
+    public async Task<Result> ExecuteAsync(
+        Guid productId, Guid categoryId, CancellationToken cancellationToken = default)
     {
-        var productExists = await productRepository.ExistsAsync(productId, ct).ConfigureAwait(false);
+        var productExists = await productRepository
+            .ExistsAsync(productId, cancellationToken)
+            .ConfigureAwait(false);
         if (productExists.IsFailure)
-            return productExists.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return productExists.Error;
         if (!productExists.Value)
             return ProductErrors.NotFound(productId) with { Context = ProductErrors.Context, Origin = Origin };
 
-        var categoryExists = await categoryRepository.ExistsAsync(categoryId, ct).ConfigureAwait(false);
+        var categoryExists = await categoryRepository
+            .ExistsAsync(categoryId, cancellationToken)
+            .ConfigureAwait(false);
         if (categoryExists.IsFailure)
-            return categoryExists.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return categoryExists.Error;
         if (!categoryExists.Value)
             return CategoryErrors.NotFound(categoryId) with { Context = ProductErrors.Context, Origin = Origin };
 
-        var alreadyLinked = await linkRepository.ExistsAsync(productId, categoryId, ct).ConfigureAwait(false);
+        var alreadyLinked = await linkRepository
+            .ExistsAsync(productId, categoryId, cancellationToken)
+            .ConfigureAwait(false);
         if (alreadyLinked.IsFailure)
-            return alreadyLinked.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return alreadyLinked.Error;
         if (alreadyLinked.Value)
-            return ProductErrors.CategoryAlreadyLinked(productId, categoryId) with { Context = ProductErrors.Context, Origin = Origin };
+            return ProductErrors.CategoryAlreadyLinked(productId, categoryId)
+                with { Context = ProductErrors.Context, Origin = Origin };
 
-        return await linkRepository.CreateAsync(productId, categoryId, ct).ConfigureAwait(false);
+        return await linkRepository
+            .CreateAsync(productId, categoryId, cancellationToken)
+            .ConfigureAwait(false);
     }
 }
 ```
@@ -473,23 +589,79 @@ Puntos clave:
 
 ```csharp
 [HttpPost("{productId}/categories/{categoryId}")]
-[Tags("products")]
 [ProducesResponseType(StatusCodes.Status204NoContent)]
-[ProducesResponseType(StatusCodes.Status404NotFound)]
-[ProducesResponseType(StatusCodes.Status409Conflict)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+[ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
 public async Task<HttpNoContentResult> LinkCategory(
-    [FromRoute] Guid productId, [FromRoute] Guid categoryId,
-    ILinkProductCategoryUseCase linkProductCategory, CancellationToken ct)
-    => await linkProductCategory.ExecuteAsync(productId, categoryId, ct).ConfigureAwait(false);
+    [FromRoute] Guid productId,
+    [FromRoute] Guid categoryId,
+    CancellationToken cancellationToken = default)
+{
+    return await linkProductCategoryUseCase
+        .ExecuteAsync(productId, categoryId, cancellationToken)
+        .ConfigureAwait(false);
+}
 ```
 
 El caso de uso de *Unlink* (desvincular) sigue la misma estructura, cambiando solo la última llamada por `linkRepository.RemoveAsync(...)` y, en vez de fallar si el vínculo ya existe, fallar (o retornar éxito idempotente, según la regla de negocio) si el vínculo **no** existe.
 
 ---
 
-## 6. Paso opcional — Provider
+## 6. Paso opcional — Reader o Provider
 
-Si el use case necesita resolver datos auxiliares antes de ejecutar su lógica principal (por ejemplo, aplicar un valor por defecto cuando el cliente no envía ciertos campos), extrae esa responsabilidad a un Provider en lugar de manejarla dentro del use case.
+Si el use case necesita datos auxiliares que **no son su Aggregate** — validar contra un catálogo, resolver un nombre desde una tabla foránea, aplicar un valor por defecto — esa responsabilidad no crece dentro del use case: se extrae. Cuál de las dos piezas corresponde depende de la fuente:
+
+| La fuente es… | Pieza | Dónde vive |
+|---|---|---|
+| Un catálogo, una tabla foránea, una vista — cualquier cosa que **no** sea un repositorio | **Reader** (`I{Concepto}Reader`) | interfaz en `Application/Ports/`, implementación en `Persistence/EntityFramework/{Contexto}/` |
+| **Solo** repositorios del propio servicio, y el fin es completar el input | **Provider** (`{Contexto}{Concepto}Provider`) | clase concreta en `Application/Providers/` |
+
+En la práctica, el caso frecuente es el Reader. El use case lo recibe por constructor, igual que el repositorio:
+
+```csharp
+public sealed class CreateProgramUseCase(
+    IProgramRepository repository,
+    IProgramClassificationReader classificationReader) : ICreateProgramUseCase
+{
+    private const string Origin = nameof(CreateProgramUseCase);
+
+    public async Task<Result<CreateProgramOutputDto>> ExecuteAsync(
+        CreateProgramInputDto input, CancellationToken cancellationToken = default)
+    {
+        var aggregateResult = input.ToAggregate();
+        if (aggregateResult.IsFailure)
+            return aggregateResult.Error with { Context = ProgramErrors.Context, Origin = Origin };
+
+        // Después del dominio: un body malformado responde 400 y nunca llega al catálogo.
+        if (input.ClassificationId is int classificationId)
+        {
+            var classificationResult = await classificationReader
+                .ExistsAsync(classificationId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (classificationResult.IsFailure)
+                return classificationResult.Error;
+
+            if (!classificationResult.Value)
+                return ProgramErrors.ClassificationDoesNotExist(classificationId) with { Origin = Origin };
+        }
+
+        var persistResult = await repository
+            .CreateAsync(aggregateResult.Value, cancellationToken)
+            .ConfigureAwait(false);
+        if (persistResult.IsFailure)
+            return persistResult.Error;
+
+        return persistResult.Value.ToOutputDto();
+    }
+}
+```
+
+El orden importa: **primero el dominio, después el Reader**. Validar el catálogo antes de construir el agregado gastaría una query para un request que de todas formas iba a responder 400.
+
+> El árbol de decisión completo (Reader vs. Provider vs. Repository) está en [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md).
+
+### El Provider
 
 **Señales de que necesitas un Provider:**
 
@@ -555,9 +727,46 @@ services.AddScoped<ICreateProductUseCase, CreateProductUseCase>();
 
 ---
 
+## 7. Propagación de errores: `Context` y `Origin`
+
+Todo `DomainError` lleva dos campos de trazabilidad: `Context` (el bounded context al que pertenece el error) y `Origin` (la clase que lo produjo). La regla es una sola:
+
+> **Cada pieza sella los errores que ella misma origina, y no toca los que recibe.**
+
+En consecuencia, dentro de un caso de uso hay dos tipos de rama de fallo y se tratan distinto:
+
+| Origen del error | Qué hace el caso de uso | Por qué |
+|---|---|---|
+| **Propio o del dominio** — el agregado, un Value Object, o una regla que decide el propio use case | `return error with { Context = XErrors.Context, Origin = Origin };` | El dominio no conoce ni el contexto ni quién lo invocó; el use case es la primera capa que sí lo sabe |
+| **De una pieza que ya lo selló** — repositorio, Reader, `UnitOfWorkAdapter`, Provider | `return result.Error;` | Reescribir el `Origin` borraría la traza real: el log diría `UpdateProgramUseCase` cuando el fallo ocurrió en `ProgramRepository` |
+
+```csharp
+// El agregado no sabe desde dónde lo llaman → el use case sella
+var updateResult = aggregate.Update(input.ToUpdateArgs());
+if (updateResult.IsFailure)
+    return updateResult.Error with { Context = ProgramErrors.Context, Origin = Origin };
+
+// El repositorio ya estampó Origin = "ProgramRepository" → se propaga intacto
+var saveResult = repository.Update(aggregate);
+if (saveResult.IsFailure)
+    return saveResult.Error;
+
+// El UnitOfWorkAdapter ya estampó Origin = "UnitOfWorkAdapter" → se propaga intacto
+var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
+if (commitResult.IsFailure)
+    return commitResult.Error;
+```
+
+Lo mismo aplica del lado de infraestructura: el repositorio y los readers declaran `private const string Origin = nameof(MiClase)` y lo estampan tanto en los errores de persistencia (`PersistenceErrors.Failure(Origin)`, `SqlServerErrorClassifier.Classify(ex, Origin)`) como en los de negocio que ellos resuelven (`ProgramErrors.NotFound(id) with { Origin = Origin }`).
+
+Los tests de casos de uso fijan esta decisión explícitamente: `result.Error.Origin.ShouldBe("ProgramRepository", "the use case does not replace the origin of the failure")`. Un caso de uso que no origina ningún error propio —una consulta simple— no necesita siquiera declarar la constante `Origin`.
+
+---
+
 ## Ver también
 
 - [patron-result.md](patron-result.md) — patrón de manejo de errores en use cases
+- [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — Reader vs. Provider vs. Repository
 - [providers.md](providers.md) — cuándo y cómo extraer lógica auxiliar a un Provider
 - [repositorio.md](repositorio.md) — contratos de repositorio, Unit of Work y paginación
 - [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — por qué la interfaz del caso de uso no lleva sufijo `Port`, y nomenclatura completa

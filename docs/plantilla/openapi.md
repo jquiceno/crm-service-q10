@@ -80,6 +80,55 @@ Comprobado en Development contra la app corriendo:
 
 ---
 
+## Descripción de las propiedades de los DTOs
+
+**Regla:** toda propiedad de un DTO de **entrada** y de **salida** lleva `[property: Description("...")]`. No es opcional ni "para los campos poco obvios": el generador de OpenAPI publica ese texto como la descripción del campo en el esquema, y un campo sin descripción sale al contrato sin explicación alguna.
+
+Se usa `System.ComponentModel.DescriptionAttribute` con el prefijo `property:`, porque los DTOs son `record` posicionales y sin ese prefijo el atributo se aplicaría al parámetro del constructor en lugar de a la propiedad.
+
+**DTO de entrada:**
+
+```csharp
+using System.ComponentModel;
+
+public sealed record CreateProgramInputDto(
+    [property: Description(
+        "Client-assigned primary key. Up to 20 characters, letters, digits, hyphens, underscores and " +
+        "spaces. A code already in use answers 409.")]
+    string? Code,
+    [property: Description("Program name.")]
+    string Name,
+    [property: Description("Whether the program is active.")]
+    bool? IsActive,
+    [property: Description("Short name printed on the student ID cards.")]
+    string? Abbreviation = null);
+```
+
+**DTO de salida** — la misma regla, sin excepciones:
+
+```csharp
+public sealed record GetProgramsOutputDto(
+    [property: Description("Code that identifies the program.")]
+    string Code,
+    [property: Description("Program name.")]
+    string Name,
+    [property: Description("Whether the program is offered for preinscriptions.")]
+    bool? AppliesToPreinscription,
+    [property: Description(
+        "Evaluation type the program grades with. Serialized as the enum member's value.")]
+    EvaluationType? EvaluationType);
+```
+
+Qué debe decir la descripción:
+
+- **Qué es el campo en términos del negocio**, no su tipo (`"Short name printed on the student ID cards."`, no `"String opcional"`).
+- **Las restricciones que el cliente necesita conocer**: longitudes máximas, rangos, catálogos de valores admitidos, y qué código HTTP produce violarlas (`"A code already in use answers 409."`).
+- **Cómo se serializa** cuando no es evidente — enums que viajan como su valor numérico, fechas con zona, banderas con default.
+
+Los comentarios XML (`/// <summary>`) del `record` completo siguen siendo útiles para explicar el DTO como conjunto (por qué los campos son nullable, qué columnas no existen), pero **no reemplazan** al `Description` de cada propiedad.
+
+---
+
 ## Buenas prácticas
 
 
@@ -87,8 +136,9 @@ Comprobado en Development contra la app corriendo:
 2. **Tipos de retorno explícitos**: preferir `ActionResult<T>` / `Task<ActionResult<T>>` sobre `IActionResult` cuando el éxito tenga un cuerpo estable; facilita inferencia de esquemas al especificar el tipo.
 3. **Definir tipos y códigos de respuesta**: usar `[ProducesResponseType(typeof(MiDto), StatusCodes.Status200OK)]`, variantes para 400, 404, 422, etc.
 4. **Especificar título y descripción en operaciones**: `[EndpointSummary("...")]`, `[EndpointDescription("...")]`
-5. **Agrupación en la UI**: Usar tags preferiblemente por contexto o dominio `[Tags("dominio")]`
+5. **Agrupación en la UI**: Usar tags por contexto o dominio, declarados **una vez a nivel de controller** — `[Tags("Programs")]` sobre la clase, no repetido en cada action
 6. **Esquema de errores**: Definir también el tipo de error en los atributos de `[ProducesResponseType]`
+7. **Describir cada propiedad de los DTOs de entrada y de salida** con `[property: Description("...")]` — ver [la sección anterior](#descripción-de-las-propiedades-de-los-dtos)
 
 
 ---
@@ -100,7 +150,8 @@ Comprobado en Development contra la app corriendo:
 - [ ] Usar **atributos EndpointSummary, EndpointDescription, y Tags** para describir la operación del API
 - [ ] Declarar **todos los códigos HTTP relevantes** con `[ProducesResponseType]`.
 - [ ] Usar **DTOs con nullable reference types** para distinguir obligatorios vs opcionales en el esquema.
-- [ ] Usar **Atributo Description** en las propiedades del DTO para documentar la propiedad.
+- [ ] Usar **`[property: Description(...)]` en TODAS las propiedades** de los DTOs, tanto de **entrada** como de **salida**. Ninguna propiedad del contrato queda sin descripción.
+- [ ] Declarar `[Tags(...)]` **a nivel de controller**, no por action.
 
 ### Metadatos "de producto"
 

@@ -104,18 +104,28 @@ Sellar toda clase concreta que no esté diseñada para herencia:
 
 ```csharp
 public sealed class CreateProductUseCase(...) : ICreateProductUseCase { }
-public sealed class ProductRepositoryAdapter(...) : RepositoryBaseEF<ProductAggregate, Guid> { }
+public sealed class ProductRepository(...) : IProductRepository { }
+public sealed class ProductsController(...) : ControllerBase { }
 ```
 
 ### Constructores primarios
 
-Usar constructores primarios (C# 12+) para inyección de dependencias:
+Usar constructores primarios (C# 12+) para inyección de dependencias — en use cases, repositorios, readers **y controllers**:
 
 ```csharp
 public sealed class GetProductByIdUseCase(
     IProductRepository repository,
     ILoggerPort<GetProductByIdUseCase> logger) : IGetProductByIdUseCase
+
+public sealed class ProductsController(
+    IGetProductByIdUseCase getProductByIdUseCase) : ControllerBase
 ```
+
+En los controllers, los casos de uso van en el constructor y **nunca** como parámetro de una action — ver [controllers.md](controllers.md#3-cómo-se-usan).
+
+### Nombre del `CancellationToken`
+
+El parámetro se llama `cancellationToken` (no `ct`) y se declara al final de la lista, con `= default` en los métodos públicos de casos de uso, repositorios, readers y actions.
 
 ### Manejo de excepciones
 

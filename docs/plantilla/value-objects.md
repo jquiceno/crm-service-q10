@@ -156,4 +156,5 @@ protected override IEnumerable<object?> GetEqualityComponents()
 
 - [errores-dominio.md](errores-dominio.md) — cómo definir errores de dominio y acumularlos en el aggregate
 - [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
-- [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo completo para modelar el dominio de un contexto
+- [entidades-y-agregados.md](entidades-y-agregados.md) — quién construye los VOs: los factories del agregado, desde los records de argumentos
+- [contextos.md](contextos.md) — flujo completo para modelar el dominio de un contexto

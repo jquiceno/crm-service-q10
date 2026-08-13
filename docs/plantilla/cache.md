@@ -204,21 +204,26 @@ Cache__ConnectionString=localhost:6379
 
 #### Caso básico
 
+El caso de uso se inyecta por el constructor del controller y el tag se declara una vez como constante, para que la lectura y su invalidación no puedan desalinearse:
+
 ```csharp
+private const string CacheTag = "products";
+
 [HttpGet]
-[OutputCache(Duration = 60, Tags = ["products"])]
-public async Task<IActionResult> GetAll(
-    IGetAllProductsUseCase useCase,
-    CancellationToken cancellationToken)
+[OutputCache(Duration = 60, Tags = [CacheTag])]
+public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
+    [FromQuery] GetProductsInputDto filter,
+    [FromQuery] PageQueryInputDto pagination,
+    CancellationToken cancellationToken = default)
 {
-    var result = await useCase.ExecuteAsync(cancellationToken);
-
-    if (result.IsFailure)
-        return BadRequest(new { error = result.Error.Description });
-
-    return Ok(result.Value);
+    return await getProductsUseCase.ExecuteAsync(
+        filter,
+        new PageQuery(pagination.PageIndex, pagination.PageSize),
+        cancellationToken).ConfigureAwait(false);
 }
 ```
+
+> La política base de caché varía por tenant y headers, **no** por los parámetros de filtro de la query. Un listado filtrado que se cachee con esa política serviría el resultado de un filtro para otro: en esos endpoints se declara `[OutputCache(NoStore = true)]` para excluirlos explícitamente.
 
 #### Por ruta (resource por id)
 

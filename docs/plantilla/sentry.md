@@ -77,7 +77,7 @@ builder.AddSentry();
 
 Esto **no viola** la regla de dependencias porque `Program.cs` es el **composition root**: el único lugar del sistema que tiene permiso de conocer todas las capas concretas para cablearlas. Su única responsabilidad es construir el grafo de objetos y arrancar el host; no contiene lógica de negocio.
 
-El mismo principio aplica a `services.AddDbContext<ApplicationDbContext>()` o `services.AddScoped<IProductRepository, ProductRepositoryAdapter>()`: son registros de DI en el composition root, no dependencias de negocio.
+El mismo principio aplica a `services.AddDbContext<ApplicationDbContext>()` o `services.AddScoped<IProductRepository, ProductRepository>()`: son registros de DI en el composition root, no dependencias de negocio.
 
 
 ---

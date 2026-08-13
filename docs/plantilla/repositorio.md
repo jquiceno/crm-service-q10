@@ -21,19 +21,26 @@ src/
 ├── Contexts/
 │   └── Product/
 │       └── Domain/
-│           └── Repositories/     # IProductRepository
+│           ├── Repositories/     # IProductRepository
+│           └── Queries/          # ProductFilter — objeto de filtro del contexto
 │
 └── Infrastructure/
     ├── Persistence/EntityFramework/
     │   ├── ApplicationDbContext.cs
     │   ├── Common/
-    │   │   └── RepositoryBaseEF.cs   # Repositorio genérico
-    │   └── Product/Configurations/
+    │   │   ├── PersistenceErrors.cs
+    │   │   └── RepositoryBaseEF.cs   # Repositorio genérico (ver nota más abajo)
+    │   └── Products/
+    │       ├── ProductRepository.cs        # implementación del repositorio
+    │       ├── Entities/Product.cs         # entidad de persistencia (fila de la tabla)
+    │       ├── Configurations/ProductConfiguration.cs
+    │       └── Mappers/ProductRepositoryMapper.cs
     └── Adapters/
         └── Persistence/
-            ├── UnitOfWorkAdapter.cs
-            └── Product/ProductRepositoryAdapter.cs
+            └── UnitOfWorkAdapter.cs
 ```
+
+Nótese que **la implementación del repositorio no vive en `Adapters/`**: vive junto a su entidad, su configuración y su mapper, dentro de `Persistence/EntityFramework/{Contexto}/`. En `Adapters/Persistence/` solo queda lo que es transversal a todos los contextos (`UnitOfWorkAdapter`, `SqlServer/SqlServerErrorClassifier`). Ver [Ubicación y naming del repositorio](#ubicación-y-naming-del-repositorio).
 
 
 ---
@@ -48,12 +55,12 @@ public interface IRootRepository<TAggregate, TId>
     where TAggregate : IAggregateRoot
     where TId : notnull
 {
-    Task<Result<TAggregate>>      GetByIdAsync(TId id, CancellationToken ct = default);
-    Task<Result<bool>>            ExistsAsync(TId id, CancellationToken ct = default);
-    Task<PagedResult<TAggregate>> GetAllAsync(PageQuery page, CancellationToken ct = default);
-    Task<Result>                  AddAsync(TAggregate aggregate, CancellationToken ct = default);
+    Task<Result<TAggregate>>      GetByIdAsync(TId id, CancellationToken cancellationToken = default);
+    Task<Result<bool>>            ExistsAsync(TId id, CancellationToken cancellationToken = default);
+    Task<PagedResult<TAggregate>> GetAllAsync(PageQuery page, CancellationToken cancellationToken = default);
+    Task<Result>                  AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default);
     Result                        Update(TAggregate aggregate);
-    Task<Result>                  RemoveAsync(TId id, CancellationToken ct = default);
+    Task<Result>                  RemoveAsync(TId id, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -71,68 +78,203 @@ Extiende `IRootRepository` con queries específicas del dominio. Vive en `Domain
 // Contexts/Product/Domain/Repositories/IProductRepository.cs
 public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 {
-    Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default);
+    Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
+
+    Task<PagedResult<ProductAggregate>> GetAsync(
+        ProductFilter filter, PageQuery page, CancellationToken cancellationToken = default);
+
+    Task<Result<ProductAggregate>> CreateAsync(
+        ProductAggregate aggregate, CancellationToken cancellationToken = default);
 }
 ```
 
-### Repositorio genérico — `RepositoryBaseEF<TAggregate, TId>`
+Los añadidos frecuentes son `GetAsync(filter, page)` para el listado filtrado del contexto y `CreateAsync` cuando el `INSERT` debe confirmarse dentro del repositorio (ver [más abajo](#createasync--cuando-el-insert-debe-confirmarse-dentro-del-repositorio)).
 
-Implementación base en infraestructura. El agregado **es** la entidad que EF Core mapea directamente, por lo que no hay conversiones intermedias. Maneja CRUD + paginación:
+### Ubicación y naming del repositorio
+
+| | Regla |
+|---|---|
+| Nombre de la clase | `{Aggregate}Repository` — **sin** sufijo `Adapter` |
+| Ubicación | `Infrastructure/Persistence/EntityFramework/{Contexto}/{Aggregate}Repository.cs` |
+| Qué implementa | Directamente `I{Contexto}Repository` (que a su vez extiende `IRootRepository<TAggregate, TId>`) |
+| `Origin` | `private const string Origin = nameof({Aggregate}Repository)` |
+
+El repositorio **no** va en `Infrastructure/Adapters/` ni termina en `Adapter`. Aunque conceptualmente sea el adaptador del puerto de persistencia, en la práctica es una pieza de EF Core inseparable de su entidad, su `IEntityTypeConfiguration<>` y su mapper — y vive con ellos. `Adapters/Persistence/` queda para lo transversal (`UnitOfWorkAdapter`, `SqlServer/SqlServerErrorClassifier`).
+
+La misma regla aplica a los **Readers** del contexto: `Infrastructure/Persistence/EntityFramework/{Contexto}/{Concepto}Reader.cs`. Ver [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md).
+
+### El agregado no es la entidad de EF Core — entidad de persistencia + mapper
+
+Los servicios son **Database First** sobre esquemas heredados: los nombres de tabla y de columna, la nulabilidad real y las columnas que el dominio no modela no se pueden imponer desde el agregado. Por eso el repositorio trabaja con **dos tipos distintos**:
+
+| Tipo | Dónde vive | Qué es |
+|---|---|---|
+| `{Aggregate}` (ej. `ProgramAggregate`) | `Contexts/{Contexto}/Domain/Aggregates/` | El modelo de negocio, con invariantes y factories |
+| `{Entidad}` (ej. `Program`) | `Infrastructure/Persistence/EntityFramework/{Contexto}/Entities/` | La fila de la tabla: propiedades públicas mutables, sin reglas |
+
+y un mapper estático que traduce en ambos sentidos:
 
 ```csharp
-// Infrastructure/Persistence/EntityFramework/Common/RepositoryBaseEF.cs
-public abstract class RepositoryBaseEF<TAggregate, TId>(
-    ApplicationDbContext context, ILoggerPort<object> logger)
-    : IRootRepository<TAggregate, TId>
-    where TAggregate : AggregateRoot<TId>
-    where TId        : notnull
+// Infrastructure/Persistence/EntityFramework/AcademicPrograms/Mappers/ProgramRepositoryMapper.cs
+public static class ProgramRepositoryMapper
 {
-    protected DbSet<TAggregate> DbSet { get; } = context.Set<TAggregate>();
+    public static ProgramAggregate ToDomain(Entities.Program document) =>
+        ProgramAggregate.Reconstruct(document.Code, document.Name, document.IsActive /* … */);
 
-    private string Origin => GetType().Name;
+    public static Entities.Program ToDocument(ProgramAggregate aggregate) =>
+        new()
+        {
+            Code = aggregate.Id,
+            Name = aggregate.Name,
+            IsActive = aggregate.IsActive,
 
-    // Overridable si el contexto tiene su propio error "not found"
-    protected virtual NotFoundError GetNotFoundError(TId id)
-        => SharedErrors.NotFound(typeof(TAggregate).Name, id!) with { Origin = Origin };
+            // La columna es NOT NULL y el dominio no la modela: el valor pertenece a persistencia.
+            AvailableInJobOffer = AvailableInJobOfferOnCreate,
+            // …
+        };
 }
 ```
+
+Convenciones:
+
+- Naming del mapper: `{Aggregate}RepositoryMapper`, en `.../{Contexto}/Mappers/`. Métodos `ToDomain(...)` y `ToDocument(...)`.
+- La lectura usa `ProgramAggregate.Reconstruct(...)`, nunca `Create(...)`: los datos persistidos ya son válidos y no se re-validan ([entidades-y-agregados.md](entidades-y-agregados.md)).
+- Las columnas que existen en la tabla pero no en el agregado (auditoría legacy, flags fuera de alcance) se **mapean en la entidad** y las rellena el mapper — quitarlas del modelo rompería el `INSERT` en columnas `NOT NULL`.
+- La entidad refleja la **nulabilidad real** de la base de datos, no la deseada: leer un `NULL` en una propiedad no anulable hace que SqlClient lance `SqlNullValueException` para la query entera. La tolerancia vive en la entidad y en el mapper.
+
+### `RepositoryBaseEF<TAggregate, TId>` — solo para agregados que sí son la entidad
+
+La plantilla incluye `Infrastructure/Persistence/EntityFramework/Common/RepositoryBaseEF.cs`, una implementación genérica de `IRootRepository` que asume que `TAggregate : AggregateRoot<TId>` es el tipo que EF Core mapea directamente (`context.Set<TAggregate>()`).
+
+Con el patrón de entidad de persistencia separada esa premisa no se cumple, así que **ningún repositorio de los servicios levantados hasta hoy hereda de `RepositoryBaseEF`**: cada uno implementa `IRootRepository` a mano. La clase se conserva para un escenario Code First, donde el agregado sí puede ser la entidad mapeada. Si la usas:
 
 * `GetAllAsync` usa `GroupBy(x => 1)` para obtener el total y los items en una sola query.
 * `AddAsync` solo hace `DbSet.AddAsync`; el commit ocurre en `UnitOfWorkAdapter`.
 * `RemoveAsync` solo marca el agregado para borrado; el commit también ocurre en `UnitOfWorkAdapter`.
 * Todos los métodos capturan excepciones y retornan `PersistenceErrors.Failure(Origin)`.
-* `Origin` es `GetType().Name`, así que el error reporta el adaptador concreto
-  (`ProductRepositoryAdapter`), no la clase base.
+* `Origin` es `GetType().Name`, así que el error reporta la clase concreta, no la base.
+* `GetNotFoundError(TId)` es `virtual` para que el contexto devuelva su propio `NotFoundError`.
 
-### Adaptador concreto — `ProductRepositoryAdapter`
+### Repositorio concreto — `ProgramRepository`
 
-Hereda de `RepositoryBaseEF` e implementa las queries extras del contexto:
+Implementa el contrato del contexto directamente. Cada método envuelve su query en `try/catch`, loguea y devuelve un `Result`; nunca deja escapar una excepción al caso de uso:
 
 ```csharp
-// Infrastructure/Adapters/Persistence/Product/ProductRepositoryAdapter.cs
-public sealed class ProductRepositoryAdapter(
+// Infrastructure/Persistence/EntityFramework/AcademicPrograms/ProgramRepository.cs
+public sealed class ProgramRepository(
     ApplicationDbContext context,
-    ILoggerPort<ProductRepositoryAdapter> logger)
-    : RepositoryBaseEF<ProductAggregate, Guid>(context, logger),
-      IProductRepository
+    ILoggerPort<ProgramRepository> logger) : IProgramRepository
 {
-    protected override NotFoundError GetNotFoundError(Guid id)
-        => ProductErrors.NotFound(id);
+    private const string Origin = nameof(ProgramRepository);
 
-    public async Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default)
+    private readonly DbSet<Program> _programs = context.Set<Program>();
+
+    public async Task<Result<ProgramAggregate>> GetByIdAsync(
+        string id, CancellationToken cancellationToken = default)
     {
         try
         {
-            return await DbSet.AnyAsync(p => p.Name == name, ct);
+            var document = await _programs
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Code == id, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (document is null)
+                return ProgramErrors.NotFound(id) with { Origin = Origin };
+
+            return ProgramRepositoryMapper.ToDomain(document);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.Error(ex, "Error checking product name {Name}", name);
-            return PersistenceErrors.Failure(nameof(ProductRepositoryAdapter));
+            logger.Error(ex, "Error retrieving Program with code {Code}", id);
+            return PersistenceErrors.Failure(Origin);
         }
+    }
+
+    // GetAsync(filter, page), ExistsAsync, CreateAsync, AddAsync, Update, RemoveAsync…
+}
+```
+
+Puntos a respetar:
+
+- **El repositorio estampa `Origin` en sus propios errores.** El caso de uso los propaga tal cual, sin reescribirlos — ver [casos-de-uso.md](casos-de-uso.md#7-propagación-de-errores-context-y-origin).
+- Las lecturas van con `AsNoTracking()`.
+- Los `OrderBy` de listados paginados deben desempatar con una columna única (típicamente la clave), o `OFFSET/FETCH` puede repetir o saltar filas entre páginas.
+- Un método de `IRootRepository` que el contexto no puede servir con seguridad no se implementa a medias: se responde con un `InternalError` explícito y un `logger.Warning`, documentando por qué (ejemplo real: `ProgramRepository.GetAllAsync`, que no puede aplicar el alcance por persona y rol que exige el listado).
+
+### `CreateAsync` — cuando el `INSERT` debe confirmarse dentro del repositorio
+
+`IRootRepository.AddAsync` solo encola el `INSERT`; el `SaveChangesAsync` lo hace el Unit of Work. Eso no sirve cuando el caso de uso necesita el valor que genera la base de datos (una `IDENTITY`) o cuando el `INSERT` debe clasificar sus propios errores de constraint. Para esos casos el contrato del contexto agrega `CreateAsync`, que persiste y devuelve el agregado ya completo:
+
+```csharp
+public async Task<Result<AuditLogEntryAggregate>> CreateAsync(
+    AuditLogEntryAggregate aggregate, CancellationToken cancellationToken = default)
+{
+    try
+    {
+        var entity = aggregate.ToDocument();
+        await context.AuditLogs.AddAsync(entity, cancellationToken).ConfigureAwait(false);
+        await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        // La IDENTITY se puebla después de SaveChanges; se devuelve al agregado.
+        aggregate.AssignId(entity.Id);
+        return aggregate;
+    }
+    catch (DbUpdateException ex)
+    {
+        logger.Error(ex, "Database error inserting audit log entry.");
+        return SqlServerErrorClassifier.Classify(ex, Origin);
+    }
+    catch (Exception ex) when (ex is not OperationCanceledException)
+    {
+        logger.Error(ex, "Error inserting audit log entry.");
+        return PersistenceErrors.Failure(Origin);
     }
 }
 ```
+
+Un caso de uso que persiste con `CreateAsync` **no** inyecta `IUnitOfWorkPort` ni llama a `CommitAsync`: el commit ya ocurrió. `AddAsync` sigue existiendo para las operaciones que sí participan de una transacción mayor coordinada por el Unit of Work.
+
+### Relaciones: se modelan por navegación
+
+Las relaciones entre entidades de persistencia se declaran en el `IEntityTypeConfiguration<>` con una **propiedad de navegación** y su clave foránea, no consultando por código suelto:
+
+```csharp
+// Infrastructure/Persistence/EntityFramework/AcademicPrograms/Entities/ProgramAdministrative.cs
+public sealed class ProgramAdministrative
+{
+    public int Id { get; set; }
+    public string? ProgramCode { get; set; }
+    public string? PersonCode { get; set; }
+    public Program? Program { get; set; }      // ← navegación
+}
+```
+
+```csharp
+// …/Configurations/ProgramAdministrativeConfiguration.cs
+builder.HasOne(p => p.Program)
+    .WithMany()
+    .HasForeignKey(p => p.ProgramCode)
+    .OnDelete(DeleteBehavior.Restrict);
+```
+
+Reglas:
+
+- **Navegación en un solo lado por defecto.** `HasOne(x => x.Padre).WithMany()` sin colección inversa: el agregado no necesita ver a sus referenciadores y la colección inversa invita a cargas accidentales. Se declara la colección (`HasMany(x => x.Hijos).WithOne()`) solo cuando el repositorio la va a materializar con `Include`.
+- **`OnDelete(DeleteBehavior.Restrict)` por defecto** en esquemas heredados. El `DeleteBehavior` por convención de EF (`Cascade`) haría que EF asuma un borrado en cascada que la base de datos real no tiene; `Restrict` evita que EF invente ese plan.
+- **`HasOne<T>().WithMany()` sin navegación** cuando la FK existe pero ninguna de las dos entidades necesita ver a la otra (p. ej. una auto-referencia de tipo "padre").
+- Si el esquema legacy **no tiene FK real** y la relación se declara solo para poder hacer `Include`, decláralo en un comentario junto a la configuración y borra los hijos explícitamente en el repositorio — EF no ordenará los `DELETE` por ti si no conoce la dependencia.
+- Cargar hijos es `Include(...)` sobre la navegación, no una segunda query manual:
+
+```csharp
+var document = await context.Set<SubjectEntity>()
+    .AsNoTracking()
+    .Include(s => s.EvaluationParameters)
+    .FirstOrDefaultAsync(s => s.Code == id, cancellationToken)
+    .ConfigureAwait(false);
+```
+
+> No configurar restricciones de base de datos (`HasMaxLength`, `IsRequired`) como si fueran validación: el proyecto es Database First y las validaciones viven en el dominio y en la presentación. En la configuración se declaran únicamente para que EF genere el tipo de parámetro correcto contra el esquema real (`varchar` vs `nvarchar`, longitudes, `IsFixedLength`).
 
 ### Unit of Work — `UnitOfWorkAdapter`
 
@@ -145,11 +287,11 @@ public sealed class UnitOfWorkAdapter(ApplicationDbContext context, ILoggerPort<
 {
     private const string Origin = nameof(UnitOfWorkAdapter);
 
-    public async Task<Result> CommitAsync(CancellationToken ct = default)
+    public async Task<Result> CommitAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            await context.SaveChangesAsync(ct);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return Result.Success();
         }
         catch (DbUpdateException ex)
@@ -294,16 +436,19 @@ GET /products?pageIndex=0&pageSize=20
         ↓
 new PageQuery(input.PageIndex, input.PageSize)
         ↓
-IGetAllProductsUseCase.ExecuteAsync(page)
+IGetProductsUseCase.ExecuteAsync(filter, page)
         ↓
-IProductRepository.GetAllAsync(page)
+IProductRepository.GetAsync(filter, page)
         ↓
-SELECT … OFFSET page.Skip ROWS FETCH NEXT page.PageSize ROWS ONLY
+SELECT … ORDER BY <columna> , <clave>  -- desempate obligatorio
+OFFSET page.Skip ROWS FETCH NEXT page.PageSize ROWS ONLY
 COUNT(*) para el total
+        ↓
+Mapper.ToDomain(entidad)  por cada fila
         ↓
 PagedResult<ProductAggregate> { Items, TotalCount }
         ↓
-PagedResult<GetAllProductsOutputDto> { Items, TotalCount }
+PagedResult<GetProductsOutputDto> { Items, TotalCount }
         ↓
 { data: { items: [...], totalCount: N }, statusCode: 200 }
 ```
@@ -388,6 +533,8 @@ catch (Exception ex) when (ex is not OperationCanceledException)
 |------|----------|---------|
 | Casos de uso (`IXxxUseCase`) | `Scoped` | Un caso de uso por request HTTP |
 | Repositorios (`IXxxRepository`) | `Scoped` | Comparten el mismo `DbContext` del request |
+| Readers (`IXxxReader`) | `Scoped` | Mismo `DbContext` del request que el repositorio |
+| Providers (tipo concreto, sin interfaz) | `Scoped` | Dependen de repositorios `Scoped` |
 | `Port` específico de contexto (`IXxxPort`) | `Scoped` | Normalmente depende de servicios `Scoped` (opciones, HTTP client, etc.) |
 | `IUnitOfWorkPort` | `Scoped` | Mismo `DbContext` que los repositorios |
 | `ILoggerPort<T>` | `Singleton` | Serilog es thread-safe |
@@ -395,12 +542,26 @@ catch (Exception ex) when (ex is not OperationCanceledException)
 
 Los validadores de FluentValidation se registran automáticamente en `ValidatorRegistrationExtensions` escaneando todas las clases que implementan `IStructuralValidator<T>`.
 
+Dentro del `Add{Contexto}Services` el orden es: primero repositorio y readers, después los casos de uso que los consumen.
+
+```csharp
+// Api/DependencyInjection/AcademicProgramServiceExtensions.cs
+services.AddScoped<IProgramRepository, ProgramRepository>();
+services.AddScoped<IProgramClassificationReader, ProgramClassificationReader>();
+
+services.AddScoped<IGetProgramsUseCase, GetProgramsUseCase>();
+services.AddScoped<ICreateProgramUseCase, CreateProgramUseCase>();
+// …
+```
+
 
 ---
 
 ## Ver también
 
 * [patron-result.md](patron-result.md) — jerarquía completa de tipos Result y errores de dominio
+* [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — cuándo es Repository y cuándo un Reader
+* [entidades-y-agregados.md](entidades-y-agregados.md) — `Create()` / `Reconstruct()` y los records de argumentos
 * [validaciones.md](validaciones.md) — mapa de las cinco capas de validación
 * [puertos-y-adaptadores.md](puertos-y-adaptadores.md) — por qué el repositorio no se llama "Port", y nomenclatura completa
 * [contextos.md](contextos.md) — guía paso a paso para implementar un nuevo contexto

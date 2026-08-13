@@ -349,7 +349,7 @@ public async Task<Result> CommitAsync(CancellationToken cancellationToken = defa
 |---------------------|-------|-----------|
 | 2627                | Violación de PRIMARY KEY | `Conflict` |
 | 2601                | Fila duplicada en índice único | `Conflict` |
-| 547                 | Violación de FOREIGN KEY | `Conflict` |
+| 547                 | Conflicto con un constraint | `Conflict` |
 | 515                 | INSERT de NULL en columna NOT NULL | `Validation` |
 | 8152                | Valor excede la longitud máxima | `Validation` |
 | 1205                | Víctima de deadlock | `Internal` |
@@ -378,6 +378,24 @@ catch (Exception ex) when (ex is not OperationCanceledException)
     return PersistenceErrors.Failure(Origin);
 }
 ```
+
+**Cuando el duplicado tiene un mensaje propio,** el repositorio pregunta primero y delega el resto:
+
+```csharp
+catch (DbUpdateException ex)
+{
+    logger.Error(ex, "Database error creating Product with code {Code}", aggregate.Id);
+
+    if (SqlServerErrorClassifier.IsUniqueViolation(ex))
+        return ProductErrors.CodeAlreadyExists(aggregate.Id) with { Origin = Origin };
+
+    return SqlServerErrorClassifier.Classify(ex, Origin);
+}
+```
+
+`IsUniqueViolation` no expone los números al llamador: el repositorio solo sabe "esto fue un duplicado" y decide si puede nombrar el valor culpable. Si no tiene un mensaje mejor que el genérico, se omite el `if` y se llama directo a `Classify`.
+
+**El 547 no dice qué constraint falló.** SQL Server lo levanta igual para FOREIGN KEY, REFERENCE y CHECK, así que el mensaje que devuelve el clasificador no puede prometer más que "conflicto con un registro relacionado". Si un endpoint necesita nombrar el valor culpable — *"la clasificación 9 no existe"* —, eso se valida **en el caso de uso**, con una consulta de existencia previa; no se adivina desde el número del error. Traducir el 547 dentro del repositorio parece más corto, pero atribuye a una FK concreta cualquier violación de constraint de la tabla, y empieza a mentir en cuanto haya una segunda. Por eso el clasificador expone `IsUniqueViolation` (2627/2601 sí identifican el duplicado) y deliberadamente **no** un predicado equivalente para el 547.
 
 
 ---

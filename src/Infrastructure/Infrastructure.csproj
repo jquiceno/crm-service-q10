@@ -1,9 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-    <ItemGroup>
-        <ProjectReference Include="..\Contexts\ServiceInfo\Application\ServiceInfo.Application.csproj" />
-<ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Contexts\ServiceInfo\Application\ServiceInfo.Application.csproj" />
+    <ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
@@ -21,6 +21,13 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.*" />
+  </ItemGroup>
+
+  <!-- SqlServerErrorClassifier stays internal but its decision table is unit tested directly. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>UnitTests</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

@@ -162,7 +162,7 @@ public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
 | `SqlException.Number` | Causa | `ErrorType` resultante |
 |---------------------|-------|----------------------|
 | 2627 / 2601         | PRIMARY KEY / índice único violado | `Conflict`           |
-| 547                 | FOREIGN KEY violada | `Conflict`           |
+| 547                 | Constraint violada (FK, REFERENCE o CHECK) | `Conflict`           |
 | 515                 | NULL en columna NOT NULL | `Validation`         |
 | 8152                | Valor excede longitud máxima | `Validation`         |
 | 1205                | Deadlock | `Internal`           |

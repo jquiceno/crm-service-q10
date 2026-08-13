@@ -217,6 +217,21 @@ public void ToAggregate_PreservesInputFields_AndAssignsId()
 ```
 
 
+### Tipos `internal` de infraestructura
+
+Un helper como `SqlServerErrorClassifier` no se hace `public` para poder testearlo. `Infrastructure.csproj` le da visibilidad al proyecto de tests:
+
+```xml
+<ItemGroup>
+  <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+    <_Parameter1>UnitTests</_Parameter1>
+  </AssemblyAttribute>
+</ItemGroup>
+```
+
+Cuando el tipo decide en base a algo que el test no puede construir — `SqlException` no tiene constructor público —, se cubre la parte alcanzable (sobrecargas con primitivos, fallbacks) y el resto queda para los integration tests contra el contenedor.
+
+
 ---
 
 ## Escribir integration tests

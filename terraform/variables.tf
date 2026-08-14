@@ -24,7 +24,7 @@ variable "github_org" {
 
 variable "github_repo" {
   type        = string
-  description = "GitHub repository name (exact case, e.g. 'Crm-Service')."
+  description = "GitHub repository name (exact case, e.g. 'crm-service')."
 }
 
 variable "github_org_id" {

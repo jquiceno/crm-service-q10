@@ -90,17 +90,17 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
         Price = price;
     }
 
-    // Factory para creación nueva — llama Created() para inicializar auditoría
-    public static Result<ProductAggregate> Create(string name, decimal price)
+    // Factory para creación nueva — recibe un record de argumentos y llama Created()
+    public static Result<ProductAggregate> Create(CreateProductArgs input)
     {
         var errors = new List<ValidationError>();
 
-        // ... validar VOs y acumular errores ...
+        // ... construir y validar VOs a partir de los primitivos de input, acumulando errores ...
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ProductAggregate(Guid.NewGuid(), name, price);
+        var aggregate = new ProductAggregate(Guid.NewGuid(), input.Name, input.Price);
         aggregate.Created();
         return aggregate;
     }
@@ -117,11 +117,11 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
     }
 
     // Mutación — marca la fecha de actualización
-    public Result Update(string name, decimal price)
+    public Result Update(UpdateProductArgs input)
     {
         // ... validar y actualizar campos ...
-        Name  = name;
-        Price = price;
+        Name  = input.Name;
+        Price = input.Price;
         SetUpdatedAt(DateTime.UtcNow);
         return Result.Success();
     }
@@ -131,15 +131,73 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
 
 ---
 
+## Args: records de argumentos de los factories
+
+Los factories del agregado (`Create`, `Update`) **no reciben una lista de primitivos sueltos**: reciben un `record` de argumentos declarado en el mismo contexto, `Domain/Aggregates/{Contexto}Args.cs`.
+
+```csharp
+// Contexts/AcademicProgram/Domain/Aggregates/ProgramArgs.cs
+public sealed record CreateProgramArgs(
+    string? Code,
+    string Name,
+    bool IsActive,
+    string? Abbreviation = null,
+    string? ResolutionNumber = null,
+    DateTime? ResolutionDate = null,
+    EvaluationType? EvaluationType = null,
+    int? ClassificationId = null);
+
+public sealed record UpdateProgramArgs(
+    string Name,
+    bool IsActive,
+    string? Abbreviation = null,
+    string? ResolutionNumber = null,
+    DateTime? ResolutionDate = null,
+    int? ClassificationId = null);
+```
+
+Reglas:
+
+- **Los Args llevan solo primitivos** (y enums del dominio). Nunca Value Objects: el `Create` los construye por dentro, y así el llamador —la capa de aplicación— no necesita conocer los tipos de dominio ni manejar sus `Result`.
+- **Un record por operación**: `Create{Contexto}Args` y `Update{Contexto}Args` son distintos, porque los campos inmutables tras la creación (un código asignado por el cliente, un tipo de evaluación que se escribe una sola vez) están en el primero y no en el segundo.
+- Ambos viven en `Domain/Aggregates/`, junto al agregado que los consume; pueden compartir archivo (`{Contexto}Args.cs`).
+- El mapping del caso de uso es quien los construye, desde el DTO de entrada: `input.ToAggregate()` / `input.ToUpdateArgs()`.
+
+```csharp
+public static Result<ProgramAggregate> Create(CreateProgramArgs input)
+{
+    var codeResult = ProgramCode.Create(input.Code);       // ← el VO se crea aquí dentro
+
+    if (codeResult.IsFailure)
+        return DomainError.FromValidationDomainErrors(
+            [codeResult.TypedError with { Value = input.Code }]);
+
+    var aggregate = new ProgramAggregate(name: input.Name, isActive: input.IsActive /* … */)
+    {
+        Id = codeResult.Value.Value
+    };
+
+    aggregate.Created();
+
+    return aggregate;
+}
+```
+
+Añadir un campo al agregado se reduce a añadir una propiedad al record: la firma del factory no cambia y ningún llamador se rompe.
+
+---
+
 ## `Create()` vs `Reconstruct()`
 
 | Método | Cuándo usarlo | Llama `Created()` |
 |--------|---------------|:-----------------:|
-| `Create(...)` | Nueva entidad de negocio | Sí |
+| `Create(args)` | Nueva entidad de negocio | Sí |
 | `Reconstruct(...)` | Reconstruir desde persistencia o lectura de BD | No |
 
 - `Create()` dispara la lógica de inicialización del dominio: asigna `CreatedAt`, `UpdatedAt` y cualquier evento de dominio.
-- `Reconstruct()` solo reensambla el estado ya existente; los datos ya son válidos y las fechas las trae la BD.
+- `Reconstruct()` solo reensambla el estado ya existente; los datos ya son válidos y las fechas las trae la BD. **Quien lo invoca es el mapper del repositorio** (`{Aggregate}RepositoryMapper.ToDomain`), al traducir la entidad de persistencia al agregado — ver [repositorio.md](repositorio.md#el-agregado-no-es-la-entidad-de-ef-core--entidad-de-persistencia--mapper).
+- A diferencia de `Create`, `Reconstruct` recibe los valores sueltos (con defaults para los opcionales), no un record de argumentos: no valida nada y su único llamador es el mapper.
+- Un valor persistido que el dominio no sabe interpretar (un código fuera del catálogo, por ejemplo) se mapea a `null` en lugar de lanzar: `Reconstruct` no valida estado persistido.
 
 
 ---
@@ -150,17 +208,18 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
 
 ```csharp
 // En el agregado
-public Result Update(string name, decimal price)
+public Result Update(UpdateProductArgs input)
 {
-    Name  = name;
-    Price = price;
+    Name  = input.Name;
+    Price = input.Price;
     SetUpdatedAt(DateTime.UtcNow);   // <-- aquí, antes de salir del dominio
     return Result.Success();
 }
 
 // En el Use Case
-var updateResult = aggregate.Update(input.Name, input.Price);
-if (updateResult.IsFailure) return updateResult.Error;
+var updateResult = aggregate.Update(input.ToUpdateArgs());
+if (updateResult.IsFailure)
+    return updateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
 repository.Update(aggregate);
 ```
@@ -175,4 +234,4 @@ repository.Update(aggregate);
 - [value-objects.md](value-objects.md) — Value Objects que viven dentro del agregado
 - [errores-dominio.md](errores-dominio.md) — cómo definir y acumular errores de dominio
 - [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work
-- [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — flujo paso a paso para modelar el dominio de un contexto
+- [contextos.md](contextos.md) — flujo paso a paso para modelar el dominio de un contexto nuevo

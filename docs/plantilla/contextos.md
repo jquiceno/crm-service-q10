@@ -4,9 +4,9 @@ Un **bounded context** es la unidad en la que la plantilla organiza un dominio d
 
 ```
 src/Contexts/
-├── WeatherForecast/     ← contexto de ejemplo de la plantilla
+├── ServiceInfo/         ← contexto liviano que trae la plantilla (solo Application)
 ├── Product/             ← contexto de ejemplo usado en la documentación
-└── {TuContexto}/         ← cada dominio de negocio nuevo
+└── {TuContexto}/        ← cada dominio de negocio nuevo
 ```
 
 Cada contexto es una isla: no importa tipos de otro contexto directamente. Lo único que un contexto puede compartir con otros vive en `Shared/` (tipos base como `AggregateRoot<TId>`, `Result<T>`, `IUnitOfWorkPort`, etc. — ver [arquitectura.md](arquitectura.md)).
@@ -36,16 +36,19 @@ Internamente, todo contexto separa **Domain** (reglas de negocio, sin dependenci
 ```
 Contexts/{Contexto}/
 ├── Domain/
-│   ├── Aggregates/       # {Contexto}Aggregate — el agregado ES la entidad (AggregateRoot<TId>)
+│   ├── Aggregates/       # {Contexto}Aggregate (AggregateRoot<TId>) + sus records de argumentos
 │   ├── ValueObjects/     # VOs exclusivos de este contexto
+│   ├── Enums/            # enums del dominio
+│   ├── Queries/          # objetos de filtro y modelos de consulta ({Contexto}Filter)
+│   ├── Models/           # modelos de lectura que no son agregados (opcional)
 │   ├── Repositories/     # I{Contexto}Repository — el dominio define el contrato de persistencia
 │   └── Errors/           # {Contexto}Errors — todos los errores centralizados
 │
 └── Application/
-    ├── Ports/            # I{Capacidad}Port — capacidad externa del contexto que no es persistencia (opcional)
-    ├── Providers/         # lógica auxiliar reutilizable entre casos de uso (opcional)
+    ├── Ports/            # I{Capacidad}Port e I{Concepto}Reader (opcional)
+    ├── Providers/        # lógica auxiliar resuelta desde repositorios (opcional)
     └── UseCases/
-        └── {CasoDeUso}/   # I{CasoDeUso}UseCase + UseCase + InputDto + OutputDto + Mapping, coubicados
+        └── {CasoDeUso}/  # I{CasoDeUso}UseCase + UseCase + InputDto + OutputDto + Mapping, coubicados
 ```
 
 La regla de dependencias de [arquitectura.md](arquitectura.md) aplica también dentro del contexto: `Domain` no conoce `Application`, y ninguno de los dos conoce `Infrastructure` ni `Api`.
@@ -66,14 +69,15 @@ Infrastructure y API son necesarios para que el contexto sea *usable* (persistir
 | Domain | Repositorio | [repositorio.md](repositorio.md) |
 | Application | Interfaz + Use Case, DTOs, Mapping | [casos-de-uso.md](casos-de-uso.md) |
 | Application | Port específico del contexto (opcional) | [puertos-y-adaptadores.md](puertos-y-adaptadores.md) |
+| Application | Reader (opcional) | [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) |
 | Application | Provider (opcional) | [providers.md](providers.md) |
 
 ### Piezas externas que lo conectan (viven fuera de `Contexts/`, en `Infrastructure/` y `Api/`)
 
 | Capa | Pieza | Referencia |
 |------|-------|------------|
-| Infrastructure | Configuración EF Core | [repositorio.md](repositorio.md) |
-| Infrastructure | Adaptador de repositorio (implementa el repositorio del contexto) | [repositorio.md](repositorio.md) |
+| Infrastructure | Entidad de persistencia + configuración EF Core + mapper | [repositorio.md](repositorio.md) |
+| Infrastructure | Repositorio del contexto (`{Aggregate}Repository`) y sus readers | [repositorio.md](repositorio.md) |
 | API | Controller, validadores (invocan los casos de uso del contexto) | [contrato-api.md](contrato-api.md), [validaciones.md](validaciones.md) |
 | API | Registro de dependencias | [puertos-y-adaptadores.md](puertos-y-adaptadores.md) |
 
@@ -165,21 +169,22 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
         Price = price;
     }
 
-    public static Result<ProductAggregate> Create(string name, decimal price)
+    public static Result<ProductAggregate> Create(CreateProductArgs input)
     {
         var errors = new List<ValidationError>();
 
-        if (string.IsNullOrWhiteSpace(name))
+        if (string.IsNullOrWhiteSpace(input.Name))
             errors.Add(ProductErrors.NameRequired);
 
-        var priceResult = Price.Create(price);
+        // El VO se construye AQUÍ, dentro del agregado: los Args solo traen primitivos.
+        var priceResult = Price.Create(input.Price);
         if (priceResult.IsFailure)
-            errors.Add(priceResult.TypedError with { Property = nameof(Price), Value = price });
+            errors.Add(priceResult.TypedError with { Value = input.Price });
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ProductAggregate(Guid.NewGuid(), name, priceResult.Value.Value);
+        var aggregate = new ProductAggregate(Guid.NewGuid(), input.Name, priceResult.Value.Value);
         aggregate.Created();
         return aggregate;
     }
@@ -196,7 +201,9 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
 }
 ```
 
-`Create()` acumula errores: recorre cada campo y retorna todos los que fallen juntos, en lugar de detenerse en el primero. `Reconstruct()` lo usa el repositorio al leer de la base de datos — los datos ya son válidos, así que no vuelve a validar.
+`Create()` acumula errores: recorre cada campo y retorna todos los que fallen juntos, en lugar de detenerse en el primero. `Reconstruct()` lo usa el mapper del repositorio al leer de la base de datos — los datos ya son válidos, así que no vuelve a validar.
+
+Los factories reciben un `record` de argumentos (`CreateProductArgs` / `UpdateProductArgs`, en `Domain/Aggregates/`) con **solo primitivos**; el agregado construye por dentro sus Value Objects. Así el llamador nunca necesita conocer los tipos de dominio, y agregar un campo no cambia la firma. Ver [entidades-y-agregados.md](entidades-y-agregados.md#args-records-de-argumentos-de-los-factories).
 
 #### Repositorio
 
@@ -204,7 +211,7 @@ public sealed class ProductAggregate : AggregateRoot<Guid>
 // Contexts/Product/Domain/Repositories/IProductRepository.cs
 public interface IProductRepository : IRootRepository<ProductAggregate, Guid>
 {
-    Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default);
+    Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -224,30 +231,44 @@ Todos los archivos de este paso viven bajo `Contexts/Product/Application/`. El d
 public interface ICreateProductUseCase
 {
     Task<Result<CreateProductOutputDto>> ExecuteAsync(
-        CreateProductInputDto input, CancellationToken ct = default);
+        CreateProductInputDto input, CancellationToken cancellationToken = default);
 }
 ```
 
-**DTOs:**
+**DTOs** — todas las propiedades, de entrada y de salida, con `[property: Description(...)]` (ver [openapi.md](openapi.md#descripción-de-las-propiedades-de-los-dtos)):
 
 ```csharp
 // Contexts/Product/Application/UseCases/CreateProduct/CreateProductInputDto.cs
-public sealed record CreateProductInputDto(string? Name, decimal Price);
+using System.ComponentModel;
+
+public sealed record CreateProductInputDto(
+    [property: Description("Nombre del producto. Máximo 200 caracteres.")]
+    string? Name,
+    [property: Description("Precio del producto. Debe ser mayor o igual a 0.")]
+    decimal Price);
 
 // Contexts/Product/Application/UseCases/CreateProduct/CreateProductOutputDto.cs
-public sealed record CreateProductOutputDto(Guid Id, string Name, decimal Price, DateTime CreatedAt);
+public sealed record CreateProductOutputDto(
+    [property: Description("Identificador asignado al producto creado.")]
+    Guid Id,
+    [property: Description("Nombre del producto.")]
+    string Name,
+    [property: Description("Precio del producto.")]
+    decimal Price,
+    [property: Description("Fecha de creación, en UTC.")]
+    DateTime CreatedAt);
 ```
 
 `Name` es nullable en el `InputDto` para permitir que el validador de entrada reporte el error con su `Property` en lugar de que el deserializador falle.
 
-**Mapping:**
+**Mapping** — el DTO se traduce a un `record` de argumentos del dominio, no a una lista de primitivos sueltos:
 
 ```csharp
 // Contexts/Product/Application/UseCases/CreateProduct/CreateProductMapping.cs
 public static class CreateProductMapping
 {
     public static Result<ProductAggregate> ToAggregate(this CreateProductInputDto input)
-        => ProductAggregate.Create(input.Name!, input.Price);
+        => ProductAggregate.Create(new CreateProductArgs(input.Name!, input.Price));
 
     public static CreateProductOutputDto ToOutputDto(this ProductAggregate aggregate)
         => new(aggregate.Id, aggregate.Name, aggregate.Price, aggregate.CreatedAt!.Value);
@@ -267,54 +288,92 @@ public sealed class CreateProductUseCase(
     private const string Origin = nameof(CreateProductUseCase);
 
     public async Task<Result<CreateProductOutputDto>> ExecuteAsync(
-        CreateProductInputDto input, CancellationToken ct = default)
+        CreateProductInputDto input, CancellationToken cancellationToken = default)
     {
-        var existsResult = await repository.ExistsByNameAsync(input.Name!, ct);   // precondición
-        if (existsResult.IsFailure)
-            return existsResult.Error with { Context = ProductErrors.Context, Origin = Origin };
-        if (existsResult.Value)
-            return ProductErrors.NameRequired with { Context = ProductErrors.Context, Origin = Origin };
-
-        var aggregateResult = input.ToAggregate();                                 // crear (valida dominio)
+        var aggregateResult = input.ToAggregate();                        // 1. crear (valida dominio)
         if (aggregateResult.IsFailure)
             return aggregateResult.Error with { Context = ProductErrors.Context, Origin = Origin };
 
-        var addResult = await repository.AddAsync(aggregateResult.Value, ct);      // persistir
+        var existsResult = await repository                               // 2. precondición
+            .ExistsByNameAsync(input.Name!, cancellationToken)
+            .ConfigureAwait(false);
+        if (existsResult.IsFailure)
+            return existsResult.Error;
+        if (existsResult.Value)
+            return ProductErrors.NameAlreadyExists with { Context = ProductErrors.Context, Origin = Origin };
+
+        var addResult = await repository                                  // 3. persistir
+            .AddAsync(aggregateResult.Value, cancellationToken)
+            .ConfigureAwait(false);
         if (addResult.IsFailure)
-            return addResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return addResult.Error;
 
-        var commitResult = await unitOfWork.CommitAsync(ct);                       // commit
+        var commitResult = await unitOfWork                               // 4. commit
+            .CommitAsync(cancellationToken)
+            .ConfigureAwait(false);
         if (commitResult.IsFailure)
-            return commitResult.Error with { Context = ProductErrors.Context, Origin = Origin };
+            return commitResult.Error;
 
-        return aggregateResult.Value.ToOutputDto();
+        return aggregateResult.Value.ToOutputDto();                       // 5. retorno implícito
     }
 }
 ```
 
-El patrón es: precondición → crear agregado → persistir → commit → retornar DTO. Cada paso enriquece el error con `Context` y `Origin` antes de propagarlo.
+El patrón es: crear agregado → precondición → persistir → commit → retornar DTO. Primero el dominio: un body malformado responde 400 sin gastar una query. El DTO se retorna de forma implícita (`Result<T>` convierte desde `T`), y solo los errores que el propio use case o el dominio originan se sellan con `Context` y `Origin`; los del repositorio y el Unit of Work se propagan intactos — ver [casos-de-uso.md](casos-de-uso.md#7-propagación-de-errores-context-y-origin).
 
 
 ---
 
 ### 5.3 Infraestructura — fuera del contexto
 
-Estos archivos viven bajo `Infrastructure/`, no bajo `Contexts/Product/`: implementan el repositorio que el dominio definió en el paso 5.1, sin que el contexto conozca esta implementación.
+Estos archivos viven bajo `Infrastructure/Persistence/EntityFramework/Products/`, no bajo `Contexts/Product/`: implementan el repositorio que el dominio definió en el paso 5.1, sin que el contexto conozca esta implementación.
+
+#### Entidad de persistencia
+
+El agregado **no** es la entidad que EF Core mapea. La entidad es una clase plana que refleja la tabla real: nombres de columna heredados, nulabilidad real, y las columnas que el dominio no modela pero la tabla exige.
+
+```csharp
+// Infrastructure/Persistence/EntityFramework/Products/Entities/Product.cs
+public sealed class Product
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+}
+```
 
 #### Configuración EF Core
 
-Como el agregado es directamente la entidad, la configuración de EF Core apunta al Aggregate — no hay una entidad intermedia que mapear:
+```csharp
+// Infrastructure/Persistence/EntityFramework/Products/Configurations/ProductConfiguration.cs
+public sealed class ProductConfiguration : IEntityTypeConfiguration<Product>
+{
+    public void Configure(EntityTypeBuilder<Product> builder)
+    {
+        builder.ToTable("tbl_productos");
+
+        builder.HasKey(p => p.Id);
+
+        builder.Property(p => p.Id).HasColumnName("pro_idP").ValueGeneratedNever();
+        builder.Property(p => p.Name).HasColumnName("pro_nombre").HasMaxLength(200).IsUnicode(false).IsRequired();
+        builder.Property(p => p.Price).HasColumnName("pro_precio");
+    }
+}
+```
+
+Las relaciones con otras tablas se declaran por **propiedad de navegación** (`HasOne(x => x.Padre).WithMany().HasForeignKey(...)`), y sobre esquemas heredados con `OnDelete(DeleteBehavior.Restrict)`. Ver [repositorio.md](repositorio.md#relaciones-se-modelan-por-navegación).
+
+#### Mapper
 
 ```csharp
-// Infrastructure/Persistence/EntityFramework/Product/Configurations/ProductConfiguration.cs
-public sealed class ProductConfiguration : IEntityTypeConfiguration<ProductAggregate>
+// Infrastructure/Persistence/EntityFramework/Products/Mappers/ProductRepositoryMapper.cs
+public static class ProductRepositoryMapper
 {
-    public void Configure(EntityTypeBuilder<ProductAggregate> builder)
-    {
-        builder.HasKey(p => p.Id);
-        builder.Property(p => p.Name).HasMaxLength(200).IsRequired();
-        builder.Property(p => p.Price);
-    }
+    public static ProductAggregate ToDomain(Entities.Product document)
+        => ProductAggregate.Reconstruct(document.Id, document.Name, document.Price);
+
+    public static Entities.Product ToDocument(ProductAggregate aggregate)
+        => new() { Id = aggregate.Id, Name = aggregate.Name, Price = aggregate.Price };
 }
 ```
 
@@ -322,37 +381,50 @@ public sealed class ProductConfiguration : IEntityTypeConfiguration<ProductAggre
 
 ```csharp
 // Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs
-public DbSet<ProductAggregate> Products => Set<ProductAggregate>();
+public DbSet<Products.Entities.Product> Products => Set<Products.Entities.Product>();
 ```
 
-#### Adaptador de repositorio
+#### Repositorio
+
+Sin sufijo `Adapter` y fuera de `Adapters/`: vive junto a su entidad, su configuración y su mapper.
 
 ```csharp
-// Infrastructure/Adapters/Persistence/Product/ProductRepositoryAdapter.cs
-public sealed class ProductRepositoryAdapter(
+// Infrastructure/Persistence/EntityFramework/Products/ProductRepository.cs
+public sealed class ProductRepository(
     ApplicationDbContext context,
-    ILoggerPort<ProductRepositoryAdapter> logger)
-    : RepositoryBaseEF<ProductAggregate, Guid>(context, logger), IProductRepository
+    ILoggerPort<ProductRepository> logger) : IProductRepository
 {
-    protected override DomainError GetNotFoundError(Guid id)
-        => ProductErrors.NotFound(id);
+    private const string Origin = nameof(ProductRepository);
 
-    public async Task<Result<bool>> ExistsByNameAsync(string name, CancellationToken ct = default)
+    private readonly DbSet<Entities.Product> _products = context.Set<Entities.Product>();
+
+    public async Task<Result<ProductAggregate>> GetByIdAsync(
+        Guid id, CancellationToken cancellationToken = default)
     {
         try
         {
-            return await DbSet.AnyAsync(p => p.Name == name, ct);
+            var document = await _products
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (document is null)
+                return ProductErrors.NotFound(id) with { Origin = Origin };
+
+            return ProductRepositoryMapper.ToDomain(document);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.Error(ex, "Error checking product name {Name}", name);
-            return PersistenceErrors.Failure();
+            logger.Error(ex, "Error retrieving Product with id {Id}", id);
+            return PersistenceErrors.Failure(Origin);
         }
     }
+
+    // ExistsByNameAsync, GetAsync(filter, page), AddAsync, Update, RemoveAsync…
 }
 ```
 
-`RepositoryBaseEF<TAggregate, TId>` implementa `GetByIdAsync`, `ExistsAsync`, `GetAllAsync`, `AddAsync`, `Update` y `RemoveAsync`. Solo hay que implementar `GetNotFoundError()` y las queries específicas del contexto. Ver [repositorio.md](repositorio.md).
+El repositorio implementa `IProductRepository` directamente y estampa su propio `Origin` en cada error. `RepositoryBaseEF<TAggregate, TId>` sigue en la plantilla pero asume que el agregado es la entidad mapeada, así que no aplica a este patrón — ver [repositorio.md](repositorio.md#repositorybaseeftaggregate-tid--solo-para-agregados-que-sí-son-la-entidad).
 
 
 ---
@@ -364,25 +436,33 @@ Estos archivos viven bajo `Api/`, no bajo `Contexts/Product/`: invocan el caso d
 #### Controller
 
 ```csharp
-// Api/Controllers/ProductController.cs
+// Api/Controllers/ProductsController.cs
 [ApiController]
 [Route("[controller]")]
-public sealed class ProductController : ControllerBase
+[Tags("Products")]
+public sealed class ProductsController(
+    ICreateProductUseCase createProductUseCase) : ControllerBase   // ← inyección por constructor
 {
+    private const string CacheTag = "products";
+
     [HttpPost]
-    [Tags("products")]
     [ValidateRequest]
-    [ProducesResponseType(StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [EndpointSummary("Create a new product")]
+    [EndpointSummary("Create product")]
     [EndpointDescription("Creates a new product in the database.")]
-    public async Task<HttpCreatedResult<CreateProductOutputDto>> Create(
+    [ProducesResponseType(typeof(ApiSuccessResponse<CreateProductOutputDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpCreatedResult<CreateProductOutputDto>> CreateProduct(
         [FromBody] CreateProductInputDto input,
-        ICreateProductUseCase createProduct,
-        CancellationToken ct)
-        => await createProduct.ExecuteAsync(input, ct).ConfigureAwait(false);
+        CancellationToken cancellationToken = default)
+    {
+        return await createProductUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+    }
 }
 ```
+
+Los casos de uso se inyectan en el constructor del controller, no como parámetro de la action; `[Tags(...)]` se declara una sola vez a nivel de clase. Ver [controllers.md](controllers.md).
 
 `[ValidateRequest]` ejecuta el validador de FluentValidation antes de entrar al Use Case. `HttpCreatedResult<T>` retorna `201 Created` en éxito y el error HTTP correspondiente en fallo — ver [patron-result.md](patron-result.md).
 
@@ -414,8 +494,17 @@ public static class ProductServiceExtensions
 {
     public static IServiceCollection AddProductServices(this IServiceCollection services)
     {
+        // Primero persistencia y lecturas auxiliares…
+        services.AddScoped<IProductRepository, ProductRepository>();
+        services.AddScoped<IProductCategoryReader, ProductCategoryReader>();
+
+        // …después los casos de uso que las consumen
         services.AddScoped<ICreateProductUseCase, CreateProductUseCase>();
-        services.AddScoped<IProductRepository, ProductRepositoryAdapter>();
+        services.AddScoped<IGetProductsUseCase, GetProductsUseCase>();
+        services.AddScoped<IGetProductByIdUseCase, GetProductByIdUseCase>();
+        services.AddScoped<IUpdateProductUseCase, UpdateProductUseCase>();
+        services.AddScoped<IDeleteProductUseCase, DeleteProductUseCase>();
+
         return services;
     }
 }
@@ -426,7 +515,7 @@ public static class ProductServiceExtensions
 public static IServiceCollection AddApplicationServices(this IServiceCollection services)
 {
     services.AddSharedServices();
-    services.AddWeatherForecastServices();
+    services.AddServiceInfoServices();
     services.AddProductServices();   // ← agregar aquí
     return services;
 }
@@ -444,6 +533,6 @@ Use Cases y repositorios se registran como `Scoped` para que compartan el mismo 
 * [casos-de-uso.md](casos-de-uso.md) — patrones de implementación por tipo de operación
 * [controllers.md](controllers.md) — cómo se expone un caso de uso como endpoint HTTP
 * [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work, paginación
-* [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — modelado de dominio con más detalle (solo Domain)
+* [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — Reader vs. Provider vs. Repository
 
 

@@ -6,6 +6,10 @@ Un Provider es un application service enfocado que encapsula lógica de **resolu
 
 El caso típico es un valor con fallback: si el cliente envía datos, úsalos; si no, búscalos en la base de datos. Esa decisión es lógica de aplicación — depende de un repositorio — y extraerla al Provider mantiene el use case enfocado en orquestación.
 
+> **Antes de crear un Provider, verifica la fuente.** Un Provider **solo puede leer de repositorios**. Si el dato viene de un catálogo, una tabla foránea o una vista —es decir, de algo que no es un Aggregate y por tanto no tiene repositorio— la pieza correcta es un **Reader**, no un Provider. El árbol de decisión completo está en [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md).
+>
+> En la práctica, los servicios levantados hasta hoy (`audits-service`, `academic-service`) resuelven toda su lectura auxiliar con Readers y no han necesitado ningún Provider.
+
 
 ---
 
@@ -28,6 +32,7 @@ No extraer un Provider por anticipación. Si solo hay un use case que necesita e
 |----------|------------|
 | **Domain Service** | Opera solo sobre objetos del dominio, sin repositorios ni infraestructura. |
 | **Repository** | Contrato de acceso a datos del Aggregate — el Provider puede usarlo, pero no es uno (ver [puertos-y-adaptadores.md](puertos-y-adaptadores.md)). |
+| **Reader** | Lee de una fuente que **no** es un repositorio (catálogo, tabla foránea, vista) o sirve una lectura al exterior. Tiene interfaz en `Application/Ports/` e implementación en infraestructura; el Provider no tiene interfaz y vive entero en aplicación. |
 | **Resolver (Infrastructure)** | En este proyecto los Resolvers son implementaciones de puertos o repositorios de infraestructura. |
 | **Use Case** | El use case orquesta; el Provider solo resuelve un dato puntual. |
 
@@ -160,6 +165,7 @@ Resumen:
 
 ## Ver también
 
+- [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — cómo distinguir Reader, Provider y Repository
 - [arquitectura.md](arquitectura.md) — estructura de capas y carpetas
 - [casos-de-uso.md](casos-de-uso.md) — cuándo y cómo agregar un Provider a un use case existente
 - [testing.md](testing.md) — patrón de testing para Providers

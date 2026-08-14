@@ -1,13 +1,6 @@
 # Documentación de la plantilla
 
-Guía de referencia para implementar servicios con `service-template-dotnet`.
-
-Los documentos están organizados en dos tipos:
-
-| Tipo | Prefijo | Responde a |
-|------|---------|------------|
-| Referencia | — | *¿Cómo funciona X en esta plantilla?* |
-| Guía | `guias/` | *¿Cómo implemento X paso a paso?* |
+Guía de referencia para implementar servicios con `service-template-dotnet`. Cada documento responde a *¿cómo funciona X en esta plantilla?* y muestra el patrón implementado con código real.
 
 ---
 
@@ -27,7 +20,8 @@ Los documentos están organizados en dos tipos:
 - [entidades-y-agregados.md](entidades-y-agregados.md) — `Entity<TId>`, `AggregateRoot<TId>`, auditoría
 - [value-objects.md](value-objects.md) — cuándo crear un VO, anatomía, igualdad estructural
 - [validaciones.md](validaciones.md) — mapa de las cinco capas de validación y dónde vive cada una
-- [repositorio.md](repositorio.md) — `IRootRepository`, `RepositoryBaseEF`, Unit of Work, paginación
+- [repositorio.md](repositorio.md) — `IRootRepository`, entidad de persistencia + mapper, Unit of Work, paginación
+- [conceptos-reader-provider-repository.md](conceptos-reader-provider-repository.md) — cómo distinguir Reader, Provider y Repository, y árbol de decisión
 - [providers.md](providers.md) — cuándo extraer lógica auxiliar de un use case a un Provider
 - [casos-de-uso.md](casos-de-uso.md) — qué es un caso de uso, su propósito, y patrones de implementación por tipo de operación (crear, actualizar, eliminar, consultar, relacionar) y cómo estructurarlo
 
@@ -48,12 +42,6 @@ Los documentos están organizados en dos tipos:
 
 - [variables-entorno.md](variables-entorno.md) — capas de configuración, ConfigMap, Secrets Manager, Kubernetes
 - [configuracion-startup.md](configuracion-startup.md) — validación fail-fast al arranque, Options Pattern
-
----
-
-## Guías
-
-- [guias/nueva-entidad-dominio.md](guias/nueva-entidad-dominio.md) — modelar entidad, aggregate root y value objects de un contexto
 
 ---
 

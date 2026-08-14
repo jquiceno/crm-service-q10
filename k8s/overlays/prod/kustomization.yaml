@@ -1,0 +1,79 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crm-service
+
+resources:
+  - ../../base
+
+images:
+  - name: q10-crm-service
+    newName: 451828143717.dkr.ecr.us-east-1.amazonaws.com/q10-crm-service # prod account ECR
+    newTag: prod-latest   # overridden in CD with the commit SHA
+
+patches:
+  # --- ConfigMap: prod values ---
+  - target:
+      kind: ConfigMap
+      name: crm-service-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: crm-service-config
+        namespace: crm-service
+      data:
+        ASPNETCORE_ENVIRONMENT: "Production"
+        ASPNETCORE_PATHBASE: ""
+        Sentry__Enabled: "true"
+        Cors__AllowedOrigins__0: "https://app.q10.com"
+
+  # --- ExternalSecret: Secrets Manager paths for prod ---
+  - patch: |-
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: /platform/prod/crm-service
+      - op: replace
+        path: /spec/dataFrom/1/extract/key
+        value: /platform/prod/shared
+    target:
+      kind: ExternalSecret
+      name: crm-service-secrets
+
+  # --- Deployment: 1 replica in prod (HPA scales up on demand) ---
+  - target:
+      kind: Deployment
+      name: crm-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: crm-service
+        namespace: crm-service
+      spec:
+        replicas: 1
+
+  # --- PDB: with a single replica, minAvailable=1 would block node drains.
+  #     maxUnavailable=1 allows evictions (brief downtime while the pod moves). ---
+  - target:
+      kind: PodDisruptionBudget
+      name: crm-service
+    patch: |-
+      - op: remove
+        path: /spec/minAvailable
+      - op: add
+        path: /spec/maxUnavailable
+        value: 1
+
+  # --- HPA: min=1 in prod (max=10 from base) ---
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: crm-service
+    patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: crm-service
+        namespace: crm-service
+      spec:
+        minReplicas: 1

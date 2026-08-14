@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="./src/Api/Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Contexts/" />
+  <Folder Name="/src/Contexts/ServiceInfo/">
+    <Project Path="./src/Contexts/ServiceInfo/Application/ServiceInfo.Application.csproj" />
+    <Project Path="./src/Contexts/ServiceInfo/Domain/ServiceInfo.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infra/">
+    <Project Path="./src/Shared/Infrastructure/MasterAccess/Infrastructure.MasterAccess.csproj" />
+    <Project Path="./src/Infrastructure/Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Library/">
+    <Project Path="./src/Shared/Infrastructure/Presentation/Shared.Presentation.csproj" />
+    <Project Path="./src/Shared/Results/Shared.Results.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="./src/Shared/Application/Shared.Application.csproj" />
+    <Project Path="./src/Shared/Domain/Shared.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="./tests/IntegrationTests/IntegrationTests.csproj" />
+    <Project Path="./tests/UnitTests/UnitTests.csproj" />
+  </Folder>
+</Solution>

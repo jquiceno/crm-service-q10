@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
+    <ProjectReference Include="..\Shared\Domain\Shared.Domain.csproj" />
+    <ProjectReference Include="..\Shared\Infrastructure\MasterAccess\Infrastructure.MasterAccess.csproj" />
+    <ProjectReference Include="..\Shared\Infrastructure\Presentation\Shared.Presentation.csproj" />
+  </ItemGroup>
+
+    <ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.OutputCaching.StackExchangeRedis" Version="10.0.*" />
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.*" />
+        <PackageReference Include="Microsoft.OpenApi" Version="2.9.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.*">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.*" />
+        <PackageReference Include="AspNetCore.HealthChecks.Uris" Version="9.*" />
+        <PackageReference Include="Scalar.AspNetCore" Version="2.*" />
+    </ItemGroup>
+</Project>

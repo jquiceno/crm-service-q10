@@ -1,0 +1,22 @@
+@Api_HostAddress = http://localhost:5000
+
+GET {{Api_HostAddress}}/health/live
+Accept: application/json
+
+###
+
+GET {{Api_HostAddress}}/health/ready
+Accept: application/json
+
+###
+
+GET {{Api_HostAddress}}/info
+Accept: application/json
+
+###
+
+# Solo en Development. La UI de Scalar se abre en /openapi (302 -> /openapi/v1).
+GET {{Api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+###

@@ -1,0 +1,23 @@
+name: CD — Prod
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or SHA to deploy
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: prod
+      eks_cluster: q10-prod-eks
+      ref: ${{ inputs.ref || '' }}
+    secrets: inherit

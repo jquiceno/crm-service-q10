@@ -1,0 +1,16 @@
+name: CD — QA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/_deploy.yml
+    with:
+      environment: qa
+      eks_cluster: q10-qa-eks
+    secrets: inherit

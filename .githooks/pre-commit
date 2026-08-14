@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+echo "[pre-commit] Building solution..."
+dotnet build -c Release --no-restore
+
+echo "[pre-commit] Running unit tests..."
+dotnet test tests/UnitTests/UnitTests.csproj -c Release --no-build --verbosity minimal
+
+echo "[pre-commit] OK -- commit allowed."

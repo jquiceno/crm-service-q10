@@ -1,0 +1,68 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: crm-service
+
+resources:
+  - ../../base
+
+images:
+  - name: q10-crm-service
+    newName: 764283926096.dkr.ecr.us-east-1.amazonaws.com/q10-crm-service
+    newTag: qa-latest   # overridden in CD with the commit SHA
+
+patches:
+  # --- ConfigMap: qa-specific values ---
+  - target:
+      kind: ConfigMap
+      name: crm-service-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: crm-service-config
+        namespace: crm-service
+      data:
+        ASPNETCORE_ENVIRONMENT: "Staging"
+        ASPNETCORE_PATHBASE: ""
+        Sentry__Enabled: "true"
+        Cors__AllowedOrigins__0: "https://qa.app.q10.com"
+
+  # --- ExternalSecret: Secrets Manager paths for qa ---
+  - patch: |-
+      - op: replace
+        path: /spec/dataFrom/0/extract/key
+        value: /platform/qa/crm-service
+      - op: replace
+        path: /spec/dataFrom/1/extract/key
+        value: /platform/qa/shared
+    target:
+      kind: ExternalSecret
+      name: crm-service-secrets
+
+  # --- Deployment: 2 replicas in qa ---
+  - target:
+      kind: Deployment
+      name: crm-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: crm-service
+        namespace: crm-service
+      spec:
+        replicas: 2
+
+  # --- HPA: moderate range in qa ---
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: crm-service
+    patch: |-
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: crm-service
+        namespace: crm-service
+      spec:
+        minReplicas: 2
+        maxReplicas: 6

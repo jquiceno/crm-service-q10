@@ -1,0 +1,130 @@
+is_global = true
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SDK CA Rules — warning (promoted to error by TreatWarningsAsErrors)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Design
+dotnet_diagnostic.CA1031.severity = warning
+dotnet_diagnostic.CA1816.severity = warning
+dotnet_diagnostic.CA1851.severity = warning
+dotnet_diagnostic.CA1852.severity = warning
+
+# Usage
+dotnet_diagnostic.CA2007.severity = warning
+dotnet_diagnostic.CA2201.severity = warning
+dotnet_diagnostic.CA2208.severity = warning
+
+# Security — all injection and cryptography rules
+dotnet_diagnostic.CA3001.severity = warning
+dotnet_diagnostic.CA3002.severity = warning
+dotnet_diagnostic.CA3003.severity = warning
+dotnet_diagnostic.CA3004.severity = warning
+dotnet_diagnostic.CA3005.severity = warning
+dotnet_diagnostic.CA3006.severity = warning
+dotnet_diagnostic.CA3007.severity = warning
+dotnet_diagnostic.CA3008.severity = warning
+dotnet_diagnostic.CA3009.severity = warning
+dotnet_diagnostic.CA3010.severity = warning
+dotnet_diagnostic.CA3011.severity = warning
+dotnet_diagnostic.CA3012.severity = warning
+dotnet_diagnostic.CA5350.severity = warning
+dotnet_diagnostic.CA5351.severity = warning
+dotnet_diagnostic.CA5358.severity = warning
+dotnet_diagnostic.CA5359.severity = warning
+dotnet_diagnostic.CA5360.severity = warning
+dotnet_diagnostic.CA5361.severity = warning
+dotnet_diagnostic.CA5364.severity = warning
+dotnet_diagnostic.CA5379.severity = warning
+dotnet_diagnostic.CA5384.severity = warning
+dotnet_diagnostic.CA5385.severity = warning
+dotnet_diagnostic.CA5386.severity = warning
+dotnet_diagnostic.CA5394.severity = warning
+dotnet_diagnostic.CA5397.severity = warning
+dotnet_diagnostic.CA5398.severity = warning
+
+# Performance
+dotnet_diagnostic.CA1806.severity = warning
+dotnet_diagnostic.CA1829.severity = warning
+dotnet_diagnostic.CA1836.severity = warning
+dotnet_diagnostic.CA1841.severity = warning
+dotnet_diagnostic.CA1845.severity = warning
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SDK CA Rules — none (intentionally suppressed)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Irrelevant for internal services
+dotnet_diagnostic.CA1014.severity = none
+
+# DDD uses marker interfaces (IAggregateRoot)
+dotnet_diagnostic.CA1040.severity = none
+
+# DDD bounded context types match namespace segments by design
+dotnet_diagnostic.CA1724.severity = none
+
+# DDD uses nested types inside value objects
+dotnet_diagnostic.CA1034.severity = none
+
+# Too aggressive for a template (would seal all public types)
+dotnet_diagnostic.CA1515.severity = none
+
+# Error record name is an intentional domain concept despite matching a VB keyword
+dotnet_diagnostic.CA1716.severity = none
+
+# DomainException uses primary constructor; standard triple-constructor pattern not required
+dotnet_diagnostic.CA1032.severity = none
+
+# Exception serialization not relevant in .NET Core services
+dotnet_diagnostic.CA2237.severity = none
+
+# LoggerMessage source generation is opt-in; direct ILogger calls are acceptable
+dotnet_diagnostic.CA1848.severity = none
+
+# Startup/diagnostic Console.WriteLine messages do not need resource tables
+dotnet_diagnostic.CA1303.severity = none
+
+# Log level strings are intentionally lowercase; ToUpperInvariant would break the format
+dotnet_diagnostic.CA1308.severity = none
+
+# Serilog APIs do not expose IFormatProvider overloads in all cases
+dotnet_diagnostic.CA1305.severity = none
+
+# Created(string, object) is acceptable; Uri overload adds no value for empty-location responses
+dotnet_diagnostic.CA2234.severity = none
+
+# Result<T> uses static factory methods (Success/Failure) on a generic type — intentional API
+dotnet_diagnostic.CA1000.severity = none
+
+# DI container + nullable reference types guarantee non-null injection; explicit argument validation is redundant
+dotnet_diagnostic.CA1062.severity = none
+
+# Roslynator version of CA1032 — DomainException primary constructor is sufficient
+dotnet_diagnostic.RCS1194.severity = none
+
+dotnet_diagnostic.CA2225.severity = none
+
+dotnet_diagnostic.CA1307.severity = none
+
+dotnet_diagnostic.CA1024.severity = none
+# ═══════════════════════════════════════════════════════════════════════════════
+# Roslynator — warning (promoted to error by TreatWarningsAsErrors)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+dotnet_diagnostic.RCS1036.severity = warning
+dotnet_diagnostic.RCS1085.severity = warning
+dotnet_diagnostic.RCS1168.severity = warning
+dotnet_diagnostic.RCS1225.severity = warning
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Roslynator — suggestion (IDE-only, never breaks build)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+dotnet_diagnostic.RCS1003.severity = suggestion
+dotnet_diagnostic.RCS1005.severity = suggestion
+dotnet_diagnostic.RCS1090.severity = suggestion
+dotnet_diagnostic.RCS1097.severity = suggestion
+dotnet_diagnostic.RCS1118.severity = suggestion
+dotnet_diagnostic.RCS1124.severity = suggestion
+dotnet_diagnostic.RCS1234.severity = suggestion
+dotnet_diagnostic.RCS1238.severity = suggestion

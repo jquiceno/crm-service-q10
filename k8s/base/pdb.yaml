@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: crm-service
+  namespace: crm-service
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: crm-service

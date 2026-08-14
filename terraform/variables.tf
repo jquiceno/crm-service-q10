@@ -27,6 +27,17 @@ variable "github_repo" {
   description = "GitHub repository name (exact case, e.g. 'Crm-Service')."
 }
 
+variable "github_org_id" {
+  type        = string
+  description = "Numeric GitHub organization ID. GitHub embeds it in the OIDC sub claim (repo:org@ORG_ID/repo@REPO_ID:...) to protect against org/repo renames."
+  default     = "198831707"
+}
+
+variable "github_repo_id" {
+  type        = string
+  description = "Numeric GitHub repository ID, embedded in the OIDC sub claim alongside github_org_id."
+}
+
 variable "aws_region" {
   type        = string
   description = "AWS region where resources are created."

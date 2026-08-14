@@ -54,10 +54,18 @@ data "aws_iam_policy_document" "assume_role" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
+    # Restrict to the specific GitHub environment, not the whole repo.
+    # A workflow running in environment:dev cannot assume the qa/prod role.
+    # GitHub now issues the sub claim with immutable org/repo IDs embedded
+    # (repo:org@ORG_ID/repo@REPO_ID:environment:env); the legacy format is
+    # kept as fallback in case the org setting is rolled back.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_org}/${var.github_repo}:environment:${var.environment}"]
+      values = [
+        "repo:${var.github_org}/${var.github_repo}:environment:${var.environment}",
+        "repo:${var.github_org}@${var.github_org_id}/${var.github_repo}@${var.github_repo_id}:environment:${var.environment}",
+      ]
     }
   }
 }

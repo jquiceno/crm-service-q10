@@ -26,6 +26,8 @@ patches:
         ASPNETCORE_ENVIRONMENT: "Production"
         ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
+        # Deployment tier, lowercase, same literal every service reports regardless of stack.
+        SENTRY_ENVIRONMENT: "prod"
         Cors__AllowedOrigins__0: "https://app.q10.com"
 
   # --- ExternalSecret: Secrets Manager paths for prod ---

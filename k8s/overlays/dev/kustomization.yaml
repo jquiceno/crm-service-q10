@@ -51,6 +51,9 @@ patches:
         ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         TenantResolverService__Enabled: "true"
         Sentry__Enabled: "false"
+        # Deployment tier, lowercase, same literal every service reports regardless of stack.
+        # Set even with Sentry off here, so enabling it never reports the wrong environment.
+        SENTRY_ENVIRONMENT: "dev"
         Cors__AllowedOrigins__0: "http://localhost:3000"
 
   # --- ExternalSecret: Secrets Manager paths for dev ---

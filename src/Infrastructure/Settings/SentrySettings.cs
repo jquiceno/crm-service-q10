@@ -16,4 +16,22 @@ public sealed class SentrySettings
     public string DeniedHeaders { get; init; } = DefaultDeniedHeaders;
     public LogEventLevel MinimumEventLevel { get; init; } = LogEventLevel.Error;
     public LogEventLevel MinimumBreadcrumbLevel { get; init; } = LogEventLevel.Warning;
+
+    /// <summary>
+    /// Deployment tier reported to Sentry: dev, qa or prod, always lowercase. Comes from the
+    /// platform-wide SENTRY_ENVIRONMENT variable so every service reports the same literal
+    /// regardless of stack.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately NOT derived from ASPNETCORE_ENVIRONMENT. That one is a runtime mode — it picks
+    /// which appsettings load and whether developer exception pages show — and it only has two
+    /// useful values, so qa and prod would both report "Production" and become indistinguishable.
+    /// </remarks>
+    public string Environment { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Minimum level forwarded to the Logs product (Explore &gt; Logs). Separate from
+    /// <see cref="MinimumEventLevel"/>, which controls what becomes an Issue.
+    /// </summary>
+    public LogEventLevel MinimumLogLevel { get; init; } = LogEventLevel.Warning;
 }

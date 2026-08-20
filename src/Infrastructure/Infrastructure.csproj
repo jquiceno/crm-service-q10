@@ -19,6 +19,10 @@
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.16.0" />
     <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.16.0" />
+    <!-- Prerelease on purpose: this instrumentation has no stable release yet. Pinned to the
+         1.16.0 line to match the other OpenTelemetry packages above. -->
+    <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.16.0-beta.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
     <PackageReference Include="StackExchange.Redis" Version="2.8.*" />
   </ItemGroup>

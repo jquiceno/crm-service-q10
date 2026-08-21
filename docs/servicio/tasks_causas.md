@@ -89,7 +89,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
-| T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | ⬜ |
+| T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | 🔄 **en curso** — `F3.3` y `F3.8` `done` y verificados (build en verde, 3 tests nuevos, 384 en la suite); **pendiente de merge** a la base |
 | T9 | **Brayan** | Update loss reason use case | `F3.4`, `F3.9` | `feat/loss-reasons-update` | `feat/loss-reasons` | 3 | T4 | F4 | ⬜ |
 | T10 | **Juan Camilo** | Delete loss reason use case | `F3.5`, `F3.10` | `feat/loss-reasons-delete` | `feat/loss-reasons` | 3 | T4, T5 | F5 | ⬜ |
 | T11 | **Juan Camilo** | LossReason API surface | `F4.1`–`F4.4` | `feat/loss-reasons-api` | `feat/loss-reasons` | 5 | T6, T7, T8, T9, T10 | F1–F5 | ⬜ |

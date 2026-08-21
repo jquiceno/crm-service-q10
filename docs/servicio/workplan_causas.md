@@ -743,13 +743,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F3.3] Create CreateLossReason use case
-`id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: pending`
+`id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: done`
 - Objetivo: la creación, con el PK que devuelve la BD.
 - Fuente: D3 · D5 · `repositorio.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/CreateLossReason/{…}.cs` (5 archivos)
 - Detalle: `input.ToAggregate()` → `LossReasonAggregate.Create(args)`; si falla, `return error with { Context = LossReasonErrors.Context, Origin = Origin };`. Persiste con `repository.CreateAsync(...)` y devuelve `aggregate.ToOutputDto()` con el `Id` asignado. **No inyecta `IUnitOfWorkPort` ni llama `CommitAsync`** (D3). `CreateLossReasonInputDto(string? Name, bool IsActive = true)` con `Name` anulable a propósito.
 - Hecho cuando: el use case no tiene ninguna referencia a `IUnitOfWorkPort` y el DTO de salida incluye el `Id`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F3.4] Create UpdateLossReason use case
 `id: F3.4 · depende_de: F2.7 · tarea: T9 (Brayan) · estado: pending`
@@ -790,13 +790,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet test tests/UnitTests -c Release`
 
 #### [F3.8] Unit tests for CreateLossReason
-`id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: pending`
+`id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: done`
 - Objetivo: cubrir la creación y su contrato de persistencia.
 - Fuente: D3 · D4 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/CreateLossReasonUseCaseTests.cs`
 - Detalle: casos: input válido → `CreateAsync` recibido una vez y el DTO de salida trae el `Id`; **nombre inválido → el use case falla en el agregado y `CreateAsync` no se llama nunca** (D4); fallo del repositorio → `Origin` propagado. **Assertar explícitamente que `IUnitOfWorkPort.CommitAsync` no se invoca** (D3).
 - Hecho cuando: los 3 casos pasan y existe el assert de que no hay commit.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 3 pasan** (384 en total en la suite)
 
 #### [F3.9] Unit tests for UpdateLossReason
 `id: F3.9 · depende_de: F3.4 · tarea: T9 (Brayan) · estado: pending`

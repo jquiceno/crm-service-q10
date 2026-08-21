@@ -1,13 +1,13 @@
 using System.Text.Json;
 using Api.Controllers;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Domain.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using NSubstitute;
-using Shared.Presentation.Results;
 using Shared.Results;
 using Shared.Results.Errors;
 using Shouldly;
@@ -20,10 +20,13 @@ public sealed class BusinessStatusesControllerTests
     private readonly ICreateBusinessStatusUseCase _createBusinessStatusUseCase =
         Substitute.For<ICreateBusinessStatusUseCase>();
 
-    private BusinessStatusesController Sut => new(_createBusinessStatusUseCase);
+    private readonly IGetBusinessStatusByIdUseCase _getBusinessStatusByIdUseCase =
+        Substitute.For<IGetBusinessStatusByIdUseCase>();
 
-    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(
-        HttpCreatedResult<CreateBusinessStatusOutputDto> result)
+    private BusinessStatusesController Sut =>
+        new(_createBusinessStatusUseCase, _getBusinessStatusByIdUseCase);
+
+    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
@@ -79,6 +82,55 @@ public sealed class BusinessStatusesControllerTests
                 new DomainError("boom", ErrorType.Internal)));
 
         var result = await Sut.CreateBusinessStatus(input, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    // ── GET /business-statuses/{id} ───────────────────────────────────────────
+
+    [Fact]
+    public async Task GetBusinessStatusById_WhenTheStatusExists_ReturnsOkWithTheResource()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Success(
+                new GetBusinessStatusByIdOutputDto(7, "Negotiation", 50, "49ff7c", true)));
+
+        var result = await Sut.GetBusinessStatusById(7, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(7);
+        data.GetProperty("name").GetString().ShouldBe("Negotiation");
+        data.GetProperty("percentage").GetInt32().ShouldBe(50);
+        data.GetProperty("color").GetString().ShouldBe("49ff7c");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+        await _getBusinessStatusByIdUseCase.Received(1).ExecuteAsync(7, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetBusinessStatusById_WithAnUnknownId_ReturnsNotFound()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(999, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Failure(
+                BusinessStatusErrors.NotFound(999) with { Context = BusinessStatusErrors.Context }));
+
+        var result = await Sut.GetBusinessStatusById(999, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+        body.RootElement.GetProperty("error").GetProperty("type").GetString().ShouldBe("NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task GetBusinessStatusById_WhenTheQueryFails_ReturnsInternalServerError()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Failure(
+                new DomainError("boom", ErrorType.Internal)));
+
+        var result = await Sut.GetBusinessStatusById(7, CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);

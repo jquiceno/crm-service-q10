@@ -39,11 +39,10 @@ public sealed class CreateLossReasonUseCaseTests
 
         // D3: creation commits inside the repository, never through the unit of work. That
         // guarantee is structural -- the use case does not take the port at all -- so the assert
-        // reads the constructor. A DidNotReceive() on a substitute nothing injects cannot fail.
+        // reads the constructors. A DidNotReceive() on a substitute nothing injects cannot fail.
         typeof(CreateLossReasonUseCase)
             .GetConstructors()
-            .Single()
-            .GetParameters()
+            .SelectMany(c => c.GetParameters())
             .ShouldNotContain(
                 p => p.ParameterType == typeof(IUnitOfWorkPort),
                 "the create use case must not depend on IUnitOfWorkPort");

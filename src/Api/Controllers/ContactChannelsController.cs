@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -37,5 +39,21 @@ public sealed class ContactChannelsController : ControllerBase
             filter,
             new PageQuery(pagination.PageIndex, pagination.PageSize),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("{id:int}")]
+    [EndpointSummary("Get contact channel by id")]
+    [EndpointDescription("Returns the contact channel with the given identifier.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetContactChannelByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCache(Tags = [CacheTag], Duration = 259200, VaryByRouteValueNames = ["id"])]
+    public async Task<HttpOkResult<GetContactChannelByIdOutputDto>> GetContactChannelById(
+        IGetContactChannelByIdUseCase getContactChannelByIdUseCase,
+        [FromRoute][Range(1, int.MaxValue)] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

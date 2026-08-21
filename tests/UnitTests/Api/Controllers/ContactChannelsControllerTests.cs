@@ -1,6 +1,8 @@
+using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
+using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OutputCaching;
@@ -23,8 +25,10 @@ public sealed class ContactChannelsControllerTests
     private readonly IGetContactChannelsUseCase _getContactChannelsUseCase =
         Substitute.For<IGetContactChannelsUseCase>();
 
-    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(
-        HttpOkPagedResult<GetContactChannelsOutputDto> result)
+    private readonly IGetContactChannelByIdUseCase _getContactChannelByIdUseCase =
+        Substitute.For<IGetContactChannelByIdUseCase>();
+
+    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
@@ -120,10 +124,10 @@ public sealed class ContactChannelsControllerTests
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
     }
 
-    private static OutputCacheAttribute GetOutputCacheAttribute()
+    private static OutputCacheAttribute GetOutputCacheAttribute(string actionName)
     {
         var attribute = typeof(ContactChannelsController)
-            .GetMethod(nameof(ContactChannelsController.GetContactChannels))!
+            .GetMethod(actionName)!
             .GetCustomAttribute<OutputCacheAttribute>();
 
         attribute.ShouldNotBeNull();
@@ -134,7 +138,7 @@ public sealed class ContactChannelsControllerTests
     [Fact]
     public void GetContactChannels_IsCachedUnderTheContactChannelsTag()
     {
-        var attribute = GetOutputCacheAttribute();
+        var attribute = GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels));
 
         attribute.NoStore.ShouldBeFalse();
         attribute.Tags.ShouldBe(["contact-channels"]);
@@ -143,12 +147,104 @@ public sealed class ContactChannelsControllerTests
     [Fact]
     public void GetContactChannels_DeclaresItsOwnTtlOfThreeDays()
     {
-        GetOutputCacheAttribute().Duration.ShouldBe(259200);
+        GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels))
+            .Duration.ShouldBe(259200);
     }
 
     [Fact]
     public void GetContactChannels_DeclaresNoQueryVariationOfItsOwn()
     {
-        GetOutputCacheAttribute().VaryByQueryKeys.ShouldBeNull();
+        GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels))
+            .VaryByQueryKeys.ShouldBeNull();
+    }
+
+    private Task<HttpOkResult<GetContactChannelByIdOutputDto>> InvokeByIdAsync(int id = 7) =>
+        new ContactChannelsController().GetContactChannelById(
+            _getContactChannelByIdUseCase,
+            id,
+            CancellationToken.None);
+
+    private void ReturnsById(Result<GetContactChannelByIdOutputDto> result) =>
+        _getContactChannelByIdUseCase
+            .ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+    [Fact]
+    public async Task GetContactChannelById_WhenTheChannelExists_ReturnsIt()
+    {
+        ReturnsById(new GetContactChannelByIdOutputDto(7, "WhatsApp", true));
+
+        var (statusCode, body) = await ExecuteAsync(await InvokeByIdAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(7);
+        data.GetProperty("name").GetString().ShouldBe("WhatsApp");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task GetContactChannelById_ForwardsTheIdentifier()
+    {
+        ReturnsById(new GetContactChannelByIdOutputDto(42, "Feria", false));
+
+        await InvokeByIdAsync(42);
+
+        await _getContactChannelByIdUseCase.Received(1)
+            .ExecuteAsync(42, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetContactChannelById_WithAnUnknownId_ReturnsNotFound()
+    {
+        ReturnsById(Result<GetContactChannelByIdOutputDto>.Failure(
+            new NotFoundError("No contact channel exists with identifier 404.")));
+
+        var (statusCode, body) = await ExecuteAsync(await InvokeByIdAsync(404));
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+        body.RootElement.GetProperty("statusCode").GetInt32().ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task GetContactChannelById_WhenTheUseCaseFails_ReturnsTheMappedErrorStatus()
+    {
+        ReturnsById(Result<GetContactChannelByIdOutputDto>.Failure(
+            new DomainError("boom", ErrorType.Internal)));
+
+        var (statusCode, _) = await ExecuteAsync(await InvokeByIdAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    [Fact]
+    public void GetContactChannelById_IsCachedUnderTheSameTagAsTheListing()
+    {
+        var attribute = GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannelById));
+
+        attribute.NoStore.ShouldBeFalse();
+        attribute.Tags.ShouldBe(["contact-channels"]);
+        attribute.Duration.ShouldBe(259200);
+    }
+
+    [Fact]
+    public void GetContactChannelById_VariesByTheIdentifier()
+    {
+        GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannelById))
+            .VaryByRouteValueNames.ShouldBe(["id"]);
+    }
+
+    [Fact]
+    public void GetContactChannelById_RejectsAnIdentifierBelowOne()
+    {
+        var parameter = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.GetContactChannelById))!
+            .GetParameters()
+            .Single(p => p.Name == "id");
+
+        var range = parameter.GetCustomAttribute<RangeAttribute>();
+
+        range.ShouldNotBeNull();
+        range.Minimum.ShouldBe(1);
     }
 }

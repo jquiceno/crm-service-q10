@@ -31,4 +31,8 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
     }
 }
 
-internal sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);
+/// <summary>
+/// Shape of the <c>data</c> node of a paginated response. Public so a controller can declare it in
+/// <c>[ProducesResponseType]</c> and OpenAPI publishes the real contract.
+/// </summary>
+public sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);

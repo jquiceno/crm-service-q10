@@ -33,6 +33,12 @@ public sealed class PersonCode : ValueObject
         return new PersonCode(value);
     }
 
+    /// <summary>
+    /// Rebuilds the value object from persistence without validation: stored values are
+    /// legitimate legacy data even when today's creation rules would reject them (DEC-6).
+    /// </summary>
+    internal static PersonCode Reconstruct(string value) => new(value);
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Value;

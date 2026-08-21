@@ -50,7 +50,7 @@ public sealed class ActivityFromArgsTests
         var activity = result.Value;
         activity.Status.ShouldBe(ActivityStatus.Scheduled);
         activity.Description!.Value.ShouldBe("call the applicant");
-        activity.AdvisorId.Value.ShouldBe("339968541842");
+        activity.AdvisorId!.Value.ShouldBe("339968541842");
         activity.CreatedById.Value.ShouldBe("339968541842");
         activity.CreatedAt.ShouldNotBeNull();
         activity.CreatedAt!.Value.ShouldBeInRange(before, after);

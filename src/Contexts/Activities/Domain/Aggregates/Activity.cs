@@ -12,7 +12,7 @@ namespace Activities.Domain.Aggregates;
 /// already happened (completed). Persisted to <c>tbl_opo_negocios_actividades</c>.
 /// </summary>
 /// <remarks>
-/// The factories make invalid states unrepresentable: <see cref="Schedule(ScheduleActivityArgs, DateTime)"/>
+/// The factories make invalid states unrepresentable: <see cref="Schedule(ScheduleActivityArgs)"/>
 /// builds the only scheduled shape (description + due date, never an outcome) and
 /// <see cref="RegisterCompleted(CompleteActivityArgs, DateTime)"/> the only completed one
 /// (outcome, never a planned description). The args-based overloads are the entry point for the
@@ -20,9 +20,12 @@ namespace Activities.Domain.Aggregates;
 /// error; the value-object-typed overloads hold the invariants and fail fast with the first
 /// violated one, returning the <see cref="ActivityErrors"/> instance as-is.
 /// <para>
-/// Timestamps are tenant-local and injected by the caller through <c>now</c> (DEC-12).
-/// <c>UpdatedAt</c> stays null because the legacy table has no updated column, and <c>Id</c>
-/// stays 0 until the database generates the identity on save.
+/// <c>CreatedAt</c> is stamped in UTC by <see cref="Created"/> itself, the same as every other
+/// aggregate in this service. <c>CompletedAt</c> is different: it is business data (when the
+/// activity was completed), not an audit field, so it comes from the caller through
+/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because the
+/// legacy table has no updated column, and <c>Id</c> stays 0 until the database generates the
+/// identity on save.
 /// </para>
 /// </remarks>
 public sealed class Activity : AggregateRoot<int>
@@ -39,10 +42,6 @@ public sealed class Activity : AggregateRoot<int>
     public AdvisorId CreatedById { get; }
     public DateTime? CompletedAt { get; }
 
-    // The template stamps DateTime.UtcNow in Created(); this domain receives the tenant-local
-    // clock through the factories (DEC-12), so the constructor captures it for Created() to use.
-    private readonly DateTime _createdAtLocal;
-
     private Activity(
         int dealId,
         int? opportunityId,
@@ -54,7 +53,6 @@ public sealed class Activity : AggregateRoot<int>
         OutcomeType? outcomeType,
         AdvisorId advisorId,
         AdvisorId createdById,
-        DateTime now,
         DateTime? completedAt)
     {
         DealId = dealId;
@@ -68,7 +66,6 @@ public sealed class Activity : AggregateRoot<int>
         AdvisorId = advisorId;
         CreatedById = createdById;
         CompletedAt = completedAt;
-        _createdAtLocal = now;
     }
 
     /// <summary>
@@ -76,7 +73,7 @@ public sealed class Activity : AggregateRoot<int>
     /// itself so the caller never handles their <c>Result</c> (see <see cref="ScheduleActivityArgs"/>).
     /// Value object failures are accumulated; invariant failures are reported one at a time.
     /// </summary>
-    public static Result<Activity> Schedule(ScheduleActivityArgs args, DateTime now)
+    public static Result<Activity> Schedule(ScheduleActivityArgs args)
     {
         var errors = new List<ValidationError>();
 
@@ -90,7 +87,7 @@ public sealed class Activity : AggregateRoot<int>
 
         var result = Schedule(
             args.DealId, args.OpportunityId, args.Type, description!, args.DueAt,
-            advisorId!, createdById!, now);
+            advisorId!, createdById!);
 
         return result.IsFailure
             ? DomainError.FromValidationDomainErrors([result.TypedError])
@@ -105,8 +102,7 @@ public sealed class Activity : AggregateRoot<int>
         Description? description,
         DateTime? dueAt,
         AdvisorId advisorId,
-        AdvisorId createdById,
-        DateTime now)
+        AdvisorId createdById)
     {
         var guardError = GuardWritable(dealId, type);
         if (guardError is not null)
@@ -123,7 +119,7 @@ public sealed class Activity : AggregateRoot<int>
 
         var activity = new Activity(
             dealId, opportunityId, type, ActivityStatus.Scheduled, description, dueAt,
-            outcome: null, outcomeType: null, advisorId, createdById, now, completedAt: null);
+            outcome: null, outcomeType: null, advisorId, createdById, completedAt: null);
         activity.Created();
         return activity;
     }
@@ -199,7 +195,7 @@ public sealed class Activity : AggregateRoot<int>
 
         var activity = new Activity(
             dealId, opportunityId, type, ActivityStatus.Completed, description: null, dueAt,
-            outcome, outcomeType, advisorId, createdById, now, completedAt: now);
+            outcome, outcomeType, advisorId, createdById, completedAt: now);
         activity.Created();
         return activity;
     }
@@ -253,5 +249,5 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.
-    protected override void Created() => SetCreatedAt(_createdAtLocal);
+    protected override void Created() => SetCreatedAt(DateTime.UtcNow);
 }

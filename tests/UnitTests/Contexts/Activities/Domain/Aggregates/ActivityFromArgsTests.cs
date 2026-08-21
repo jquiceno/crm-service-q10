@@ -39,7 +39,11 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void Schedule_FromArgs_BuildsTheValueObjectsItself()
     {
-        var result = Activity.Schedule(ValidScheduleArgs, Now);
+        var before = DateTime.UtcNow;
+
+        var result = Activity.Schedule(ValidScheduleArgs);
+
+        var after = DateTime.UtcNow;
 
         result.IsSuccess.ShouldBeTrue();
 
@@ -48,7 +52,8 @@ public sealed class ActivityFromArgsTests
         activity.Description!.Value.ShouldBe("call the applicant");
         activity.AdvisorId.Value.ShouldBe("339968541842");
         activity.CreatedById.Value.ShouldBe("339968541842");
-        activity.CreatedAt.ShouldBe(Now);
+        activity.CreatedAt.ShouldNotBeNull();
+        activity.CreatedAt!.Value.ShouldBeInRange(before, after);
     }
 
     [Fact]
@@ -61,7 +66,7 @@ public sealed class ActivityFromArgsTests
             CreatedById = "",
         };
 
-        var result = Activity.Schedule(args, Now);
+        var result = Activity.Schedule(args);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.DomainError);
@@ -77,7 +82,7 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void Schedule_FromArgs_ReportsThePropertyOfTheCreatedByIdSeparately()
     {
-        var result = Activity.Schedule(ValidScheduleArgs with { CreatedById = null }, Now);
+        var result = Activity.Schedule(ValidScheduleArgs with { CreatedById = null });
 
         result.IsFailure.ShouldBeTrue();
 
@@ -89,7 +94,7 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void Schedule_FromArgs_WrapsInvariantFailures()
     {
-        var result = Activity.Schedule(ValidScheduleArgs with { DealId = 0 }, Now);
+        var result = Activity.Schedule(ValidScheduleArgs with { DealId = 0 });
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.DomainError);

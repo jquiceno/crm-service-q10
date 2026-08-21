@@ -1,13 +1,16 @@
 using System.Text.Json;
 using Api.Controllers;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatuses;
+using BusinessStatus.Domain.Enums;
 using BusinessStatus.Domain.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Routing;
 using NSubstitute;
-using Shared.Presentation.Results;
+using Shared.Application.Dtos;
+using Shared.Domain.Pagination;
 using Shared.Results;
 using Shared.Results.Errors;
 using Shouldly;
@@ -20,10 +23,12 @@ public sealed class BusinessStatusesControllerTests
     private readonly ICreateBusinessStatusUseCase _createBusinessStatusUseCase =
         Substitute.For<ICreateBusinessStatusUseCase>();
 
-    private BusinessStatusesController Sut => new(_createBusinessStatusUseCase);
+    private readonly IGetBusinessStatusesUseCase _getBusinessStatusesUseCase =
+        Substitute.For<IGetBusinessStatusesUseCase>();
 
-    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(
-        HttpCreatedResult<CreateBusinessStatusOutputDto> result)
+    private BusinessStatusesController Sut => new(_getBusinessStatusesUseCase, _createBusinessStatusUseCase);
+
+    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
@@ -36,6 +41,66 @@ public sealed class BusinessStatusesControllerTests
         var json = await reader.ReadToEndAsync().ConfigureAwait(false);
         return (httpContext.Response.StatusCode, JsonDocument.Parse(json));
     }
+
+    // ── GET /business-statuses ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetBusinessStatuses_WhenTheUseCaseSucceeds_ReturnsOkWithItemsAndTotalCount()
+    {
+        var filter = new GetBusinessStatusesInputDto();
+        _getBusinessStatusesUseCase
+            .ExecuteAsync(filter, Arg.Any<PageQuery>(), Arg.Any<CancellationToken>())
+            .Returns(PagedResult<GetBusinessStatusesOutputDto>.Success(
+                [new GetBusinessStatusesOutputDto(7, "Negotiation", 50, "49ff7c", true)],
+                totalCount: 12));
+
+        var result = await Sut.GetBusinessStatuses(filter, new PageQueryInputDto(), CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("totalCount").GetInt32().ShouldBe(12);
+        var item = data.GetProperty("items")[0];
+        item.GetProperty("id").GetInt32().ShouldBe(7);
+        item.GetProperty("percentage").GetInt32().ShouldBe(50);
+        item.GetProperty("color").GetString().ShouldBe("49ff7c");
+    }
+
+    [Fact]
+    public async Task GetBusinessStatuses_PassesTheFilterAndThePageStraightToTheUseCase()
+    {
+        var filter = new GetBusinessStatusesInputDto("Nego", IsActive: true, BusinessStatusKind.Intermediate);
+        _getBusinessStatusesUseCase
+            .ExecuteAsync(Arg.Any<GetBusinessStatusesInputDto>(), Arg.Any<PageQuery>(), Arg.Any<CancellationToken>())
+            .Returns(PagedResult<GetBusinessStatusesOutputDto>.Success([], totalCount: 0));
+
+        await Sut.GetBusinessStatuses(
+            filter,
+            new PageQueryInputDto(PageIndex: 2, PageSize: 50),
+            CancellationToken.None);
+
+        await _getBusinessStatusesUseCase.Received(1).ExecuteAsync(
+            filter,
+            Arg.Is<PageQuery>(p => p.PageIndex == 2 && p.PageSize == 50),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetBusinessStatuses_WhenTheQueryFails_ReturnsInternalServerError()
+    {
+        var filter = new GetBusinessStatusesInputDto();
+        _getBusinessStatusesUseCase
+            .ExecuteAsync(filter, Arg.Any<PageQuery>(), Arg.Any<CancellationToken>())
+            .Returns(PagedResult<GetBusinessStatusesOutputDto>.Failure(
+                new DomainError("boom", ErrorType.Internal)));
+
+        var result = await Sut.GetBusinessStatuses(filter, new PageQueryInputDto(), CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    // ── POST /business-statuses ───────────────────────────────────────────────
 
     [Fact]
     public async Task CreateBusinessStatus_WhenTheUseCaseSucceeds_ReturnsCreatedWithTheResource()

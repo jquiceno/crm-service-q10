@@ -1,5 +1,7 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatuses;
 using BusinessStatus.Domain.Aggregates;
+using BusinessStatus.Domain.Enums;
 using Infrastructure.Validation.FluentValidation.BusinessStatuses;
 using Shouldly;
 using Xunit;
@@ -9,6 +11,8 @@ namespace UnitTests.Infrastructure.Validation;
 public sealed class BusinessStatusValidatorsTests
 {
     private readonly CreateBusinessStatusInputValidator _createValidator = new();
+
+    private readonly GetBusinessStatusesInputValidator _listValidator = new();
 
     private static CreateBusinessStatusInputDto CreateInput(
         string? name = "Negotiation",
@@ -109,6 +113,68 @@ public sealed class BusinessStatusValidatorsTests
     public void CreateValidator_WithAcceptedColor_ReturnsValid(string? color)
     {
         var result = _createValidator.Validate(CreateInput(color: color));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    // ── GetBusinessStatusesInputValidator ─────────────────────────────────────
+
+    [Fact]
+    public void ListValidator_WithEveryFilterOmitted_ReturnsValid()
+    {
+        var result = _listValidator.Validate(new GetBusinessStatusesInputDto());
+
+        result.IsValid.ShouldBeTrue("every filter of the listing is optional");
+    }
+
+    [Theory]
+    [InlineData(BusinessStatusKind.All)]
+    [InlineData(BusinessStatusKind.Intermediate)]
+    [InlineData(BusinessStatusKind.Terminal)]
+    public void ListValidator_WithADeclaredKind_ReturnsValid(BusinessStatusKind kind)
+    {
+        var result = _listValidator.Validate(new GetBusinessStatusesInputDto(Kind: kind));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void ListValidator_WithAKindOutsideTheEnum_HasErrorOnKind()
+    {
+        var result = _listValidator.Validate(new GetBusinessStatusesInputDto(Kind: (BusinessStatusKind)99));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(GetBusinessStatusesInputDto.Kind));
+    }
+
+    [Fact]
+    public void ListValidator_WithNameOverTheMaximumLength_HasErrorOnName()
+    {
+        var result = _listValidator.Validate(
+            new GetBusinessStatusesInputDto(new string('a', BusinessStatusAggregate.MaxNameLength + 1)));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(GetBusinessStatusesInputDto.Name));
+    }
+
+    [Fact]
+    public void ListValidator_WithNameAtTheMaximumLength_ReturnsValid()
+    {
+        var result = _listValidator.Validate(
+            new GetBusinessStatusesInputDto(new string('a', BusinessStatusAggregate.MaxNameLength)));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    public void ListValidator_DoesNotRejectATerminalName_NorConstrainThePercentage(int percentage)
+    {
+        // The listing has no percentage field: filtering terminals is what Kind is for, and INV-1
+        // only governs writes.
+        var result = _listValidator.Validate(
+            new GetBusinessStatusesInputDto(percentage.ToString(System.Globalization.CultureInfo.InvariantCulture)));
 
         result.IsValid.ShouldBeTrue();
     }

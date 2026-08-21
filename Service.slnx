@@ -3,6 +3,9 @@
     <Project Path="./src/Api/Api.csproj" />
   </Folder>
   <Folder Name="/src/Contexts/" />
+  <Folder Name="/src/Contexts/AdsChannel/">
+    <Project Path="./src/Contexts/AdsChannel/Domain/AdsChannel.Domain.csproj" />
+  </Folder>
   <Folder Name="/src/Contexts/ServiceInfo/">
     <Project Path="./src/Contexts/ServiceInfo/Application/ServiceInfo.Application.csproj" />
     <Project Path="./src/Contexts/ServiceInfo/Domain/ServiceInfo.Domain.csproj" />

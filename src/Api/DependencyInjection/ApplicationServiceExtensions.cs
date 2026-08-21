@@ -6,6 +6,7 @@ public static class ApplicationServiceExtensions
     {
         services.AddSharedServices();
         services.AddServiceInfoServices();
+        services.AddAdsChannelServices();
 
         return services;
     }

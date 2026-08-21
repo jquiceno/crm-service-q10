@@ -27,9 +27,6 @@ public sealed class CreateLossReasonUseCaseTests
             .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>())
             .Returns(LossReasonAggregate.Reconstruct(7, ValidName, isActive: true));
 
-        // Never wired into the use case: CreateAsync owns the transaction (D3).
-        var unitOfWork = Substitute.For<IUnitOfWorkPort>();
-
         var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName));
 
         result.IsSuccess.ShouldBeTrue();
@@ -39,7 +36,17 @@ public sealed class CreateLossReasonUseCaseTests
 
         await _repository.Received(1)
             .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>());
-        await unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+
+        // D3: creation commits inside the repository, never through the unit of work. That
+        // guarantee is structural -- the use case does not take the port at all -- so the assert
+        // reads the constructor. A DidNotReceive() on a substitute nothing injects cannot fail.
+        typeof(CreateLossReasonUseCase)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .ShouldNotContain(
+                p => p.ParameterType == typeof(IUnitOfWorkPort),
+                "the create use case must not depend on IUnitOfWorkPort");
     }
 
     [Fact]

@@ -8,5 +8,5 @@ namespace Infrastructure.Persistence.EntityFramework.LossReasons.Entities;
 /// </summary>
 public sealed class DealLossReasonUsage
 {
-    public int? NegCauConsecutivo { get; set; }
+    public int? LossReasonId { get; set; }
 }

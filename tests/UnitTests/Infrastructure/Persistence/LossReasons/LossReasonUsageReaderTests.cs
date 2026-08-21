@@ -11,14 +11,21 @@ namespace UnitTests.Infrastructure.Persistence.LossReasons;
 /// <summary>
 /// Unit tests for LossReasonUsageReader.
 ///
-/// The happy-path branches (cause in use / cause free) require real SQL Server
-/// support for keyless entities, so they are covered in the integration tests
-/// (F5.1) using Testcontainers, as established by the Fase 2 testing strategy
-/// in the workplan.
+/// The "reason is free" branch is a pure unit test: AnyAsync over an empty
+/// keyless set returns false without EF Core ever needing to track an
+/// instance of DealLossReasonUsage.
 ///
-/// This file covers the failure branch, which can be exercised without a live
-/// database: a disposed context triggers ObjectDisposedException, which the
-/// catch clause captures and converts to PersistenceErrors.Failure.
+/// The "reason is in use" branch cannot be exercised here: seeding a row for
+/// a keyless entity requires tracking an instance of DealLossReasonUsage,
+/// which throws ("Unable to track an instance of type 'DealLossReasonUsage'
+/// because it does not have a primary key") on every provider, including
+/// InMemory. That branch is covered in the integration tests (F5.1) using
+/// Testcontainers with real SQL Server, as established by the Fase 2 testing
+/// strategy in the workplan.
+///
+/// This file also covers the failure branch, which can be exercised without a
+/// live database: a disposed context triggers ObjectDisposedException, which
+/// the catch clause captures and converts to PersistenceErrors.Failure.
 /// </summary>
 public sealed class LossReasonUsageReaderTests
 {
@@ -28,6 +35,27 @@ public sealed class LossReasonUsageReaderTests
             .UseInMemoryDatabase(dbName)
             .Options;
         return new ApplicationDbContext(options);
+    }
+
+    // -------------------------------------------------------------------------
+    // Branch 1: reason is free -> IsSuccess with Value == false
+    //
+    // No rows are seeded, so AnyAsync over the empty keyless set returns
+    // false without tracking anything.
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public async Task IsUsedAsync_WhenNoDealReferencesTheReason_ReturnsFalse()
+    {
+        await using var context = CreateContext(nameof(IsUsedAsync_WhenNoDealReferencesTheReason_ReturnsFalse));
+        var reader = new LossReasonUsageReader(
+            context,
+            Substitute.For<ILoggerPort<LossReasonUsageReader>>());
+
+        var result = await reader.IsUsedAsync(lossReasonId: 1);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ShouldBeFalse();
     }
 
     // -------------------------------------------------------------------------

@@ -8,10 +8,9 @@ using Shared.Results;
 namespace Infrastructure.Persistence.EntityFramework.LossReasons;
 
 /// <summary>
-/// Checks whether a LossReason is currently assigned to at least one deal in
-/// tbl_opo_negocios. This is a read-only Reader over a foreign table; no
-/// Repository is created for tbl_opo_negocios because it is not an Aggregate
-/// of this context.
+/// Checks whether a LossReason is currently assigned to at least one deal.
+/// This is a read-only Reader over a foreign table; no Repository is created
+/// for it because it is not an Aggregate of this context.
 /// </summary>
 public sealed class LossReasonUsageReader(
     ApplicationDbContext context,
@@ -27,7 +26,7 @@ public sealed class LossReasonUsageReader(
         {
             var isUsed = await context.Set<DealLossReasonUsage>()
                 .AsNoTracking()
-                .AnyAsync(x => x.NegCauConsecutivo == lossReasonId, cancellationToken)
+                .AnyAsync(x => x.LossReasonId == lossReasonId, cancellationToken)
                 .ConfigureAwait(false);
 
             return Result<bool>.Success(isUsed);

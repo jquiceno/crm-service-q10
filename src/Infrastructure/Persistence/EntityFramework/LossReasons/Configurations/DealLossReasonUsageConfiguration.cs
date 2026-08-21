@@ -13,7 +13,7 @@ internal sealed class DealLossReasonUsageConfiguration : IEntityTypeConfiguratio
         // Keyless entity: no primary key, no insert/update/delete operations.
         builder.HasNoKey();
 
-        builder.Property(x => x.NegCauConsecutivo)
+        builder.Property(x => x.LossReasonId)
             .HasColumnName("neg_cau_consecutivo");
     }
 }

@@ -24,7 +24,7 @@ public sealed class LossReasonAggregateTests
         result.Value.IsActive.ShouldBeTrue();
         result.Value.Id.ShouldBe(0);
         result.Value.CreatedAt.ShouldNotBeNull();
-        result.Value.UpdatedAt.ShouldNotBeNull();
+        result.Value.UpdatedAt.ShouldBeNull();
     }
 
     [Fact]

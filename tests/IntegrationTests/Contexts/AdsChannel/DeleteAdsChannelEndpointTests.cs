@@ -55,9 +55,22 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
         await Db.SaveChangesAsync();
 
         // tbl_opo_oportunidades is a legacy table outside this bounded context: no EF entity/DbSet
-        // exists for it here, so the referencing row is seeded with raw SQL against the real column
-        // name (opo_medpub_consecutivoP). If this table has other NOT NULL columns without defaults,
-        // this insert may need to be adjusted once the real table shape can be inspected — see report.
+        // maps it, so EnsureCreatedAsync never creates it in the Testcontainers database (it only
+        // creates tables for entities the DbContext knows about) — a plain INSERT against it fails
+        // with "Invalid object name", not a constraint violation. A minimal stand-in with just the FK
+        // relationship that matters for this test is created here so the real FK-conflict -> 409 path
+        // (D4) is exercised end-to-end, without depending on the legacy table's full, unverified shape
+        // (see Discovery GAP-1 for tbl_opo_oportunidades).
+        await Db.Database.ExecuteSqlRawAsync(
+            """
+            IF OBJECT_ID('tbl_opo_oportunidades', 'U') IS NULL
+            CREATE TABLE tbl_opo_oportunidades (
+                opo_consecutivoP INT IDENTITY PRIMARY KEY,
+                opo_medpub_consecutivoP INT NOT NULL
+                    REFERENCES tbl_opo_medios_publicitarios (medpub_consecutivoP)
+            );
+            """);
+
         await Db.Database.ExecuteSqlInterpolatedAsync(
             $"INSERT INTO tbl_opo_oportunidades (opo_medpub_consecutivoP) VALUES ({adsChannel.Id})");
 

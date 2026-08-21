@@ -12,9 +12,10 @@ public sealed class ActivityTests
     private const int AnyDealId = 1200;
     private const int AnyOpportunityId = 845;
 
-    // Tenant-local time, not UTC: the legacy columns store local time and the domain compares
-    // against them (DEC-12).
-    private static readonly DateTime Now = new(2026, 8, 21, 10, 30, 0, DateTimeKind.Unspecified);
+    // Fixed instant for inputs unrelated to CreatedAt (due dates, completion time). CreatedAt
+    // itself is stamped by Created() with the real DateTime.UtcNow, so it can't be pinned to
+    // this constant — see the CreatedAt assertions below.
+    private static readonly DateTime Now = new(2026, 8, 21, 10, 30, 0, DateTimeKind.Utc);
 
     private static Description AnyDescription => Description.Create("call the applicant").Value;
     private static Outcome AnyOutcome => Outcome.Create("the applicant answered").Value;
@@ -31,7 +32,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             dealId, AnyOpportunityId, ActivityType.Call, AnyDescription, Now.AddDays(1),
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.DealIdRequired);
@@ -42,7 +43,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, (ActivityType)99, AnyDescription, Now.AddDays(1),
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.InvalidActivityType);
@@ -55,7 +56,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, type, AnyDescription, Now.AddDays(1),
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.TypeNotWritable);
@@ -66,7 +67,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Note, AnyDescription, Now.AddDays(1),
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.NoteCannotBeScheduled);
@@ -77,7 +78,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, description: null, Now.AddDays(1),
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.DescriptionRequired);
@@ -88,7 +89,7 @@ public sealed class ActivityTests
     {
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyDescription, dueAt: null,
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
 
         result.IsFailure.ShouldBeTrue();
         result.TypedError.ShouldBe(ActivityErrors.DueDateRequired);
@@ -98,10 +99,13 @@ public sealed class ActivityTests
     public void Schedule_WithValidInput_ReturnsAScheduledActivity()
     {
         var dueAt = Now.AddDays(1);
+        var before = DateTime.UtcNow;
 
         var result = Activity.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyDescription, dueAt,
-            AnyAdvisor, AnyAdvisor, Now);
+            AnyAdvisor, AnyAdvisor);
+
+        var after = DateTime.UtcNow;
 
         result.IsSuccess.ShouldBeTrue();
 
@@ -111,7 +115,8 @@ public sealed class ActivityTests
         activity.DealId.ShouldBe(AnyDealId);
         activity.OpportunityId.ShouldBe(AnyOpportunityId);
         activity.DueAt.ShouldBe(dueAt);
-        activity.CreatedAt.ShouldBe(Now);
+        activity.CreatedAt.ShouldNotBeNull();
+        activity.CreatedAt!.Value.ShouldBeInRange(before, after);
         activity.UpdatedAt.ShouldBeNull("the legacy table has no updated column");
         activity.CompletedAt.ShouldBeNull();
         activity.Outcome.ShouldBeNull();
@@ -197,15 +202,20 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithValidCall_ReturnsACompletedActivity()
     {
+        var before = DateTime.UtcNow;
+
         var result = Activity.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyOutcome, AnyCallOutcome,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
+
+        var after = DateTime.UtcNow;
 
         result.IsSuccess.ShouldBeTrue();
 
         var activity = result.Value;
         activity.Status.ShouldBe(ActivityStatus.Completed);
-        activity.CreatedAt.ShouldBe(Now);
+        activity.CreatedAt.ShouldNotBeNull();
+        activity.CreatedAt!.Value.ShouldBeInRange(before, after);
         activity.CompletedAt.ShouldBe(Now);
         activity.Outcome.ShouldBe(AnyOutcome);
         activity.OutcomeType.ShouldBe(AnyCallOutcome);

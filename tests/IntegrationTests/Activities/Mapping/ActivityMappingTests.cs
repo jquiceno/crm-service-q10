@@ -134,9 +134,10 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     public async Task AScheduledActivity_RoundTripsOnBothVariants(string variant)
     {
         var dueAt = Now.AddDays(1);
+        var before = DateTime.UtcNow.AddSeconds(-1);
         var scheduled = Activity.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call the applicant").Value, dueAt,
-            Advisor, Creator, Now).Value;
+            Advisor, Creator).Value;
 
         var id = await SaveAsync(variant, scheduled).ConfigureAwait(true);
         id.ShouldBeGreaterThan(0, "the legacy identity column generates the id");
@@ -149,7 +150,10 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         activity.Type.ShouldBe(ActivityType.Call);
         activity.Description!.Value.ShouldBe("call the applicant");
         activity.DueAt.ShouldBe(dueAt);
-        activity.CreatedAt.ShouldBe(Now);
+        // CreatedAt is stamped by Created() with the real UTC clock; the ±1s margin absorbs the
+        // legacy datetime column rounding (1/300s).
+        activity.CreatedAt.ShouldNotBeNull();
+        activity.CreatedAt!.Value.ShouldBeInRange(before, DateTime.UtcNow.AddSeconds(1));
         activity.Outcome.ShouldBeNull();
         activity.OutcomeType.ShouldBeNull();
         activity.CompletedAt.ShouldBeNull();

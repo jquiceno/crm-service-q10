@@ -725,13 +725,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 > **Los cinco casos de uso son independientes entre sí**: todos dependen solo de F2.7 (y F3.5 además de F2.6). No hay dependencia de código entre ellos, así que pueden ejecutarse en paralelo.
 
 #### [F3.1] Create GetLossReasons use case
-`id: F3.1 · depende_de: F2.7 · tarea: T6 (Juan Esteban) · estado: pending`
+`id: F3.1 · depende_de: F2.7 · tarea: T6 (Juan Esteban) · estado: done`
 - Objetivo: el listado paginado y filtrado.
 - Fuente: D8 · D9 · D11 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/GetLossReasons/{IGetLossReasonsUseCase,GetLossReasonsUseCase,GetLossReasonsInputDto,GetLossReasonsOutputDto,GetLossReasonsMapping}.cs`
 - Detalle: `Task<PagedResult<GetLossReasonsOutputDto>> ExecuteAsync(GetLossReasonsInputDto input, PageQuery page, CancellationToken cancellationToken = default)`. `GetLossReasonsInputDto(string? Name, bool? IsActive)` → `LossReasonFilter`. Salida `(int Id, string Name, bool IsActive)`. Un catálogo vacío devuelve `PagedResult` exitoso con `items: []` (D9), **no** un error. Todas las propiedades con `[property: Description(...)]`.
 - Hecho cuando: un repositorio que devuelve 0 filas produce un `PagedResult` con `IsSuccess = true` y `TotalCount = 0`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: 0 errores, 0 advertencias**
+- Nota de ejecución: la construcción del filtro vive en el mapping (`GetLossReasonsMapping.ToFilter`), no inline en el caso de uso como en el ejemplo de `casos-de-uso.md` §5.5 — así el archivo `{X}Mapping.cs` que exige D11 tiene contenido propio y el use case queda en tres líneas. El use case **no declara `Origin`**: no origina ningún error, solo propaga el del repositorio.
 
 #### [F3.2] Create GetLossReasonById use case
 `id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: pending`
@@ -772,13 +773,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 > Los cinco pasos de test que siguen son deliberadamente uno por caso de uso: agrupados en un solo paso hacían que la tarea de escrituras superara el techo de R2 y no pudiera moverse de estado por partes.
 
 #### [F3.6] Unit tests for GetLossReasons
-`id: F3.6 · depende_de: F3.1 · tarea: T6 (Juan Esteban) · estado: pending`
+`id: F3.6 · depende_de: F3.1 · tarea: T6 (Juan Esteban) · estado: done`
 - Objetivo: cubrir el listado, incluido el catálogo vacío.
 - Fuente: D9 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/GetLossReasonsUseCaseTests.cs`
 - Detalle: NSubstitute para `ILossReasonRepository`; Shouldly para asserts. Casos: filtro aplicado y propagado al repositorio, `TotalCount` reflejado, **repositorio con 0 filas → `IsSuccess` con `items` vacío** (D9), y fallo del repositorio → el `Origin` del repositorio llega intacto.
 - Hecho cuando: los 4 casos pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 4 pasan**
+- Nota de ejecución: **T6 añadió a `tests/UnitTests/UnitTests.csproj` la `ProjectReference` a `LossReason.Application`**, que F1.6 había dejado anotada como pendiente para la primera de T6–T10. **T7–T10 ya no tienen que tocar ese archivo**, solo rebasar sobre la base.
 
 #### [F3.7] Unit tests for GetLossReasonById
 `id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: pending`

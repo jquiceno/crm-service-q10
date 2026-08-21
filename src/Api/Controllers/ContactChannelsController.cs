@@ -15,8 +15,7 @@ namespace Api.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Tags("ContactChannels")]
-public sealed class ContactChannelsController(
-    IGetContactChannelsUseCase getContactChannelsUseCase) : ControllerBase
+public sealed class ContactChannelsController : ControllerBase
 {
     private const string CacheTag = "contact-channels";
 
@@ -29,6 +28,7 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Tags = [CacheTag], VaryByQueryKeys = ["*"])]
     public async Task<HttpOkPagedResult<GetContactChannelsOutputDto>> GetContactChannels(
+        IGetContactChannelsUseCase getContactChannelsUseCase,
         [FromQuery] GetContactChannelsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,
         CancellationToken cancellationToken = default)

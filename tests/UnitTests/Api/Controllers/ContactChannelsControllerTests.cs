@@ -41,7 +41,8 @@ public sealed class ContactChannelsControllerTests
     private Task<HttpOkPagedResult<GetContactChannelsOutputDto>> InvokeAsync(
         GetContactChannelsInputDto? filter = null,
         PageQueryInputDto? pagination = null) =>
-        new ContactChannelsController(_getContactChannelsUseCase).GetContactChannels(
+        new ContactChannelsController().GetContactChannels(
+            _getContactChannelsUseCase,
             filter ?? new GetContactChannelsInputDto(IsActive: null, SearchName: null),
             pagination ?? new PageQueryInputDto(),
             CancellationToken.None);

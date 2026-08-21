@@ -7,5 +7,5 @@ public sealed record GetContactChannelsOutputDto(
     int Id,
     [property: Description("Name of the contact channel.")]
     string Name,
-    [property: Description("Whether the contact channel is available for selection.")]
+    [property: Description("Whether the contact channel is active and available for selection.")]
     bool IsActive);

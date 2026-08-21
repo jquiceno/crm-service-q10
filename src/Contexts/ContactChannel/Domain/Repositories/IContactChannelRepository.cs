@@ -12,4 +12,8 @@ public interface IContactChannelRepository : IRootRepository<ContactChannelAggre
         ContactChannelFilter filter,
         PageQuery page,
         CancellationToken cancellationToken = default);
+
+    Task<Result<ContactChannelAggregate>> CreateAsync(
+        ContactChannelAggregate aggregate,
+        CancellationToken cancellationToken = default);
 }

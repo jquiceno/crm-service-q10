@@ -141,19 +141,14 @@ public sealed class ContactChannelsControllerTests
     }
 
     [Fact]
-    public void GetContactChannels_DeclaresNoTtlOfItsOwn()
+    public void GetContactChannels_DeclaresItsOwnTtlOfThreeDays()
     {
-        GetOutputCacheAttribute().Duration.ShouldBe(
-            0,
-            "the context uses the Cache:DefaultTtlSeconds of the service");
+        GetOutputCacheAttribute().Duration.ShouldBe(259200);
     }
 
     [Fact]
-    public void GetContactChannels_VariesByEveryQueryKey()
+    public void GetContactChannels_DeclaresNoQueryVariationOfItsOwn()
     {
-        GetOutputCacheAttribute().VaryByQueryKeys.ShouldBe(
-            ["*"],
-            "the base policy pins variation to EntityCode, which would collapse every filter " +
-            "and page of the listing into a single cache entry");
+        GetOutputCacheAttribute().VaryByQueryKeys.ShouldBeNull();
     }
 }

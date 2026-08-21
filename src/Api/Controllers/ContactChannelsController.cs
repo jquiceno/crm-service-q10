@@ -26,7 +26,7 @@ public sealed class ContactChannelsController : ControllerBase
     [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetContactChannelsOutputDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    [OutputCache(Tags = [CacheTag], VaryByQueryKeys = ["*"])]
+    [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkPagedResult<GetContactChannelsOutputDto>> GetContactChannels(
         IGetContactChannelsUseCase getContactChannelsUseCase,
         [FromQuery] GetContactChannelsInputDto filter,

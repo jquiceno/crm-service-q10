@@ -18,7 +18,7 @@ public sealed class ActivityTests
 
     private static Description AnyDescription => Description.Create("call the applicant").Value;
     private static Outcome AnyOutcome => Outcome.Create("the applicant answered").Value;
-    private static AdvisorId AnyAdvisor => AdvisorId.Create("339968541842").Value;
+    private static PersonCode AnyAdvisor => PersonCode.Create("339968541842").Value;
     private static OutcomeType AnyCallOutcome => OutcomeType.ForCall(CallOutcome.Contacted).Value;
     private static OutcomeType AnyMeetingOutcome => OutcomeType.ForMeeting(MeetingOutcome.Held).Value;
 

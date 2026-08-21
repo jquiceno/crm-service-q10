@@ -4,7 +4,6 @@ using BusinessStatus.Domain.Errors;
 using BusinessStatus.Domain.Queries;
 using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses;
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using NSubstitute;
@@ -13,6 +12,7 @@ using Shared.Domain.Pagination;
 using Shared.Results.Errors;
 using Shouldly;
 using Xunit;
+using Entities = Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 
 namespace UnitTests.Infrastructure.Persistence.BusinessStatuses;
 
@@ -48,14 +48,14 @@ public sealed class BusinessStatusRepositoryTests
     /// Seeds through its own context instance, so the repository under test starts with an empty
     /// change tracker.
     /// </summary>
-    private static async Task SeedAsync(string databaseName, params BusinessStatusRow[] rows)
+    private static async Task SeedAsync(string databaseName, params Entities.BusinessStatus[] rows)
     {
         using var context = CreateContext(databaseName);
         context.BusinessStatuses.AddRange(rows);
         await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    private static BusinessStatusRow Row(
+    private static Entities.BusinessStatus Row(
         int id,
         string? name = "Negotiation",
         bool? isActive = true,
@@ -447,6 +447,22 @@ public sealed class BusinessStatusRepositoryTests
     }
 
     [Fact]
+    public async Task CreateAsync_CompletesTheSameAggregateInsteadOfRebuildingIt()
+    {
+        using var context = CreateContext(nameof(CreateAsync_CompletesTheSameAggregateInsteadOfRebuildingIt));
+        var aggregate = BusinessStatusAggregate
+            .Create(new CreateBusinessStatusArgs("Negotiation", 50m, "49ff7c", IsActive: true))
+            .Value;
+
+        var result = await new BusinessStatusRepository(context, _logger).CreateAsync(aggregate);
+
+        result.Value.ShouldBeSameAs(aggregate);
+        result.Value.Id.ShouldBeGreaterThan(0);
+        result.Value.CreatedAt.ShouldNotBeNull("whatever Create set has to survive the insert");
+        result.Value.UpdatedAt.ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task CreateAsync_WithoutColor_PersistsNullAndNeverTheLegacyDefault()
     {
         var database = nameof(CreateAsync_WithoutColor_PersistsNullAndNeverTheLegacyDefault);
@@ -499,7 +515,7 @@ public sealed class BusinessStatusRepositoryTests
         var result = await new BusinessStatusRepository(context, _logger).AddAsync(Aggregate());
 
         result.IsSuccess.ShouldBeTrue();
-        context.ChangeTracker.Entries<BusinessStatusRow>()
+        context.ChangeTracker.Entries<Entities.BusinessStatus>()
             .ShouldHaveSingleItem().State.ShouldBe(EntityState.Added);
 
         using var verification = CreateContext(database);
@@ -568,7 +584,7 @@ public sealed class BusinessStatusRepositoryTests
         var result = await new BusinessStatusRepository(context, _logger).RemoveAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
-        context.ChangeTracker.Entries<BusinessStatusRow>()
+        context.ChangeTracker.Entries<Entities.BusinessStatus>()
             .ShouldHaveSingleItem().State.ShouldBe(EntityState.Deleted);
 
         await context.SaveChangesAsync();
@@ -590,7 +606,7 @@ public sealed class BusinessStatusRepositoryTests
         result.Error.Type.ShouldBe(ErrorType.NotFound);
         result.Error.Context.ShouldBe(BusinessStatusErrors.Context);
         result.Error.Origin.ShouldBe(nameof(BusinessStatusRepository));
-        context.ChangeTracker.Entries<BusinessStatusRow>().ShouldBeEmpty();
+        context.ChangeTracker.Entries<Entities.BusinessStatus>().ShouldBeEmpty();
     }
 
     [Fact]

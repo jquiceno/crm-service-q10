@@ -1,9 +1,9 @@
 using Infrastructure.Persistence.EntityFramework;
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Shouldly;
 using Xunit;
+using Entities = Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 
 namespace UnitTests.Infrastructure.Persistence;
 
@@ -77,7 +77,7 @@ public sealed class ApplicationDbContextTests
     {
         using var context = CreateContext(nameof(OnModelCreating_DiscoversTheBusinessStatusConfiguration_MappingTheLegacyTable));
 
-        var entityType = context.Model.FindEntityType(typeof(BusinessStatusRow));
+        var entityType = context.Model.FindEntityType(typeof(Entities.BusinessStatus));
 
         entityType.ShouldNotBeNull();
         entityType.GetTableName().ShouldBe("tbl_opo_negocios_estados");

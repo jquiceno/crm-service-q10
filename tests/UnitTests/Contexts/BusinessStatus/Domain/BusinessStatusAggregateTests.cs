@@ -388,6 +388,22 @@ public sealed class BusinessStatusAggregateTests
         aggregate.IsTerminal.ShouldBeTrue();
     }
 
+    // ── AssignId ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AssignId_TakesTheIdentityWithoutDisturbingTheRestOfTheAggregate()
+    {
+        var aggregate = BusinessStatusAggregate.Create(CreateArgs()).Value;
+
+        aggregate.AssignId(31);
+
+        aggregate.Id.ShouldBe(31);
+        aggregate.Name.ShouldBe("Negotiation");
+        aggregate.Percentage.ShouldBe(50);
+        aggregate.CreatedAt.ShouldNotBeNull();
+        aggregate.UpdatedAt.ShouldNotBeNull();
+    }
+
     private static void ShouldBeSingleValidationError(
         Result result, ValidationError expected, string property)
     {

@@ -34,35 +34,27 @@ public sealed class GetContactChannelsUseCaseTests
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(2);
-        result.Items.Select(c => c.Id).ShouldBe([1, 2]);
-        result.Items.Select(c => c.Name).ShouldBe(["WhatsApp", "Feria"]);
-        result.Items.Select(c => c.IsActive).ShouldBe([true, false]);
+        result.Items.ShouldBe([new GetContactChannelsOutputDto(1, "WhatsApp", true), new(2, "Feria", false)]);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_WithoutFilters_QueriesWithoutFilteringByStateOrName()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(true, null)]
+    [InlineData(false, null)]
+    [InlineData(null, "wha")]
+    [InlineData(true, "wha")]
+    [InlineData(false, "wha")]
+    public async Task ExecuteAsync_TranslatesTheInputIntoTheDomainFilterUnchanged(
+        bool? isActive,
+        string? searchName)
     {
         ReturnsPage();
 
         await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, SearchName: null), new PageQuery(0, 10));
+            .ExecuteAsync(new GetContactChannelsInputDto(isActive, searchName), new PageQuery(0, 10));
 
         await _repository.Received(1).GetAsync(
-            Arg.Is<ContactChannelFilter>(f => f.IsActive == null && f.SearchName == null),
-            Arg.Any<PageQuery>(),
-            Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_TranslatesTheInputIntoTheDomainFilter()
-    {
-        ReturnsPage();
-
-        await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: true, SearchName: "wha"), new PageQuery(0, 10));
-
-        await _repository.Received(1).GetAsync(
-            Arg.Is<ContactChannelFilter>(f => f.IsActive == true && f.SearchName == "wha"),
+            Arg.Is<ContactChannelFilter>(f => f.IsActive == isActive && f.SearchName == searchName),
             Arg.Any<PageQuery>(),
             Arg.Any<CancellationToken>());
     }
@@ -133,5 +125,7 @@ public sealed class GetContactChannelsUseCaseTests
         result.Error.Origin.ShouldBe(
             "ContactChannelRepository",
             "the use case does not replace the origin of a failure it did not produce");
+        result.Error.Context.ShouldBeEmpty(
+            "the use case does not stamp its own context on a failure it did not produce");
     }
 }

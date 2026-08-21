@@ -4,8 +4,7 @@ namespace ContactChannel.Application.UseCases.GetContactChannels;
 
 public sealed record GetContactChannelsInputDto(
     [property: Description(
-        "Filters by state. When omitted, both active and inactive contact channels are returned.")]
+        "Filters by active state. When omitted, both active and inactive contact channels are returned.")]
     bool? IsActive,
-    [property: Description(
-        "Filters by a fragment of the contact channel name. Maximum 200 characters.")]
+    [property: Description("Filters by a fragment of the contact channel name.")]
     string? SearchName);

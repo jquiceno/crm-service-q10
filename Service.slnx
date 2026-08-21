@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/Contexts/" />
   <Folder Name="/src/Contexts/AdsChannel/">
+    <Project Path="./src/Contexts/AdsChannel/Application/AdsChannel.Application.csproj" />
     <Project Path="./src/Contexts/AdsChannel/Domain/AdsChannel.Domain.csproj" />
   </Folder>
   <Folder Name="/src/Contexts/ServiceInfo/">

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Contexts\Activities\Application\Activities.Application.csproj" />
+    <ProjectReference Include="..\Contexts\Activities\Domain\Activities.Domain.csproj" />
     <ProjectReference Include="..\Contexts\ServiceInfo\Application\ServiceInfo.Application.csproj" />
     <ProjectReference Include="..\Shared\Application\Shared.Application.csproj" />
   </ItemGroup>
@@ -31,6 +33,15 @@
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>UnitTests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <!-- The read-only persistence entities of the Activities context stay internal — nothing outside
+       this assembly should reference them — but the integration tests seed them through the ORM
+       instead of raw SQL, so they need visibility. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>IntegrationTests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

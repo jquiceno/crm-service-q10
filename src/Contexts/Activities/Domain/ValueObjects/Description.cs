@@ -30,6 +30,12 @@ public sealed class Description : ValueObject
         return new Description(value);
     }
 
+    /// <summary>
+    /// Rebuilds the value object from persistence without validation: stored values are
+    /// legitimate legacy data even when today's creation rules would reject them (DEC-6).
+    /// </summary>
+    internal static Description Reconstruct(string value) => new(value);
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Value;

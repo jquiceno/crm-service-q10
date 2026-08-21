@@ -18,12 +18,6 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         IsActive = isActive;
     }
 
-    private ContactChannelAggregate(int id, string name, bool isActive)
-        : this(name, isActive)
-    {
-        Id = id;
-    }
-
     public static Result<ContactChannelAggregate> Create(CreateContactChannelArgs input)
     {
         var name = Normalize(input.Name);
@@ -40,7 +34,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     }
 
     public static ContactChannelAggregate Reconstruct(int id, string name, bool isActive) =>
-        new(id: id, name: name, isActive: isActive);
+        new(name: name, isActive: isActive) { Id = id };
 
     public Result Update(UpdateContactChannelArgs input)
     {

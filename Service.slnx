@@ -3,6 +3,10 @@
     <Project Path="./src/Api/Api.csproj" />
   </Folder>
   <Folder Name="/src/Contexts/" />
+  <Folder Name="/src/Contexts/Activities/">
+    <Project Path="./src/Contexts/Activities/Application/Activities.Application.csproj" />
+    <Project Path="./src/Contexts/Activities/Domain/Activities.Domain.csproj" />
+  </Folder>
   <Folder Name="/src/Contexts/ServiceInfo/">
     <Project Path="./src/Contexts/ServiceInfo/Application/ServiceInfo.Application.csproj" />
     <Project Path="./src/Contexts/ServiceInfo/Domain/ServiceInfo.Domain.csproj" />

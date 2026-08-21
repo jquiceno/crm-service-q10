@@ -22,8 +22,7 @@ public sealed class GetLossReasonsUseCase(ILossReasonRepository repository) : IG
             return PagedResult<GetLossReasonsOutputDto>.Failure(result.Error);
 
         return PagedResult<GetLossReasonsOutputDto>.Success(
-            [.. result.Items.Select(lossReason =>
-                new GetLossReasonsOutputDto(lossReason.Id, lossReason.Name, lossReason.IsActive))],
+            [.. result.Items.Select(lossReason => lossReason.ToOutputDto())],
             result.TotalCount);
     }
 }

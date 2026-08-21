@@ -1,4 +1,5 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
+using AdsChannel.Application.UseCases.DeleteAdsChannel;
 using AdsChannel.Application.UseCases.UpdateAdsChannel;
 using AdsChannel.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.AdsChannels;
@@ -13,6 +14,7 @@ public static class AdsChannelServiceExtensions
 
         services.AddScoped<ICreateAdsChannelUseCase, CreateAdsChannelUseCase>();
         services.AddScoped<IUpdateAdsChannelUseCase, UpdateAdsChannelUseCase>();
+        services.AddScoped<IDeleteAdsChannelUseCase, DeleteAdsChannelUseCase>();
 
         return services;
     }

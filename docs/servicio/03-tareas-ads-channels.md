@@ -126,7 +126,7 @@ updated: 2026-08-14
 **Descripción:** Mapear `AdsChannelAggregate` sobre la tabla legada `tbl_opo_medios_publicitarios`, **sin alterarla** — es Database First, la tabla la sigue escribiendo también el monolito legado.
 
 **Qué hacer:**
-- Crear `src/Infrastructure/Persistence/EntityFramework/AdsChannel/Entities/AdsChannel.cs`:
+- Crear `src/Infrastructure/Persistence/EntityFramework/AdsChannels/Entities/AdsChannel.cs`:
   ```
   public int    Id       { get; set; }
   public string? Name    { get; set; }
@@ -156,7 +156,7 @@ updated: 2026-08-14
 **Descripción:** Implementar el repositorio completo — todos los métodos, no solo los que el primer caso de uso vaya a necesitar — porque no depende de ningún caso de uso para existir.
 
 **Qué hacer:**
-- Crear `src/Infrastructure/Persistence/EntityFramework/AdsChannel/AdsChannelRepository.cs` implementando `IAdsChannelRepository`:
+- Crear `src/Infrastructure/Persistence/EntityFramework/AdsChannels/AdsChannelRepository.cs` implementando `IAdsChannelRepository`:
   - `GetByIdAsync`/`ExistsAsync`/`GetAsync(filter, page)`: `AsNoTracking()`, ordenar por `Name` y desempatar por `Id`.
   - `ExistsByNameAsync(name, excludingId)`: equivalente a `SELECT 1 ... WHERE medpub_nombre = @name AND (@excludingId IS NULL OR medpub_consecutivoP <> @excludingId)`.
   - `CreateAsync`: `AddAsync` + `SaveChangesAsync` dentro del repositorio (para recuperar el `Id` generado); capturar `DbUpdateException`, revisar primero `SqlServerErrorClassifier.IsUniqueViolation` antes de clasificar genérico.

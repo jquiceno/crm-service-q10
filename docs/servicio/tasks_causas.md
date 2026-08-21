@@ -84,7 +84,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 |---|---|---|---|---|---|---|---|---|---|
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
-| T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ commit `3500688` — pendiente de merge a la base |
+| T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
 | T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
@@ -288,7 +288,7 @@ El documento está listo cuando:
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está desbloqueado y asignado.** **T2 está ejecutada** (commit `96915cb`, build en verde) y espera merge a `feat/loss-reasons`; en cuanto entre, Juan Esteban abre T3 y las otras dos personas quedan a la espera de ese segundo merge para T4 y T5.
+**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 queda abierta**: Brayan puede arrancar **T4** y Juan Camilo **T5**, en paralelo, cada uno desde la base actualizada. Juan Esteban queda en revisión hasta que T4 entre y le abra T6.
 
 ## Changelog
 

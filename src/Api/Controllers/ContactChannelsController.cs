@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Mvc;
@@ -17,7 +16,9 @@ namespace Api.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Tags("ContactChannels")]
-public sealed class ContactChannelsController : ControllerBase
+public sealed class ContactChannelsController(
+    IGetContactChannelsUseCase getContactChannelsUseCase,
+    IGetContactChannelByIdUseCase getContactChannelByIdUseCase) : ControllerBase
 {
     private const string CacheTag = "contact-channels";
 
@@ -30,7 +31,6 @@ public sealed class ContactChannelsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkPagedResult<GetContactChannelsOutputDto>> GetContactChannels(
-        IGetContactChannelsUseCase getContactChannelsUseCase,
         [FromQuery] GetContactChannelsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,
         CancellationToken cancellationToken = default)
@@ -48,10 +48,9 @@ public sealed class ContactChannelsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    [OutputCache(Tags = [CacheTag], Duration = 259200, VaryByRouteValueNames = ["id"])]
+    [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkResult<GetContactChannelByIdOutputDto>> GetContactChannelById(
-        IGetContactChannelByIdUseCase getContactChannelByIdUseCase,
-        [FromRoute][Range(1, int.MaxValue)] int id,
+        [FromRoute] int id,
         CancellationToken cancellationToken = default)
     {
         return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);

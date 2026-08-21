@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
@@ -45,11 +44,13 @@ public sealed class ContactChannelsControllerTests
     private Task<HttpOkPagedResult<GetContactChannelsOutputDto>> InvokeAsync(
         GetContactChannelsInputDto? filter = null,
         PageQueryInputDto? pagination = null) =>
-        new ContactChannelsController().GetContactChannels(
-            _getContactChannelsUseCase,
+        CreateController().GetContactChannels(
             filter ?? new GetContactChannelsInputDto(IsActive: null, SearchName: null),
             pagination ?? new PageQueryInputDto(),
             CancellationToken.None);
+
+    private ContactChannelsController CreateController() =>
+        new(_getContactChannelsUseCase, _getContactChannelByIdUseCase);
 
     private void Returns(PagedResult<GetContactChannelsOutputDto> result) =>
         _getContactChannelsUseCase
@@ -159,10 +160,7 @@ public sealed class ContactChannelsControllerTests
     }
 
     private Task<HttpOkResult<GetContactChannelByIdOutputDto>> InvokeByIdAsync(int id = 7) =>
-        new ContactChannelsController().GetContactChannelById(
-            _getContactChannelByIdUseCase,
-            id,
-            CancellationToken.None);
+        CreateController().GetContactChannelById(id, CancellationToken.None);
 
     private void ReturnsById(Result<GetContactChannelByIdOutputDto> result) =>
         _getContactChannelByIdUseCase
@@ -228,23 +226,24 @@ public sealed class ContactChannelsControllerTests
     }
 
     [Fact]
-    public void GetContactChannelById_VariesByTheIdentifier()
+    public void GetContactChannelById_DeclaresNoRouteVariationOfItsOwn()
     {
         GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannelById))
-            .VaryByRouteValueNames.ShouldBe(["id"]);
+            .VaryByRouteValueNames.ShouldBeNull();
     }
 
-    [Fact]
-    public void GetContactChannelById_RejectsAnIdentifierBelowOne()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task GetContactChannelById_WithANonPositiveId_StillReachesTheUseCase(int id)
     {
-        var parameter = typeof(ContactChannelsController)
-            .GetMethod(nameof(ContactChannelsController.GetContactChannelById))!
-            .GetParameters()
-            .Single(p => p.Name == "id");
+        ReturnsById(Result<GetContactChannelByIdOutputDto>.Failure(
+            new NotFoundError($"No contact channel exists with identifier {id}.")));
 
-        var range = parameter.GetCustomAttribute<RangeAttribute>();
+        var (statusCode, _) = await ExecuteAsync(await InvokeByIdAsync(id));
 
-        range.ShouldNotBeNull();
-        range.Minimum.ShouldBe(1);
+        await _getContactChannelByIdUseCase.Received(1)
+            .ExecuteAsync(id, Arg.Any<CancellationToken>());
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
     }
 }

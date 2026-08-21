@@ -12,7 +12,7 @@ data:
   # ASP.NET Core
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
-  ASPNETCORE_PATHBASE: ""
+  ASPNETCORE_PATHBASE: "/crm-service"
 
   # Service info
   ServiceInfo__Name: "CrmService"
@@ -39,6 +39,13 @@ data:
   # Verbose | Debug | Information | Warning | Error | Fatal
   Sentry__MinimumEventLevel: "Error"
   Sentry__MinimumBreadcrumbLevel: "Warning"
+  # Minimum level forwarded to the Logs product. Separate knob from MinimumEventLevel above:
+  # that one decides what becomes an Issue, this one what reaches the log stream.
+  Sentry__MinimumLogLevel: "Warning"
+  # Deployment tier reported to Sentry: dev | qa | prod, lowercase, set per overlay.
+  # NOT derived from ASPNETCORE_ENVIRONMENT — that is a runtime mode with two useful values, so
+  # qa and prod would both report "Production" and stop being distinguishable in Sentry.
+  SENTRY_ENVIRONMENT: "prod"
   Sentry__DeniedHeaders: "Authorization,Proxy-Authorization,Cookie,Set-Cookie,X-Api-Key,X-Forwarded-For,X-Real-Ip,X-Csrf-Token,X-Xsrf-Token"
 
   # CORS — no default here on purpose: an unset origin fails closed (CORS blocked)

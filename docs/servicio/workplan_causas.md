@@ -195,7 +195,7 @@ Estado del repositorio destino: **fork limpio de `service-template-dotnet`**, un
 | Negocio | *(sin tipo propio)* | solo como tabla legada `tbl_opo_negocios`, leída por el Reader |
 | Causa en uso | `InUse` | `LossReasonErrors.InUse(id)` |
 
-**Regla de idioma:** contexto, clases, DTOs, endpoints y campos JSON en inglés. Tablas, columnas y SPs legados se citan tal cual (`tbl_opo_causas`, `cau_nombre`, `pa_opo_causas_retornar`). Los `[property: Description(...)]` de los DTOs van en español, como en la plantilla.
+**Regla de idioma:** contexto, clases, DTOs, endpoints y campos JSON en inglés. Tablas, columnas y SPs legados se citan tal cual (`tbl_opo_causas`, `cau_nombre`, `pa_opo_causas_retornar`). Los `[property: Description(...)]` de los DTOs van **en inglés** (revisión de QA sobre el PR de T6, 2026-08-21). ~~en español, como en la plantilla~~ — es una **desviación deliberada del ejemplo de `casos-de-uso.md` §5.2**, que los escribe en español, y deja el servicio con **una sola lengua en todo el artefacto técnico**, incluida la documentación OpenAPI que estos atributos alimentan. **Aplica a los DTOs de las cinco carpetas de casos de uso**, no solo a `GetLossReasons`.
 
 ### 3.2 Trazabilidad Discovery → Plan
 
@@ -386,7 +386,16 @@ public sealed record UpdateLossReasonArgs(string? Name, bool IsActive);
 | `UpdateLossReasonUseCase` | `PUT /loss-reasons/{id}` | `Task<Result<UpdateLossReasonOutputDto>> ExecuteAsync(int id, UpdateLossReasonInputDto input, CancellationToken)` | Cargar → `Update()` → `Update(aggregate)` → `CommitAsync` |
 | `DeleteLossReasonUseCase` | `DELETE /loss-reasons/{id}` | `Task<Result> ExecuteAsync(int id, CancellationToken)` | `ExistsAsync` → `IsUsedAsync` → `RemoveAsync` → `CommitAsync` |
 
-Cada carpeta lleva sus cinco archivos coubicados: `I{X}UseCase.cs`, `{X}UseCase.cs`, `{X}InputDto.cs`, `{X}OutputDto.cs`, `{X}Mapping.cs` (D11). `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`GetLossReasonById`, `Update`, `Delete`; `Create` lo lleva por los errores del agregado).
+Cada carpeta lleva sus cinco archivos coubicados: `I{X}UseCase.cs`, `{X}UseCase.cs`, `{X}InputDto.cs`, `{X}OutputDto.cs`, `{X}Mapping.cs` (D11).
+
+**Qué va y qué no va en `{X}Mapping.cs`** (precisado por la revisión de QA del 2026-08-21, tras un ida y vuelta):
+
+| Va en el Mapping | Va inline en el caso de uso |
+|---|---|
+| `ToOutputDto()` — agregado → DTO de salida | La construcción del **objeto de filtro** (`new LossReasonFilter(input.Name, input.IsActive)`) |
+| `ToAggregate()` / `ToUpdateArgs()` — DTO de entrada → dominio | |
+
+El corte es el de `casos-de-uso.md` §5.5, que arma el filtro con un `new` dentro del `ExecuteAsync` y mapea los items con `ToOutputDto()`. El Mapping traduce **entre DTO y dominio**; un `ToFilter()` no traduce, solo mueve tres campos a un record de consulta, y esconder eso en otro archivo aleja la lectura del caso de uso sin ganar nada. **Aplica a las cinco carpetas** — T7, T8, T9 y T10 van igual. `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`GetLossReasonById`, `Update`, `Delete`; `Create` lo lleva por los errores del agregado).
 
 **Orden en `DeleteLossReasonUseCase`: primero el dominio/existencia, después el Reader** — validar el uso antes gastaría un scan de 300.000 filas en un request que iba a responder 404.
 
@@ -725,13 +734,15 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 > **Los cinco casos de uso son independientes entre sí**: todos dependen solo de F2.7 (y F3.5 además de F2.6). No hay dependencia de código entre ellos, así que pueden ejecutarse en paralelo.
 
 #### [F3.1] Create GetLossReasons use case
-`id: F3.1 · depende_de: F2.7 · tarea: T6 (Juan Esteban) · estado: pending`
+`id: F3.1 · depende_de: F2.7 · tarea: T6 (Juan Esteban) · estado: done`
 - Objetivo: el listado paginado y filtrado.
 - Fuente: D8 · D9 · D11 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/GetLossReasons/{IGetLossReasonsUseCase,GetLossReasonsUseCase,GetLossReasonsInputDto,GetLossReasonsOutputDto,GetLossReasonsMapping}.cs`
 - Detalle: `Task<PagedResult<GetLossReasonsOutputDto>> ExecuteAsync(GetLossReasonsInputDto input, PageQuery page, CancellationToken cancellationToken = default)`. `GetLossReasonsInputDto(string? Name, bool? IsActive)` → `LossReasonFilter`. Salida `(int Id, string Name, bool IsActive)`. Un catálogo vacío devuelve `PagedResult` exitoso con `items: []` (D9), **no** un error. Todas las propiedades con `[property: Description(...)]`.
 - Hecho cuando: un repositorio que devuelve 0 filas produce un `PagedResult` con `IsSuccess = true` y `TotalCount = 0`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: 0 errores, 0 advertencias**
+- Nota de ejecución: el use case **no declara `Origin`** — no origina ningún error, solo propaga el del repositorio.
+- **Revisión de QA sobre el PR (2026-08-21), aplicada:** `GetLossReasonsMapping.cs` **se mantiene, con `ToOutputDto()` únicamente**; **el `ToFilter()` era el que sobraba** y el filtro se arma inline con `new LossReasonFilter(...)`, como en `casos-de-uso.md` §5.5. Los `[property: Description(...)]` de los dos DTOs pasan **a inglés** (§3.1). Se quita el comentario del catálogo vacío del use case, porque D9 ya lo explica y el test `ExecuteAsync_WithNoRows_ReturnsSuccessfulEmptyPage` lo fija. **Las dos primeras son reglas de contexto: T7–T10 van igual** (§3.1 y §5.6).
 
 #### [F3.2] Create GetLossReasonById use case
 `id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: pending`
@@ -772,13 +783,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 > Los cinco pasos de test que siguen son deliberadamente uno por caso de uso: agrupados en un solo paso hacían que la tarea de escrituras superara el techo de R2 y no pudiera moverse de estado por partes.
 
 #### [F3.6] Unit tests for GetLossReasons
-`id: F3.6 · depende_de: F3.1 · tarea: T6 (Juan Esteban) · estado: pending`
+`id: F3.6 · depende_de: F3.1 · tarea: T6 (Juan Esteban) · estado: done`
 - Objetivo: cubrir el listado, incluido el catálogo vacío.
 - Fuente: D9 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/GetLossReasonsUseCaseTests.cs`
 - Detalle: NSubstitute para `ILossReasonRepository`; Shouldly para asserts. Casos: filtro aplicado y propagado al repositorio, `TotalCount` reflejado, **repositorio con 0 filas → `IsSuccess` con `items` vacío** (D9), y fallo del repositorio → el `Origin` del repositorio llega intacto.
 - Hecho cuando: los 4 casos pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 4 pasan**
+- Nota de ejecución: **T6 añadió a `tests/UnitTests/UnitTests.csproj` la `ProjectReference` a `LossReason.Application`**, que F1.6 había dejado anotada como pendiente para la primera de T6–T10. **T7–T10 ya no tienen que tocar ese archivo**, solo rebasar sobre la base.
 
 #### [F3.7] Unit tests for GetLossReasonById
 `id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: pending`
@@ -944,6 +956,7 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-14 | **F3.6 se divide en F3.6–F3.10**, un paso de test por caso de uso. Agrupados hacían que la tarea de escrituras llegara a 12 archivos de `src/`, por encima del techo de R2, y no pudiera moverse de estado por partes | — | F3.6 → F3.6–F3.10 | ninguna — el plan no se había ejecutado |
 | 2026-08-14 | F4.1 y F4.2 declaran sus dependencias reales sobre los casos de uso que consumen, en vez de colgar de F3.5 por posición | — | F4.1, F4.2 | ninguna — el plan no se había ejecutado |
 | 2026-08-14 | El anexo con la tabla de tareas se reemplaza por un puntero a `tasks_causas.md`, para no sostener dos fuentes de verdad del reparto en PRs | — | — | ninguna |
+| 2026-08-21 | **Revisión de QA sobre el PR de T6**, con tres reglas que valen para **todo el contexto**, no solo para el listado: (a) los `[property: Description(...)]` de los DTOs pasan de español **a inglés** (§3.1), desviándose del ejemplo de `casos-de-uso.md` §5.2; (b) **`{X}Mapping.cs` se queda**, pero **solo con la traducción DTO ↔ dominio**: `ToOutputDto()` sí, `ToFilter()` no — el objeto de filtro se construye inline en el `ExecuteAsync` (§5.6, con la tabla de qué va dónde); (c) se quita del use case el comentario del catálogo vacío. **T7, T8, T9 y T10 quedan afectadas antes de escribirse** | — | §3.1 · §5.6 · F3.1 · F3.2 · F3.3 · F3.4 · F3.5 | ninguna — T7–T10 aún no arrancan |
 | 2026-08-21 | **D6 se reescribe con su motivo real, sin cambiar el código.** La enmienda de T4 afirmaba que las columnas son `NOT NULL` en la BD; **son NULLABLE** —verificado por el dump leído con la trampa del script, por `pa_opo_causas_modificar` (`@cau_nombre VARCHAR(200) = NULL`) y por Discovery D2/D3, que **queda confirmado, no desactualizado**—. La entidad no anulable **se mantiene**, pero como **decisión técnica de integridad**, no como reflejo del esquema: el servicio prefiere fallar ruidosamente ante un dato corrupto antes que normalizarlo a `""`/`false` y propagarlo. Se retira la «contradicción registrada» contra el Discovery, se corrige §4, F2.1, F2.3 y F2.8, y **se abre R10** con su consulta de detección y la tarea `EXT-9`. **F5.1 invierte su escenario de NULL**: ahora fija que el listado responde 500, y siembra con SQL crudo porque el tipo de la entidad ya no permite construir la fila | **D6** | §4 · F2.1 · F2.2 · F2.3 · F2.8 · F5.1 · §9.1 R10 | ninguna — el código de T4 no cambia |
 | 2026-08-21 | **Firmadas las dos enmiendas abiertas de T4** por el tech lead: los nombres de la entidad en inglés con `HasColumnName` son **la convención**, no una desviación; y los unitarios del repositorio con EF InMemory (F2.9) **se quedan**, porque la puerta de cobertura de GitHub exige >90 % y solo cuenta unit tests | — | Fase 2 (estrategia) · F2.1 · F2.9 | ninguna |
 | 2026-08-21 | **Revisión de QA sobre la rama de T3.** Tres ajustes en `LossReasonAggregate`, ninguno de comportamiento observable por el consumidor: (a) se elimina el comentario que explicaba el `IDENTITY` — el dominio no narra infraestructura; (b) `Create` deja de pasar el `Id`: se parte el constructor privado en dos, uno sin `Id` para `Create` y otro con `Id` que delega, solo para `Reconstruct`; (c) `Created()` deja de llamar `SetUpdatedAt`, así que `UpdatedAt` es `null` hasta la primera mutación. **(c) es una desviación del ejemplo de `entidades-y-agregados.md`** y se declara como tal | — | F1.3 (detalle) · F1.6 (un assert) | ninguna — T3 se corrige en su propia rama |

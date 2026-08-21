@@ -1,4 +1,5 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
+using AdsChannel.Application.UseCases.DeleteAdsChannel;
 using AdsChannel.Application.UseCases.UpdateAdsChannel;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Presentation.Attributes;
@@ -13,7 +14,8 @@ namespace Api.Controllers;
 [Tags("AdsChannels")]
 public sealed class AdsChannelsController(
     ICreateAdsChannelUseCase createAdsChannelUseCase,
-    IUpdateAdsChannelUseCase updateAdsChannelUseCase) : ControllerBase
+    IUpdateAdsChannelUseCase updateAdsChannelUseCase,
+    IDeleteAdsChannelUseCase deleteAdsChannelUseCase) : ControllerBase
 {
     private const string CacheTag = "ads-channels";
 
@@ -47,5 +49,19 @@ public sealed class AdsChannelsController(
         CancellationToken cancellationToken = default)
     {
         return await updateAdsChannelUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpDelete("{id}")]
+    [OutputCacheInvalidate(CacheTag)]
+    [EndpointSummary("Delete ads channel")]
+    [EndpointDescription("Deletes an existing ads channel.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    public async Task<HttpNoContentResult> DeleteAdsChannel(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await deleteAdsChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

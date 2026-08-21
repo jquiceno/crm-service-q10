@@ -1,3 +1,4 @@
+using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
@@ -21,6 +22,7 @@ namespace Api.Controllers;
 public sealed class ContactChannelsController(
     IGetContactChannelsUseCase getContactChannelsUseCase,
     IGetContactChannelByIdUseCase getContactChannelByIdUseCase,
+    ICreateContactChannelUseCase createContactChannelUseCase,
     IDeleteContactChannelUseCase deleteContactChannelUseCase) : ControllerBase
 {
     private const string CacheTag = "contact-channels";
@@ -57,6 +59,23 @@ public sealed class ContactChannelsController(
         CancellationToken cancellationToken = default)
     {
         return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpPost]
+    [ValidateRequest]
+    [EndpointSummary("Create contact channel")]
+    [EndpointDescription("Creates a contact channel and returns it with the identifier the database generated. A name that already exists is accepted: the catalog does not require unique names.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<CreateContactChannelOutputDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpCreatedResult<CreateContactChannelOutputDto>> CreateContactChannel(
+        [FromBody] CreateContactChannelInputDto input,
+        CancellationToken cancellationToken = default)
+    {
+        return await createContactChannelUseCase
+            .ExecuteAsync(input, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     [HttpDelete("{id:int}")]

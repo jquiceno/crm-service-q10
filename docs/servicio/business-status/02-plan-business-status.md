@@ -678,8 +678,10 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 
 **Estrategia de pruebas:** el mapper se prueba unitariamente en ambos sentidos, incluida la tolerancia a nulos (nombre, porcentaje, color, actividad). El repositorio **no** se prueba unitariamente contra EF In-Memory: sus reglas reales (orden con desempate, `OFFSET/FETCH`, 547) solo se verifican en la fase 6 con SQL Server real.
 
+> **Ajuste de la estrategia — desarrollador, 2026-08-21.** Se **sí** prueba el repositorio unitariamente contra EF In-Memory (33 casos, `BusinessStatusRepositoryTests`), para sostener el umbral de cobertura de línea del 90 % que exige el gate de CI (`docs/plantilla/testing.md`; solo los unit tests cuentan). Lo que ese proveedor **no** reproduce sigue siendo exclusivo de la Fase 9: el SQL real de `OFFSET/FETCH`, la columna `decimal(20,5)`, el ordenamiento de `NULL` del motor y el error 547 de las FKs entrantes. Los fallos de escritura se alcanzan con un `SaveChangesInterceptor` que lanza la excepción elegida; `SqlException` no se puede construir en un test (no tiene constructor público, como ya documenta `SqlServerErrorClassifierTests`), así que sus dos `catch` quedan sin cubrir a propósito.
+
 #### [F2.1] Create BusinessStatusRow persistence entity
-`id: F2.1 · depende_de: F1.6 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: pending`
+`id: F2.1 · depende_de: F1.6 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: done`
 - **Objetivo:** reflejar la fila real de `tbl_opo_negocios_estados`, con su nulabilidad real y sin reglas.
 - **Fuente:** §4.1 · D1 · D14 (d) · `DESVIACIÓN-1` (§5.6).
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/BusinessStatuses/Entities/BusinessStatusRow.cs`.
@@ -688,7 +690,7 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 - **Verificar:** `dotnet build src/Infrastructure/Infrastructure.csproj`
 
 #### [F2.2] Create BusinessStatusRowConfiguration
-`id: F2.2 · depende_de: F2.1 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: pending`
+`id: F2.2 · depende_de: F2.1 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: done`
 - **Objetivo:** mapear la entidad a la tabla legada con los nombres exactos de columna.
 - **Fuente:** §4.1 · D1 · `docs/plantilla/repositorio.md`.
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/BusinessStatuses/Configurations/BusinessStatusRowConfiguration.cs`.
@@ -707,7 +709,7 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 - **Verificar:** `dotnet build Service.slnx`
 
 #### [F2.3] Create BusinessStatusRepositoryMapper
-`id: F2.3 · depende_de: F2.2 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: pending`
+`id: F2.3 · depende_de: F2.2 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: done`
 - **Objetivo:** traducir en ambos sentidos entre el agregado y la fila, absorbiendo la nulabilidad real.
 - **Fuente:** §4.1 · D5 · D14 (c, d).
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/BusinessStatuses/Mappers/BusinessStatusRepositoryMapper.cs`, `tests/UnitTests/Infrastructure/Persistence/BusinessStatuses/BusinessStatusRepositoryMapperTests.cs`.
@@ -716,7 +718,7 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 - **Verificar:** `dotnet test tests/UnitTests/UnitTests.csproj --filter FullyQualifiedName~BusinessStatusRepositoryMapperTests`
 
 #### [F2.4] Register the DbSet
-`id: F2.4 · depende_de: F2.3 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: pending`
+`id: F2.4 · depende_de: F2.3 · tarea: (sin asignar) rama feat/business-status-persistence-mapping · estado: done`
 - **Objetivo:** exponer la entidad en el `DbContext`.
 - **Fuente:** template (`ApplicationDbContext`).
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`.
@@ -725,7 +727,7 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 - **Verificar:** `dotnet test tests/UnitTests/UnitTests.csproj --filter FullyQualifiedName~ApplicationDbContextTests`
 
 #### [F2.5] Implement BusinessStatusRepository read operations
-`id: F2.5 · depende_de: F2.4 · tarea: (sin asignar) rama feat/business-status-repository · estado: pending`
+`id: F2.5 · depende_de: F2.4 · tarea: (sin asignar) rama feat/business-status-repository · estado: done`
 - **Objetivo:** implementar las lecturas del repositorio con orden total y paginación en la consulta.
 - **Fuente:** D7 · D8 · D6 · §5.3 · `docs/plantilla/repositorio.md`.
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/BusinessStatuses/BusinessStatusRepository.cs`.
@@ -734,16 +736,27 @@ Organización de la Fase 3 en adelante: **vertical slice**. Cada endpoint HTTP (
 - **Verificar:** `dotnet build Service.slnx`
 
 #### [F2.6] Implement BusinessStatusRepository write operations
-`id: F2.6 · depende_de: F2.5 · tarea: (sin asignar) rama feat/business-status-repository · estado: pending`
+`id: F2.6 · depende_de: F2.5 · tarea: (sin asignar) rama feat/business-status-repository · estado: done`
 - **Objetivo:** implementar alta, edición y borrado, devolviendo el identity y clasificando el conflicto de FK.
 - **Fuente:** D9 · D10 · Discovery §7 D-22, D-26, D-29 · `docs/plantilla/repositorio.md`.
 - **Archivos:** `src/Infrastructure/Persistence/EntityFramework/BusinessStatuses/BusinessStatusRepository.cs`.
 - **Detalle:** `CreateAsync` agrega la fila, hace `SaveChangesAsync` dentro del repositorio y asigna al agregado el `Id` que pobló el identity (corrige D-26); por eso el caso de uso de alta **no** inyecta `IUnitOfWorkPort`. `AddAsync` queda implementado como encolado simple para completar el contrato. `Update` escribe **todas** las propiedades del agregado sobre la fila rastreada (evita el `SET` destructivo de D-22). `RemoveAsync(int id)` resuelve la fila y falla con `NotFound` si no existe. En los `catch`: `DbUpdateException` → `SqlServerErrorClassifier.Classify(ex, Origin)`; **también** `SqlException` con su propia sobrecarga, porque un borrado que no pase por el change tracker no envuelve la excepción; el resto → `PersistenceErrors.Failure(Origin)`. El 547 queda clasificado como `Conflict` → 409 (D-29).
-- **Hecho cuando:** `CreateAsync` devuelve el agregado con `Id > 0`, `Update` no deja campos sin escribir, y los tres `catch` de cada escritura están presentes en el orden `DbUpdateException` → `SqlException` → genérico.
+- **Ejecución (2026-08-21):** el agregado **no expone ningún mutador de identificador** (`Entity<TId>.Id` tiene `protected set` y `BusinessStatusAggregate` no declara un `AssignId`, F1.4), así que «asignar al agregado el `Id` que pobló el identity» se cumple **re-hidratando** el agregado desde la fila ya insertada: `CreateAsync` devuelve `BusinessStatusRepositoryMapper.ToDomain(row)` después del `SaveChangesAsync`, con `Id > 0`. La alternativa —agregar un `AssignId` público al agregado— habría tocado un archivo de la Fase 1, fuera de la lista de archivos de este paso. Consecuencia menor: el agregado devuelto por `CreateAsync` no conserva el `CreatedAt`/`UpdatedAt` que fijó `Create()`, lo cual es inocuo porque esas fechas no se persisten (D14 b, R-7) ni salen en el contrato (§6). `Update` asigna `row.Id = aggregate.Id` en el repositorio, porque el mapper deja el identificador fuera para el alta.
+- **Corrección (2026-08-21) — los tres `catch` no aplican a las cuatro escrituras.** Solo se conservan los `catch` que pueden dispararse; el resto era código inalcanzable que además hundía la cobertura del archivo por debajo del 90 %:
+
+  | Escritura | ¿Toca la base? | `catch` presentes |
+  |---|---|---|
+  | `CreateAsync` | Sí: `SaveChangesAsync` | `DbUpdateException` → `SqlException` → genérico (los tres) |
+  | `RemoveAsync` | Sí: el `SELECT` que resuelve la fila | `SqlException` → genérico. El `DELETE` —y su 547— los levanta el Unit of Work, que ya clasifica `DbUpdateException` |
+  | `AddAsync` | No: la clave es IDENTITY, EF no consulta nada antes del `INSERT` | genérico |
+  | `Update` | No: solo marca estado en el change tracker | genérico |
+
+  En los cuatro casos el método sigue sin lanzar al llamador y sigue devolviendo `PersistenceErrors.Failure(Origin)` ante lo inesperado; el 409 por FK sigue llegando clasificado (D9), ahora desde `UnitOfWorkAdapter.CommitAsync` en el borrado y desde `CreateAsync` en el alta.
+- **Hecho cuando:** `CreateAsync` devuelve el agregado con `Id > 0`, `Update` no deja campos sin escribir, y cada escritura tiene los `catch` que su camino real puede disparar, en el orden `DbUpdateException` → `SqlException` → genérico.
 - **Verificar:** `dotnet build Service.slnx`
 
 #### [F2.7] Scaffold BusinessStatus DI registration
-`id: F2.7 · depende_de: F2.6 · tarea: (sin asignar) rama feat/business-status-repository · estado: pending`
+`id: F2.7 · depende_de: F2.6 · tarea: (sin asignar) rama feat/business-status-repository · estado: done`
 - **Objetivo:** dejar el punto de registro de dependencias del contexto listo para que cada slice de la Fase 3 en adelante agregue **una sola línea propia**, sin que ninguna dependa de que otra slice se implemente primero.
 - **Fuente:** `docs/plantilla/contextos.md` §5.5 · `docs/plantilla/repositorio.md` (lifetimes).
 - **Archivos:** `src/Api/DependencyInjection/BusinessStatusServiceExtensions.cs`, `src/Api/DependencyInjection/ApplicationServiceExtensions.cs`.
@@ -889,6 +902,7 @@ No es una slice HTTP: `TerminalBusinessStatusProvider` no se expone como acción
 | R-6 | El servicio **no puede crear estados terminales**. Un tenant sin catálogo semilla no podrá tener «Ganado» ni «Perdido» por esta vía | D3 (paridad con la regla del legado, D-05) | Bajo: los 19 tenants sanos de la muestra conservan el catálogo semilla | Registrado. Si aparece la necesidad, es un cambio de producto, no una corrección |
 | R-7 | Las fechas de auditoría del agregado no se persisten: la tabla no tiene columnas para ellas | D14 (b) · D-16 diferido | Bajo | `CreatedAt`/`UpdatedAt` viven solo en memoria; se resolverá con la política de auditoría del servicio |
 | R-8 | El nombre `BusinessStatusRow` se aparta de la convención de la plantilla | `DESVIACIÓN-1` (§5.6) | Bajo | Pide sign-off del Tech Lead. Alternativa documentada |
+| R-9 | **Un porcentaje persistido fuera del rango de `int` lanzaría `OverflowException` en el mapper.** La conversión de F2.3 (`(int)row.Percentage.Value`) tolera el no-entero y el nulo, pero no un entero que no quepa en `int`: la columna es `decimal(20,5)` y no tiene CHECK que la limite a 0-100 (D1) | F2.3 · D1 · D5 | Bajo: exigiría un dato ≥ 2.147.483.648 en una columna de porcentaje; ningún tenant de la muestra lo tiene (Discovery §4.4) | Detectado al ejecutar la Fase 2 y **no implementado** (§0.5: no se agrega alcance). Si se decide cubrirlo, es una guarda de rango en `ToWholePercentage` que devuelva `null`, igual que hace con el no-entero |
 
 ### 9.2 GAPs consolidados
 

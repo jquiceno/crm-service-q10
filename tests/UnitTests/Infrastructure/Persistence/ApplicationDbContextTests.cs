@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.EntityFramework;
+using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Shouldly;
@@ -69,6 +70,28 @@ public sealed class ApplicationDbContextTests
         var entityTypeNames = context.Model.GetEntityTypes().Select(e => e.ClrType.Name).ToList();
 
         entityTypeNames.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public void OnModelCreating_DiscoversTheBusinessStatusConfiguration_MappingTheLegacyTable()
+    {
+        using var context = CreateContext(nameof(OnModelCreating_DiscoversTheBusinessStatusConfiguration_MappingTheLegacyTable));
+
+        var entityType = context.Model.FindEntityType(typeof(BusinessStatusRow));
+
+        entityType.ShouldNotBeNull();
+        entityType.GetTableName().ShouldBe("tbl_opo_negocios_estados");
+        entityType.GetProperties()
+            .Select(p => p.GetColumnName())
+            .ShouldBe(
+                [
+                    "negest_consecutivoP",
+                    "negest_color",
+                    "negest_estado",
+                    "negest_nombre",
+                    "negest_porcentaje"
+                ],
+                ignoreOrder: true);
     }
 
     [Fact]

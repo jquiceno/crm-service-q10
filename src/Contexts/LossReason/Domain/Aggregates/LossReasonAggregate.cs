@@ -9,7 +9,7 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
 {
     public const int NameMaxLength = 50;
 
-    public string Name { get; private set; } = string.Empty;
+    public string Name { get; private set; }
     public bool IsActive { get; private set; }
 
     private LossReasonAggregate(string name, bool isActive)

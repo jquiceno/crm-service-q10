@@ -17,7 +17,8 @@ public sealed class LossReasonConfiguration : IEntityTypeConfiguration<Entities.
 
         builder.Property(x => x.Name)
             .HasColumnName("cau_nombre")
-            .HasColumnType("varchar(200)");
+            .HasMaxLength(200)
+            .IsUnicode(false);
 
         builder.Property(x => x.IsActive)
             .HasColumnName("cau_estado");

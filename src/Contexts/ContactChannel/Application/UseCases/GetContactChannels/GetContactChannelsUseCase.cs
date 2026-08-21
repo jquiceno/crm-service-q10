@@ -1,3 +1,4 @@
+using ContactChannel.Domain.Queries;
 using ContactChannel.Domain.Repositories;
 using Shared.Domain.Pagination;
 using Shared.Results;
@@ -12,8 +13,10 @@ public sealed class GetContactChannelsUseCase(IContactChannelRepository reposito
         PageQuery page,
         CancellationToken cancellationToken = default)
     {
+        var filter = new ContactChannelFilter(input.IsActive, input.SearchName);
+
         var result = await repository
-            .GetAsync(input.ToFilter(), page, cancellationToken)
+            .GetAsync(filter, page, cancellationToken)
             .ConfigureAwait(false);
 
         if (result.IsFailure)

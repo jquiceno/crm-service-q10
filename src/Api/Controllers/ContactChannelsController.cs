@@ -13,7 +13,7 @@ namespace Api.Controllers;
 /// Endpoints for the contact channel catalog: the channel through which a prospect reached the institution.
 /// </summary>
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("[controller]")]
 [Tags("ContactChannels")]
 public sealed class ContactChannelsController : ControllerBase
 {

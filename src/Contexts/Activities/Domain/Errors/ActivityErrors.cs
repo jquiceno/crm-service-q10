@@ -81,17 +81,20 @@ public static class ActivityErrors
             Property = nameof(Activity.OutcomeType),
         };
 
-    public static readonly ValidationError AdvisorIdRequired =
+    // Property defaults to the advisor field, the primary use; the args-based factories override
+    // it with CreatedById when the same person-code error applies to that field.
+
+    public static readonly ValidationError PersonCodeRequired =
         new("Person code is required.", ErrorType.Validation)
         {
             Property = nameof(Activity.AdvisorId),
         };
 
-    public static readonly ValidationError AdvisorIdTooLong =
-        new($"Person code cannot exceed {ActivityLimits.AdvisorIdMaxLength} characters.", ErrorType.Validation)
+    public static readonly ValidationError PersonCodeTooLong =
+        new($"Person code cannot exceed {ActivityLimits.PersonCodeMaxLength} characters.", ErrorType.Validation)
         {
             Property = nameof(Activity.AdvisorId),
-            Attributes = new Dictionary<string, object?> { ["maxLength"] = ActivityLimits.AdvisorIdMaxLength },
+            Attributes = new Dictionary<string, object?> { ["maxLength"] = ActivityLimits.PersonCodeMaxLength },
         };
 
     // --- OutcomeType value object ---------------------------------------------------------

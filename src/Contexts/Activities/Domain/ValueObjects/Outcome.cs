@@ -32,6 +32,12 @@ public sealed class Outcome : ValueObject
         return new Outcome(value);
     }
 
+    /// <summary>
+    /// Rebuilds the value object from persistence without validation: stored values are
+    /// legitimate legacy data even when today's creation rules would reject them (DEC-6).
+    /// </summary>
+    internal static Outcome Reconstruct(string value) => new(value);
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Value;

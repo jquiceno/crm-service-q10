@@ -14,5 +14,5 @@ public static class ActivityLimits
     public const int DescriptionMaxLength = 500;
 
     /// <summary>Persisted to <c>negact_asesor</c> / <c>negact_per_codigo varchar(20)</c>.</summary>
-    public const int AdvisorIdMaxLength = 20;
+    public const int PersonCodeMaxLength = 20;
 }

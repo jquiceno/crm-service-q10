@@ -23,9 +23,9 @@ namespace Activities.Domain.Aggregates;
 /// <c>CreatedAt</c> is stamped in UTC by <see cref="Created"/> itself, the same as every other
 /// aggregate in this service. <c>CompletedAt</c> is different: it is business data (when the
 /// activity was completed), not an audit field, so it comes from the caller through
-/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because the
-/// legacy table has no updated column, and <c>Id</c> stays 0 until the database generates the
-/// identity on save.
+/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because
+/// the legacy table has no updated column, and <c>Id</c> stays 0 until the database generates
+/// the identity on save.
 /// </para>
 /// </remarks>
 public sealed class Activity : AggregateRoot<int>
@@ -33,13 +33,21 @@ public sealed class Activity : AggregateRoot<int>
     public int DealId { get; }
     public int? OpportunityId { get; }
     public ActivityType Type { get; }
+
     public ActivityStatus Status { get; }
+
     public Description? Description { get; }
     public DateTime? DueAt { get; }
     public Outcome? Outcome { get; }
     public OutcomeType? OutcomeType { get; }
-    public AdvisorId AdvisorId { get; }
-    public AdvisorId CreatedById { get; }
+
+    /// <summary>
+    /// Null only on migrated historic rows read from the legacy database (§4.1); every factory
+    /// requires it, so activities created by this service always carry one.
+    /// </summary>
+    public PersonCode? AdvisorId { get; }
+
+    public PersonCode CreatedById { get; }
     public DateTime? CompletedAt { get; }
 
     private Activity(
@@ -51,8 +59,8 @@ public sealed class Activity : AggregateRoot<int>
         DateTime? dueAt,
         Outcome? outcome,
         OutcomeType? outcomeType,
-        AdvisorId advisorId,
-        AdvisorId createdById,
+        PersonCode? advisorId,
+        PersonCode createdById,
         DateTime? completedAt)
     {
         DealId = dealId;
@@ -78,9 +86,9 @@ public sealed class Activity : AggregateRoot<int>
         var errors = new List<ValidationError>();
 
         var description = Collect(Description.Create(args.Description), errors, args.Description);
-        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var advisorId = Collect(PersonCode.Create(args.AdvisorId), errors, args.AdvisorId);
         var createdById = Collect(
-            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+            PersonCode.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
@@ -101,8 +109,8 @@ public sealed class Activity : AggregateRoot<int>
         ActivityType type,
         Description? description,
         DateTime? dueAt,
-        AdvisorId advisorId,
-        AdvisorId createdById)
+        PersonCode advisorId,
+        PersonCode createdById)
     {
         var guardError = GuardWritable(dealId, type);
         if (guardError is not null)
@@ -135,9 +143,9 @@ public sealed class Activity : AggregateRoot<int>
         var errors = new List<ValidationError>();
 
         var outcome = Collect(Outcome.Create(args.Outcome), errors, args.Outcome);
-        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var advisorId = Collect(PersonCode.Create(args.AdvisorId), errors, args.AdvisorId);
         var createdById = Collect(
-            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+            PersonCode.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
 
         // Only resolve the name for types that carry a coded outcome: for the rest it is
         // discarded silently (legacy parity), and a missing name is the core factory's
@@ -167,8 +175,8 @@ public sealed class Activity : AggregateRoot<int>
         Outcome? outcome,
         OutcomeType? outcomeType,
         DateTime? dueAt,
-        AdvisorId advisorId,
-        AdvisorId createdById,
+        PersonCode advisorId,
+        PersonCode createdById,
         DateTime now)
     {
         var guardError = GuardWritable(dealId, type);
@@ -246,6 +254,46 @@ public sealed class Activity : AggregateRoot<int>
             Value = value,
         });
         return null;
+    }
+
+    /// <summary>
+    /// Rebuilds the aggregate from persistence without validation or audit stamping (the
+    /// template's reconstruction factory): a legacy row is valid data even where today's
+    /// creation invariants would reject it — missing advisor, read-only types, rows carrying
+    /// both <see cref="Description"/> and <see cref="Outcome"/> at once, or an
+    /// <see cref="OutcomeType"/> whose <see cref="OutcomeType.Scope"/> names the catalogue
+    /// (Meeting) while <see cref="Type"/> keeps the real legacy/virtual value. Only the
+    /// persistence mapper calls it; Scope == Type is an invariant of the factories, not of reads.
+    /// The identity is the one exception: it defines equality (<c>Entity&lt;TId&gt;</c>), so a
+    /// non-positive one is a programming error, never legacy data.
+    /// </summary>
+    internal static Activity Reconstruct(
+        int id,
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        ActivityStatus status,
+        Description? description,
+        DateTime? dueAt,
+        Outcome? outcome,
+        OutcomeType? outcomeType,
+        PersonCode? advisorId,
+        PersonCode createdById,
+        DateTime createdAt,
+        DateTime? completedAt)
+    {
+        if (id <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(id), id, "A persisted activity always has a positive identity.");
+
+        var activity = new Activity(
+            dealId, opportunityId, type, status, description, dueAt, outcome, outcomeType,
+            advisorId, createdById, completedAt)
+        {
+            Id = id,
+        };
+        activity.SetCreatedAt(createdAt);
+        return activity;
     }
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.

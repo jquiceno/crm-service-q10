@@ -50,7 +50,7 @@ public sealed class ActivityFromArgsTests
         var activity = result.Value;
         activity.Status.ShouldBe(ActivityStatus.Scheduled);
         activity.Description!.Value.ShouldBe("call the applicant");
-        activity.AdvisorId.Value.ShouldBe("339968541842");
+        activity.AdvisorId!.Value.ShouldBe("339968541842");
         activity.CreatedById.Value.ShouldBe("339968541842");
         activity.CreatedAt.ShouldNotBeNull();
         activity.CreatedAt!.Value.ShouldBeInRange(before, after);
@@ -62,7 +62,7 @@ public sealed class ActivityFromArgsTests
         var args = ValidScheduleArgs with
         {
             Description = null,
-            AdvisorId = new string('9', ActivityLimits.AdvisorIdMaxLength + 1),
+            AdvisorId = new string('9', ActivityLimits.PersonCodeMaxLength + 1),
             CreatedById = "",
         };
 
@@ -88,7 +88,7 @@ public sealed class ActivityFromArgsTests
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
         detail.Property.ShouldBe(nameof(Activity.CreatedById));
-        detail.Errors!.ShouldBe(new[] { ActivityErrors.AdvisorIdRequired.Message });
+        detail.Errors!.ShouldBe(new[] { ActivityErrors.PersonCodeRequired.Message });
     }
 
     [Fact]

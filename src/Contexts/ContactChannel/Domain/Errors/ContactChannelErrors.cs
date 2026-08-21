@@ -11,7 +11,6 @@ public static class ContactChannelErrors
         new("The contact channel name is required.", ErrorType.Validation)
         {
             Property = nameof(ContactChannelAggregate.Name),
-            Context = Context,
         };
 
     public static readonly ValidationError NameTooLong =
@@ -20,7 +19,10 @@ public static class ContactChannelErrors
             ErrorType.Validation)
         {
             Property = nameof(ContactChannelAggregate.Name),
-            Context = Context,
+            Attributes = new Dictionary<string, object?>
+            {
+                ["maxLength"] = ContactChannelAggregate.NameMaxLength,
+            },
         };
 
     public static NotFoundError NotFound(int id) =>

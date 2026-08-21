@@ -1,4 +1,5 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
 using Microsoft.AspNetCore.Mvc;
 using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
@@ -16,7 +17,8 @@ namespace Api.Controllers;
 [Route("[controller]")]
 [Tags("business-statuses")]
 public sealed class BusinessStatusesController(
-    ICreateBusinessStatusUseCase createBusinessStatusUseCase) : ControllerBase
+    ICreateBusinessStatusUseCase createBusinessStatusUseCase,
+    IDeleteBusinessStatusUseCase deleteBusinessStatusUseCase) : ControllerBase
 {
     private const string CacheTag = "business-statuses";
 
@@ -35,5 +37,22 @@ public sealed class BusinessStatusesController(
         CancellationToken cancellationToken = default)
     {
         return await createBusinessStatusUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpDelete("{id}")]
+    [EndpointSummary("Delete business status")]
+    [EndpointDescription(
+        "Deletes the business status with the given id. A terminal status — the one at 0 % or at 100 % — "
+        + "answers 409, and so does a status still referenced by a business.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpNoContentResult> DeleteBusinessStatus(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await deleteBusinessStatusUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

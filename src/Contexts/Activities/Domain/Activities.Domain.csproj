@@ -4,8 +4,8 @@
   </ItemGroup>
 
   <!-- Persistence rehydration only: the EF materialization interceptor needs the internal
-       Activity.RestoreOutcomeType hook (the legacy outcome char depends on the activity type,
-       so a value converter cannot rebuild it — see ActivityConfiguration). -->
+       Activity.RestoreLegacyState hook (the legacy status bit pair and the type-dependent
+       outcome char cannot be value converters — see ActivityConfiguration). -->
   <ItemGroup>
     <InternalsVisibleTo Include="Infrastructure" />
   </ItemGroup>

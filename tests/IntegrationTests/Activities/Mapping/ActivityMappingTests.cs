@@ -96,8 +96,9 @@ public sealed class ActivityMappingTests : IAsyncLifetime
              @completed, @cancelled, NULL, @advisor, @creator);
         """;
 
-    private const string SelectRawCharsSql =
-        "SELECT negact_tipo, negact_resultado FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
+    private const string SelectRawRowSql =
+        "SELECT negact_tipo, negact_resultado, negact_completada, negact_anulada " +
+        "FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
 
     private const string SelectPerTenantColumnSql =
         "SELECT ConsecutivoActMiG FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
@@ -174,10 +175,14 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         activity.CompletedAt.ShouldBe(Now);
         activity.Description.ShouldBeNull();
 
-        // The chars on disk are the legacy ones, not the domain enum values (DEC-15).
-        var (typeChar, outcomeChar) = await ReadRawCharsAsync(variant, id).ConfigureAwait(true);
+        // The chars on disk are the legacy ones, not the domain enum values (DEC-15), and new
+        // rows carry real booleans, never NULL bits (production parity: 0 NULLs in real data).
+        var (typeChar, outcomeChar, isCompleted, isCancelled) =
+            await ReadRawRowAsync(variant, id).ConfigureAwait(true);
         typeChar.ShouldBe("1");
         outcomeChar.ShouldBe("6");
+        isCompleted.ShouldBe(true);
+        isCancelled.ShouldBe(false);
     }
 
     [Theory]
@@ -273,8 +278,58 @@ public sealed class ActivityMappingTests : IAsyncLifetime
             await context.SaveChangesAsync().ConfigureAwait(true);
         }
 
-        var (_, outcomeChar) = await ReadRawCharsAsync(variant, id).ConfigureAwait(true);
+        var (_, outcomeChar, _, _) = await ReadRawRowAsync(variant, id).ConfigureAwait(true);
         outcomeChar.ShouldBe("6", "the service must never destroy codes it does not interpret");
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task HistoricNullBits_SurviveAnUpdateUntouched(string variant)
+    {
+        // DEC-6 forbids normalizing migrated history: updating a NULL-bits row without changing
+        // its status must leave the bits exactly as they were.
+        var id = await InsertRawAsync(
+                variant, type: "3", outcomeType: null, completed: null, cancelled: null)
+            .ConfigureAwait(true);
+
+        var context = CreateContext(variant);
+        await using (context.ConfigureAwait(true))
+        {
+            var activity = await context.Activities.SingleAsync(a => a.Id == id).ConfigureAwait(true);
+            activity.Status.ShouldBe(ActivityStatus.Scheduled);
+
+            context.Activities.Update(activity);
+            await context.SaveChangesAsync().ConfigureAwait(true);
+        }
+
+        var (_, _, isCompleted, isCancelled) = await ReadRawRowAsync(variant, id).ConfigureAwait(true);
+        isCompleted.ShouldBeNull("the NULL pattern of migrated history must not be normalized");
+        isCancelled.ShouldBeNull("the NULL pattern of migrated history must not be normalized");
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task AMonolithAnnulledRow_KeepsBothBits_AfterAnUpdate(string variant)
+    {
+        // The monolith annuls with completada=1 AND anulada=1; the pair must survive an update
+        // untouched (a (0,1) rewrite would make Jack list the row as "Programada" again).
+        var id = await InsertRawAsync(
+                variant, type: "5", outcomeType: "2", completed: true, cancelled: true)
+            .ConfigureAwait(true);
+
+        var context = CreateContext(variant);
+        await using (context.ConfigureAwait(true))
+        {
+            var activity = await context.Activities.SingleAsync(a => a.Id == id).ConfigureAwait(true);
+            activity.Status.ShouldBe(ActivityStatus.Cancelled);
+
+            context.Activities.Update(activity);
+            await context.SaveChangesAsync().ConfigureAwait(true);
+        }
+
+        var (_, _, isCompleted, isCancelled) = await ReadRawRowAsync(variant, id).ConfigureAwait(true);
+        isCompleted.ShouldBe(true);
+        isCancelled.ShouldBe(true);
     }
 
     [Theory]
@@ -390,7 +445,8 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         }
     }
 
-    private async Task<(string TypeChar, string? OutcomeChar)> ReadRawCharsAsync(string variant, int id)
+    private async Task<(string TypeChar, string? OutcomeChar, bool? IsCompleted, bool? IsCancelled)>
+        ReadRawRowAsync(string variant, int id)
     {
         var connection = new SqlConnection(VariantConnectionString(variant));
         await using (connection.ConfigureAwait(false))
@@ -399,7 +455,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
             var command = connection.CreateCommand();
             await using (command.ConfigureAwait(false))
             {
-                command.CommandText = SelectRawCharsSql;
+                command.CommandText = SelectRawRowSql;
                 command.Parameters.AddWithValue("@id", id);
 
                 var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -410,7 +466,13 @@ public sealed class ActivityMappingTests : IAsyncLifetime
                     var outcomeChar = await reader.IsDBNullAsync(1).ConfigureAwait(false)
                         ? null
                         : reader.GetString(1);
-                    return (typeChar, outcomeChar);
+                    bool? isCompleted = await reader.IsDBNullAsync(2).ConfigureAwait(false)
+                        ? null
+                        : reader.GetBoolean(2);
+                    bool? isCancelled = await reader.IsDBNullAsync(3).ConfigureAwait(false)
+                        ? null
+                        : reader.GetBoolean(3);
+                    return (typeChar, outcomeChar, isCompleted, isCancelled);
                 }
             }
         }

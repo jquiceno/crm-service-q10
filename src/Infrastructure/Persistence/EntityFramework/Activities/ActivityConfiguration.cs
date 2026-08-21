@@ -28,6 +28,16 @@ public sealed class ActivityConfiguration : IEntityTypeConfiguration<Activity>
     /// </summary>
     internal const string OutcomeTypeCodeProperty = "OutcomeTypeCode";
 
+    /// <summary>
+    /// Shadow properties holding the legacy bit pair behind <see cref="Activity.Status"/> —
+    /// one status, two columns, so it cannot be a value converter either. Same interceptor,
+    /// same two directions.
+    /// </summary>
+    internal const string IsCompletedProperty = "IsCompleted";
+
+    /// <inheritdoc cref="IsCompletedProperty"/>
+    internal const string IsCancelledProperty = "IsCancelled";
+
     public void Configure(EntityTypeBuilder<Activity> builder)
     {
         builder.ToTable("tbl_opo_negocios_actividades");
@@ -88,13 +98,14 @@ public sealed class ActivityConfiguration : IEntityTypeConfiguration<Activity>
             .HasColumnName("negact_fecha_resuelto")
             .HasColumnType("datetime");
 
-        // The legacy bit pair collapses into Activity.Status (NULL ⇒ Scheduled — DEC-6); the
-        // domain keeps the bits as nullable fields so historic NULL rows round-trip untouched.
-        // Because Status is computed (ignored), SQL cannot filter/order by it: queries must use
-        // EF.Property<bool?>(a, "_isCompleted") / "_isCancelled" — the list query (F2.4) will.
+        // The legacy bit pair collapses into Activity.Status (NULL ⇒ Scheduled — DEC-6): the
+        // interceptor resolves it on read and derives the bits on save, keeping historic NULL
+        // rows untouched unless the status actually changes. Because Status has no column of its
+        // own, SQL cannot filter/order by it: queries must use
+        // EF.Property<bool?>(a, "IsCompleted") / "IsCancelled" — the list query (F2.4) will.
         builder.Ignore(a => a.Status);
-        builder.Property<bool?>("_isCompleted").HasColumnName("negact_completada");
-        builder.Property<bool?>("_isCancelled").HasColumnName("negact_anulada");
+        builder.Property<bool?>(IsCompletedProperty).HasColumnName("negact_completada");
+        builder.Property<bool?>(IsCancelledProperty).HasColumnName("negact_anulada");
 
         // Optional in legacy data: migrated history exists without an advisor (§4.1). The
         // creation invariant still requires it — optionality here is read-side drift tolerance.

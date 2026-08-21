@@ -31,15 +31,7 @@ public sealed class Activity : AggregateRoot<int>
     public int? OpportunityId { get; }
     public ActivityType Type { get; }
 
-    /// <summary>
-    /// Collapses the legacy pair (<c>negact_completada</c>, <c>negact_anulada</c>) — read with
-    /// NULL ⇒ false, the permanent read convention of DEC-6 — into a status that makes the
-    /// invalid combinations unrepresentable.
-    /// </summary>
-    public ActivityStatus Status =>
-        _isCancelled == true ? ActivityStatus.Cancelled
-        : _isCompleted == true ? ActivityStatus.Completed
-        : ActivityStatus.Scheduled;
+    public ActivityStatus Status { get; private set; }
 
     public Description? Description { get; }
     public DateTime? DueAt { get; }
@@ -56,11 +48,6 @@ public sealed class Activity : AggregateRoot<int>
     // null! covers only the parameterless EF materialization constructor.
     public PersonCode CreatedById { get; } = null!;
     public DateTime? CompletedAt { get; }
-
-    // Legacy bit pair behind Status. bool? mirrors the nullable columns so historic NULL rows
-    // survive round-trips untouched (DEC-6); the factories always write real booleans.
-    private bool? _isCompleted;
-    private bool? _isCancelled;
 
     // The template stamps DateTime.UtcNow in Created(); this domain receives the tenant-local
     // clock through the factories (DEC-12), so the constructor captures it for Created() to use.
@@ -86,8 +73,7 @@ public sealed class Activity : AggregateRoot<int>
         DealId = dealId;
         OpportunityId = opportunityId;
         Type = type;
-        _isCompleted = status == ActivityStatus.Completed;
-        _isCancelled = status == ActivityStatus.Cancelled;
+        Status = status;
         Description = description;
         DueAt = dueAt;
         Outcome = outcome;
@@ -280,15 +266,22 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     /// <summary>
-    /// Persistence-only rehydration. <c>negact_resultado</c> is a char whose meaning depends on
-    /// <see cref="Type"/> ('3' is a wrong number for a call but a closed deal for a meeting), so
-    /// a value converter — which sees a single column — cannot rebuild the value object. The EF
-    /// materialization interceptor resolves it and hands it back through this hook, keeping the
-    /// char mapping in Infrastructure (DEC-15). Note: the restored <see cref="OutcomeType.Scope"/>
-    /// names the catalogue, so legacy/virtual meeting rows carry Scope = Meeting while Type keeps
-    /// their real value — Scope == Type is an invariant of the factories only, not of reads.
+    /// Persistence-only rehydration for the two legacy shapes a value converter cannot rebuild
+    /// (a converter sees a single column): the (<c>negact_completada</c>, <c>negact_anulada</c>)
+    /// bit pair collapses into one <see cref="ActivityStatus"/> (NULL ⇒ false — DEC-6), and
+    /// <c>negact_resultado</c> is a char whose meaning depends on <see cref="Type"/> ('3' is a
+    /// wrong number for a call but a closed deal for a meeting). The EF materialization
+    /// interceptor resolves both and hands them back through this hook, keeping the legacy
+    /// representation in Infrastructure (DEC-15). Note: the restored
+    /// <see cref="OutcomeType.Scope"/> names the catalogue, so legacy/virtual meeting rows carry
+    /// Scope = Meeting while Type keeps their real value — Scope == Type is an invariant of the
+    /// factories only, not of reads.
     /// </summary>
-    internal void RestoreOutcomeType(OutcomeType? outcomeType) => OutcomeType = outcomeType;
+    internal void RestoreLegacyState(ActivityStatus status, OutcomeType? outcomeType)
+    {
+        Status = status;
+        OutcomeType = outcomeType;
+    }
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.
     protected override void Created() => SetCreatedAt(_createdAtLocal);

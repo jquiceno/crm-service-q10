@@ -2,6 +2,7 @@ using System.Text.Json;
 using Api.Controllers;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
+using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -22,10 +23,14 @@ public sealed class BusinessStatusesControllerTests
     private readonly ICreateBusinessStatusUseCase _createBusinessStatusUseCase =
         Substitute.For<ICreateBusinessStatusUseCase>();
 
+    private readonly IUpdateBusinessStatusUseCase _updateBusinessStatusUseCase =
+        Substitute.For<IUpdateBusinessStatusUseCase>();
+
     private readonly IDeleteBusinessStatusUseCase _deleteBusinessStatusUseCase =
         Substitute.For<IDeleteBusinessStatusUseCase>();
 
-    private BusinessStatusesController Sut => new(_createBusinessStatusUseCase, _deleteBusinessStatusUseCase);
+    private BusinessStatusesController Sut =>
+        new(_createBusinessStatusUseCase, _updateBusinessStatusUseCase, _deleteBusinessStatusUseCase);
 
     private static async Task<(int StatusCode, string Body)> RunAsync(IActionResult result)
     {
@@ -89,6 +94,68 @@ public sealed class BusinessStatusesControllerTests
                 new DomainError("boom", ErrorType.Internal)));
 
         var result = await Sut.CreateBusinessStatus(input, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    [Fact]
+    public async Task UpdateBusinessStatus_WhenTheUseCaseSucceeds_ReturnsOkWithTheResource()
+    {
+        var input = new UpdateBusinessStatusInputDto("Negotiation", 50m, "49ff7c");
+        var output = new UpdateBusinessStatusOutputDto(7, "Negotiation", 50, "49ff7c", true);
+        _updateBusinessStatusUseCase.ExecuteAsync(7, input, Arg.Any<CancellationToken>())
+            .Returns(Result<UpdateBusinessStatusOutputDto>.Success(output));
+
+        var result = await Sut.UpdateBusinessStatus(7, input, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(7);
+        data.GetProperty("name").GetString().ShouldBe("Negotiation");
+        data.GetProperty("percentage").GetInt32().ShouldBe(50);
+        data.GetProperty("color").GetString().ShouldBe("49ff7c");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+        await _updateBusinessStatusUseCase.Received(1).ExecuteAsync(7, input, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateBusinessStatus_WhenTheDomainRejectsTheInput_ReturnsBadRequest()
+    {
+        var input = new UpdateBusinessStatusInputDto("Won", 100m, null);
+        _updateBusinessStatusUseCase.ExecuteAsync(7, input, Arg.Any<CancellationToken>())
+            .Returns(Result<UpdateBusinessStatusOutputDto>.Failure(
+                DomainError.FromValidationDomainErrors([BusinessStatusErrors.TerminalPercentageIsImmutable])));
+
+        var result = await Sut.UpdateBusinessStatus(7, input, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public async Task UpdateBusinessStatus_WhenTheStatusDoesNotExist_ReturnsNotFound()
+    {
+        var input = new UpdateBusinessStatusInputDto("Negotiation", 50m, null);
+        _updateBusinessStatusUseCase.ExecuteAsync(404, input, Arg.Any<CancellationToken>())
+            .Returns(Result<UpdateBusinessStatusOutputDto>.Failure(BusinessStatusErrors.NotFound(404)));
+
+        var result = await Sut.UpdateBusinessStatus(404, input, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateBusinessStatus_WhenPersistenceFails_ReturnsInternalServerError()
+    {
+        var input = new UpdateBusinessStatusInputDto("Negotiation", 50m, null);
+        _updateBusinessStatusUseCase.ExecuteAsync(7, input, Arg.Any<CancellationToken>())
+            .Returns(Result<UpdateBusinessStatusOutputDto>.Failure(
+                new DomainError("boom", ErrorType.Internal)));
+
+        var result = await Sut.UpdateBusinessStatus(7, input, CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);

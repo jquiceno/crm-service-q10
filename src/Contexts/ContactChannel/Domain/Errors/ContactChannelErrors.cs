@@ -11,14 +11,18 @@ public static class ContactChannelErrors
         new("The contact channel name is required.", ErrorType.Validation)
         {
             Property = nameof(ContactChannelAggregate.Name),
-            Context = Context,
         };
 
     public static readonly ValidationError NameTooLong =
-        new("The contact channel name cannot exceed 100 characters.", ErrorType.Validation)
+        new(
+            $"The contact channel name cannot exceed {ContactChannelAggregate.NameMaxLength} characters.",
+            ErrorType.Validation)
         {
             Property = nameof(ContactChannelAggregate.Name),
-            Context = Context,
+            Attributes = new Dictionary<string, object?>
+            {
+                ["maxLength"] = ContactChannelAggregate.NameMaxLength,
+            },
         };
 
     public static NotFoundError NotFound(int id) =>

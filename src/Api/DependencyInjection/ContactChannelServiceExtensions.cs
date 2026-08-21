@@ -1,3 +1,4 @@
+using ContactChannel.Application.UseCases.GetContactChannels;
 using ContactChannel.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.ContactChannels;
 
@@ -8,6 +9,8 @@ public static class ContactChannelServiceExtensions
     public static IServiceCollection AddContactChannelServices(this IServiceCollection services)
     {
         services.AddScoped<IContactChannelRepository, ContactChannelRepository>();
+
+        services.AddScoped<IGetContactChannelsUseCase, GetContactChannelsUseCase>();
 
         return services;
     }

@@ -1,6 +1,8 @@
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
+using ContactChannel.Application.UseCases.CreateContactChannel;
+using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Http;
@@ -11,6 +13,7 @@ using Microsoft.AspNetCore.Routing;
 using NSubstitute;
 using Shared.Application.Dtos;
 using Shared.Domain.Pagination;
+using Shared.Presentation.Filters;
 using Shared.Presentation.Results;
 using Shared.Results;
 using Shared.Results.Errors;
@@ -26,6 +29,23 @@ public sealed class ContactChannelsControllerTests
 
     private readonly IGetContactChannelByIdUseCase _getContactChannelByIdUseCase =
         Substitute.For<IGetContactChannelByIdUseCase>();
+
+    private readonly ICreateContactChannelUseCase _createContactChannelUseCase =
+        Substitute.For<ICreateContactChannelUseCase>();
+
+    private readonly IDeleteContactChannelUseCase _deleteContactChannelUseCase =
+        Substitute.For<IDeleteContactChannelUseCase>();
+
+    private static async Task<int> ExecuteStatusAsync(HttpNoContentResult result)
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Response.Body = new MemoryStream();
+        var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+        await result.ExecuteResultAsync(actionContext).ConfigureAwait(false);
+
+        return httpContext.Response.StatusCode;
+    }
 
     private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
     {
@@ -50,7 +70,11 @@ public sealed class ContactChannelsControllerTests
             CancellationToken.None);
 
     private ContactChannelsController CreateController() =>
-        new(_getContactChannelsUseCase, _getContactChannelByIdUseCase);
+        new(
+            _getContactChannelsUseCase,
+            _getContactChannelByIdUseCase,
+            _createContactChannelUseCase,
+            _deleteContactChannelUseCase);
 
     private void Returns(PagedResult<GetContactChannelsOutputDto> result) =>
         _getContactChannelsUseCase
@@ -245,5 +269,131 @@ public sealed class ContactChannelsControllerTests
         await _getContactChannelByIdUseCase.Received(1)
             .ExecuteAsync(id, Arg.Any<CancellationToken>());
         statusCode.ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    private Task<HttpNoContentResult> InvokeDeleteAsync(int id = 7) =>
+        CreateController().DeleteContactChannel(id, CancellationToken.None);
+
+    private void ReturnsDelete(Result result) =>
+        _deleteContactChannelUseCase
+            .ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+    [Fact]
+    public async Task DeleteContactChannel_WhenTheChannelIsFree_ReturnsNoContent()
+    {
+        ReturnsDelete(Result.Success());
+
+        var statusCode = await ExecuteStatusAsync(await InvokeDeleteAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task DeleteContactChannel_ForwardsTheIdentifier()
+    {
+        ReturnsDelete(Result.Success());
+
+        await InvokeDeleteAsync(42);
+
+        await _deleteContactChannelUseCase.Received(1)
+            .ExecuteAsync(42, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteContactChannel_WhenTheChannelIsReferenced_ReturnsConflict()
+    {
+        ReturnsDelete(Result.Failure(new ConflictError("Contact channel 7 is linked to one or more opportunities.")));
+
+        var (statusCode, body) = await ExecuteAsync(await InvokeDeleteAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status409Conflict);
+        body.RootElement.GetProperty("error").GetProperty("type").GetString().ShouldBe("CONFLICT");
+    }
+
+    [Fact]
+    public async Task DeleteContactChannel_WithAnUnknownId_ReturnsNotFound()
+    {
+        ReturnsDelete(Result.Failure(new NotFoundError("No contact channel exists with identifier 404.")));
+
+        var (statusCode, _) = await ExecuteAsync(await InvokeDeleteAsync(404));
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public void DeleteContactChannel_InvalidatesTheContactChannelsCacheTag()
+    {
+        var attribute = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.DeleteContactChannel))!
+            .GetCustomAttribute<OutputCacheInvalidateAttribute>();
+
+        attribute.ShouldNotBeNull();
+        attribute.Tag.ShouldBe(
+            GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels)).Tags!.Single(),
+            "a deletion must evict the very tag the listing is cached under");
+    }
+
+    private Task<HttpCreatedResult<CreateContactChannelOutputDto>> InvokeCreateAsync(
+        CreateContactChannelInputDto? input = null) =>
+        CreateController().CreateContactChannel(
+            input ?? new CreateContactChannelInputDto("WhatsApp", IsActive: true),
+            CancellationToken.None);
+
+    private void ReturnsCreated(Result<CreateContactChannelOutputDto> result) =>
+        _createContactChannelUseCase
+            .ExecuteAsync(Arg.Any<CreateContactChannelInputDto>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+    [Fact]
+    public async Task CreateContactChannel_WhenTheUseCaseSucceeds_Returns201WithTheGeneratedIdentifier()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Success(
+            new CreateContactChannelOutputDto(42, "WhatsApp", true)));
+
+        var (statusCode, body) = await ExecuteAsync(await InvokeCreateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status201Created);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(42);
+        data.GetProperty("name").GetString().ShouldBe("WhatsApp");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task CreateContactChannel_ForwardsTheInputUntouched()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Success(
+            new CreateContactChannelOutputDto(1, "Feria", false)));
+
+        await InvokeCreateAsync(new CreateContactChannelInputDto("  Feria  ", IsActive: false));
+
+        await _createContactChannelUseCase.Received(1).ExecuteAsync(
+            Arg.Is<CreateContactChannelInputDto>(i => i.Name == "  Feria  " && !i.IsActive),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateContactChannel_WhenTheNameIsRejected_ReturnsTheMappedErrorStatus()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Failure(
+            new DomainError("Domain validation failed.", ErrorType.DomainError)));
+
+        var (statusCode, _) = await ExecuteAsync(await InvokeCreateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public void CreateContactChannel_InvalidatesTheCacheOfTheListing()
+    {
+        var attribute = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.CreateContactChannel))!
+            .GetCustomAttribute<OutputCacheInvalidateAttribute>();
+
+        attribute.ShouldNotBeNull();
+        attribute.Tag.ShouldBe(
+            GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels)).Tags!.Single(),
+            "a creation must evict the very tag the listing is cached under");
     }
 }

@@ -1,3 +1,4 @@
+using ContactChannel.Domain.Aggregates;
 using Infrastructure.Persistence.EntityFramework.ContactChannels.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -18,10 +19,12 @@ public sealed class ContactChannelConfiguration : IEntityTypeConfiguration<Conta
 
         builder.Property(c => c.Name)
             .HasColumnName("medcon_nombre")
-            .HasMaxLength(100)
-            .IsUnicode(false);
+            .HasMaxLength(ContactChannelAggregate.NameMaxLength)
+            .IsUnicode(false)
+            .IsRequired();
 
         builder.Property(c => c.IsActive)
-            .HasColumnName("medcon_estado");
+            .HasColumnName("medcon_estado")
+            .IsRequired();
     }
 }

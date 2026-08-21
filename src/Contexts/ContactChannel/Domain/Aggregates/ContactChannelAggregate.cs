@@ -18,6 +18,12 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         IsActive = isActive;
     }
 
+    private ContactChannelAggregate(int id, string name, bool isActive)
+        : this(name, isActive)
+    {
+        Id = id;
+    }
+
     public static Result<ContactChannelAggregate> Create(CreateContactChannelArgs input)
     {
         var name = Normalize(input.Name);
@@ -26,7 +32,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ContactChannelAggregate(name, input.IsActive);
+        var aggregate = new ContactChannelAggregate(name: name, isActive: input.IsActive);
 
         aggregate.Created();
 
@@ -34,7 +40,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     }
 
     public static ContactChannelAggregate Reconstruct(int id, string name, bool isActive) =>
-        new(name, isActive) { Id = id };
+        new(id: id, name: name, isActive: isActive);
 
     public Result Update(UpdateContactChannelArgs input)
     {

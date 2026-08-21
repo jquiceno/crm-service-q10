@@ -1,3 +1,4 @@
+using AdsChannel.Application.UseCases.CreateAdsChannel;
 using AdsChannel.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.AdsChannels;
 
@@ -9,7 +10,7 @@ public static class AdsChannelServiceExtensions
     {
         services.AddScoped<IAdsChannelRepository, AdsChannelRepository>();
 
-        // Use cases are added here as each vertical slice lands (F3.1-F3.5).
+        services.AddScoped<ICreateAdsChannelUseCase, CreateAdsChannelUseCase>();
 
         return services;
     }

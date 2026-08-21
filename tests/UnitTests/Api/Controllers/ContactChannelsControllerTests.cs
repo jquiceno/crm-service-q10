@@ -287,7 +287,7 @@ public sealed class ContactChannelsControllerTests
         await InvokeCreateAsync(new CreateContactChannelInputDto("  Feria  ", IsActive: false));
 
         await _createContactChannelUseCase.Received(1).ExecuteAsync(
-            Arg.Is<CreateContactChannelInputDto>(i => i.Name == "  Feria  " && !i.IsActive),
+            Arg.Is<CreateContactChannelInputDto>(i => i.Name == "  Feria  " && i.IsActive == false),
             Arg.Any<CancellationToken>());
     }
 

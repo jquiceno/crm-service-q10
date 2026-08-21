@@ -1,5 +1,5 @@
 using ContactChannel.Application.UseCases.GetContactChannels;
-using Infrastructure.Validation.FluentValidation.ContactChannels;
+using Infrastructure.Validation.FluentValidation.ContactChannel;
 using Shouldly;
 using Xunit;
 

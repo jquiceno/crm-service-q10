@@ -1,8 +1,9 @@
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Domain.Aggregates;
+using ContactChannel.Domain.Errors;
 using FluentValidation;
 
-namespace Infrastructure.Validation.FluentValidation.ContactChannels;
+namespace Infrastructure.Validation.FluentValidation.ContactChannel;
 
 public sealed class CreateContactChannelValidator
     : AbstractValidator<CreateContactChannelInputDto>, IStructuralValidator<CreateContactChannelInputDto>
@@ -11,9 +12,12 @@ public sealed class CreateContactChannelValidator
     {
         RuleFor(x => x.Name)
             .NotEmpty()
-            .WithMessage("The contact channel name is required.")
+            .WithMessage(ContactChannelErrors.NameRequired.Message)
             .MaximumLength(ContactChannelAggregate.NameMaxLength)
-            .WithMessage(
-                $"The contact channel name cannot exceed {ContactChannelAggregate.NameMaxLength} characters.");
+            .WithMessage(ContactChannelErrors.NameTooLong.Message);
+
+        RuleFor(x => x.IsActive)
+            .NotNull()
+            .WithMessage("The contact channel state is required.");
     }
 }

@@ -1,6 +1,7 @@
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Domain.Aggregates;
-using Infrastructure.Validation.FluentValidation.ContactChannels;
+using ContactChannel.Domain.Errors;
+using Infrastructure.Validation.FluentValidation.ContactChannel;
 using Shouldly;
 using Xunit;
 
@@ -11,6 +12,17 @@ public sealed class CreateContactChannelValidatorTests
     private readonly CreateContactChannelValidator _sut = new();
 
     private static CreateContactChannelInputDto WithName(string? name) => new(name, IsActive: true);
+
+    [Fact]
+    public void Validate_WithoutState_HasTheRequiredErrorOnIsActive()
+    {
+        var result = _sut.Validate(new CreateContactChannelInputDto("WhatsApp", IsActive: null));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e =>
+            e.PropertyName == nameof(CreateContactChannelInputDto.IsActive)
+            && e.ErrorMessage == "The contact channel state is required.");
+    }
 
     [Fact]
     public void Validate_WithAName_ReturnsValid()
@@ -29,7 +41,7 @@ public sealed class CreateContactChannelValidatorTests
         result.IsValid.ShouldBeFalse();
         result.Errors.ShouldContain(e =>
             e.PropertyName == nameof(CreateContactChannelInputDto.Name)
-            && e.ErrorMessage == "The contact channel name is required.");
+            && e.ErrorMessage == ContactChannelErrors.NameRequired.Message);
     }
 
     [Fact]
@@ -48,8 +60,7 @@ public sealed class CreateContactChannelValidatorTests
         result.IsValid.ShouldBeFalse();
         result.Errors.ShouldContain(e =>
             e.PropertyName == nameof(CreateContactChannelInputDto.Name)
-            && e.ErrorMessage ==
-                $"The contact channel name cannot exceed {ContactChannelAggregate.NameMaxLength} characters.");
+            && e.ErrorMessage == ContactChannelErrors.NameTooLong.Message);
     }
 
     [Theory]

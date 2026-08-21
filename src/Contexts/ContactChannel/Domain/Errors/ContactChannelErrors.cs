@@ -15,7 +15,9 @@ public static class ContactChannelErrors
         };
 
     public static readonly ValidationError NameTooLong =
-        new("The contact channel name cannot exceed 100 characters.", ErrorType.Validation)
+        new(
+            $"The contact channel name cannot exceed {ContactChannelAggregate.NameMaxLength} characters.",
+            ErrorType.Validation)
         {
             Property = nameof(ContactChannelAggregate.Name),
             Context = Context,

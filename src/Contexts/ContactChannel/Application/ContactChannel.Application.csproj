@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Domain\ContactChannel.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Application\Shared.Application.csproj" />
+  </ItemGroup>
+</Project>

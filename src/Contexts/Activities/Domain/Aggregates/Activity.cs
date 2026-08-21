@@ -38,8 +38,8 @@ public sealed class Activity : AggregateRoot<int>
     public DateTime? DueAt { get; }
     public Outcome? Outcome { get; }
     public OutcomeType? OutcomeType { get; }
-    public AdvisorId AdvisorId { get; }
-    public AdvisorId CreatedById { get; }
+    public PersonCode AdvisorId { get; }
+    public PersonCode CreatedById { get; }
     public DateTime? CompletedAt { get; }
 
     private Activity(
@@ -51,8 +51,8 @@ public sealed class Activity : AggregateRoot<int>
         DateTime? dueAt,
         Outcome? outcome,
         OutcomeType? outcomeType,
-        AdvisorId advisorId,
-        AdvisorId createdById,
+        PersonCode advisorId,
+        PersonCode createdById,
         DateTime? completedAt)
     {
         DealId = dealId;
@@ -78,9 +78,9 @@ public sealed class Activity : AggregateRoot<int>
         var errors = new List<ValidationError>();
 
         var description = Collect(Description.Create(args.Description), errors, args.Description);
-        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var advisorId = Collect(PersonCode.Create(args.AdvisorId), errors, args.AdvisorId);
         var createdById = Collect(
-            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+            PersonCode.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
@@ -101,8 +101,8 @@ public sealed class Activity : AggregateRoot<int>
         ActivityType type,
         Description? description,
         DateTime? dueAt,
-        AdvisorId advisorId,
-        AdvisorId createdById)
+        PersonCode advisorId,
+        PersonCode createdById)
     {
         var guardError = GuardWritable(dealId, type);
         if (guardError is not null)
@@ -135,9 +135,9 @@ public sealed class Activity : AggregateRoot<int>
         var errors = new List<ValidationError>();
 
         var outcome = Collect(Outcome.Create(args.Outcome), errors, args.Outcome);
-        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var advisorId = Collect(PersonCode.Create(args.AdvisorId), errors, args.AdvisorId);
         var createdById = Collect(
-            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+            PersonCode.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
 
         // Only resolve the name for types that carry a coded outcome: for the rest it is
         // discarded silently (legacy parity), and a missing name is the core factory's
@@ -167,8 +167,8 @@ public sealed class Activity : AggregateRoot<int>
         Outcome? outcome,
         OutcomeType? outcomeType,
         DateTime? dueAt,
-        AdvisorId advisorId,
-        AdvisorId createdById,
+        PersonCode advisorId,
+        PersonCode createdById,
         DateTime now)
     {
         var guardError = GuardWritable(dealId, type);

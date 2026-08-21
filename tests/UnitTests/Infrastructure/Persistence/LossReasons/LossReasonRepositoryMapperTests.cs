@@ -11,39 +11,6 @@ public sealed class LossReasonRepositoryMapperTests
     private const string ValidName = "Precio";
 
     [Fact]
-    public void ToDomain_WithNullName_MapsToEmptyString()
-    {
-        var document = new LossReasonDocument
-        {
-            Id = 3,
-            Name = null,
-            IsActive = true
-        };
-
-        var aggregate = LossReasonRepositoryMapper.ToDomain(document);
-
-        aggregate.Name.ShouldBe(string.Empty);
-        aggregate.Id.ShouldBe(3);
-        aggregate.IsActive.ShouldBeTrue();
-    }
-
-    [Fact]
-    public void ToDomain_WithNullState_MapsToInactive()
-    {
-        var document = new LossReasonDocument
-        {
-            Id = 4,
-            Name = ValidName,
-            IsActive = null
-        };
-
-        var aggregate = LossReasonRepositoryMapper.ToDomain(document);
-
-        aggregate.IsActive.ShouldBeFalse();
-        aggregate.Name.ShouldBe(ValidName);
-    }
-
-    [Fact]
     public void ToDomain_WithCompleteRow_MapsAllFields()
     {
         var document = new LossReasonDocument
@@ -61,6 +28,22 @@ public sealed class LossReasonRepositoryMapperTests
         // Reconstruct neither validates nor stamps audit dates.
         aggregate.CreatedAt.ShouldBeNull();
         aggregate.UpdatedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public void ToDomain_WithInactiveRow_MapsTheState()
+    {
+        var document = new LossReasonDocument
+        {
+            Id = 4,
+            Name = ValidName,
+            IsActive = false
+        };
+
+        var aggregate = LossReasonRepositoryMapper.ToDomain(document);
+
+        aggregate.IsActive.ShouldBeFalse();
+        aggregate.Name.ShouldBe(ValidName);
     }
 
     [Fact]

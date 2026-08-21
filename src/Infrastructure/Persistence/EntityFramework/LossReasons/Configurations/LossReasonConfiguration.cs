@@ -18,7 +18,8 @@ public sealed class LossReasonConfiguration : IEntityTypeConfiguration<Entities.
         builder.Property(x => x.Name)
             .HasColumnName("cau_nombre")
             .HasMaxLength(200)
-            .IsUnicode(false);
+            .IsUnicode(false)
+            .IsRequired();
 
         builder.Property(x => x.IsActive)
             .HasColumnName("cau_estado");

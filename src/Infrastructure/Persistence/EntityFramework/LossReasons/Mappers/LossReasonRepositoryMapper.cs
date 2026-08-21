@@ -7,8 +7,8 @@ public static class LossReasonRepositoryMapper
     public static LossReasonAggregate ToDomain(Entities.LossReason document) =>
         LossReasonAggregate.Reconstruct(
             document.Id,
-            document.Name ?? string.Empty,
-            document.IsActive ?? false);
+            document.Name,
+            document.IsActive);
 
     // The identity column is deliberately left unset: the database assigns it on insert.
     public static Entities.LossReason ToDocument(LossReasonAggregate aggregate) =>

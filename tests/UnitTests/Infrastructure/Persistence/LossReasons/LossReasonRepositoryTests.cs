@@ -45,7 +45,7 @@ public sealed class LossReasonRepositoryTests
 
     private LossReasonRepository CreateRepository(ApplicationDbContext context) => new(context, _logger);
 
-    private static LossReasonDocument LossReasonRow(int id, string? name, bool? isActive) =>
+    private static LossReasonDocument LossReasonRow(int id, string name, bool isActive) =>
         new() { Id = id, Name = name, IsActive = isActive };
 
     private static PageQuery FirstPage => new(pageIndex: 0, pageSize: 20);
@@ -63,20 +63,6 @@ public sealed class LossReasonRepositoryTests
         result.Value.Id.ShouldBe(7);
         result.Value.Name.ShouldBe("Precio");
         result.Value.IsActive.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper()
-    {
-        using var context = await CreateSeededContextAsync(
-            nameof(GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper),
-            LossReasonRow(7, name: null, isActive: null));
-
-        var result = await CreateRepository(context).GetByIdAsync(7);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.Name.ShouldBe(string.Empty);
-        result.Value.IsActive.ShouldBeFalse();
     }
 
     [Fact]
@@ -160,7 +146,7 @@ public sealed class LossReasonRepositoryTests
             nameof(GetAsync_WithNameFilter_ReturnsOnlyTheRowsThatContainIt),
             LossReasonRow(1, "Precio alto", isActive: true),
             LossReasonRow(2, "Competencia", isActive: true),
-            LossReasonRow(3, null, isActive: true));
+            LossReasonRow(3, "Tiempo", isActive: true));
 
         var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter("Precio", IsActive: null), FirstPage);
@@ -192,7 +178,7 @@ public sealed class LossReasonRepositoryTests
             nameof(GetAsync_WithIsActiveFilter_ReturnsOnlyThatState),
             LossReasonRow(1, "Precio", isActive: true),
             LossReasonRow(2, "Competencia", isActive: false),
-            LossReasonRow(3, "Tiempo", isActive: null));
+            LossReasonRow(3, "Tiempo", isActive: true));
 
         var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter(Name: null, IsActive: false), FirstPage);

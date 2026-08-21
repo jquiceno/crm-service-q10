@@ -76,7 +76,7 @@ public sealed class LossReasonRepository(
 
             var name = filter.Name;
             if (!string.IsNullOrWhiteSpace(name))
-                query = query.Where(x => x.Name != null && x.Name.Contains(name));
+                query = query.Where(x => x.Name.Contains(name));
 
             if (filter.IsActive.HasValue)
                 query = query.Where(x => x.IsActive == filter.IsActive.Value);

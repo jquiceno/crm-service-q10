@@ -9,6 +9,7 @@ public static class SharedServiceExtensions
     public static IServiceCollection AddSharedServices(this IServiceCollection services)
     {
         services.AddSingleton(typeof(ILoggerPort<>), typeof(SerilogLoggerAdapter<>));
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped<ValidateRequestFilter>();
 
         return services;

@@ -1,3 +1,4 @@
+using LossReason.Domain.Queries;
 using LossReason.Domain.Repositories;
 using Shared.Domain.Pagination;
 using Shared.Results;
@@ -11,16 +12,18 @@ public sealed class GetLossReasonsUseCase(ILossReasonRepository repository) : IG
         PageQuery page,
         CancellationToken cancellationToken = default)
     {
+        var filter = new LossReasonFilter(input.Name, input.IsActive);
+
         var result = await repository
-            .GetAsync(input.ToFilter(), page, cancellationToken)
+            .GetAsync(filter, page, cancellationToken)
             .ConfigureAwait(false);
 
-        // An empty catalogue is a successful empty page, never an error (D9).
         if (result.IsFailure)
             return PagedResult<GetLossReasonsOutputDto>.Failure(result.Error);
 
         return PagedResult<GetLossReasonsOutputDto>.Success(
-            [.. result.Items.Select(lossReason => lossReason.ToOutputDto())],
+            [.. result.Items.Select(lossReason =>
+                new GetLossReasonsOutputDto(lossReason.Id, lossReason.Name, lossReason.IsActive))],
             result.TotalCount);
     }
 }

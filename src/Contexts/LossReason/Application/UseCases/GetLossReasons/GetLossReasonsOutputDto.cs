@@ -3,9 +3,9 @@ using System.ComponentModel;
 namespace LossReason.Application.UseCases.GetLossReasons;
 
 public sealed record GetLossReasonsOutputDto(
-    [property: Description("Identificador de la causa de pérdida.")]
+    [property: Description("Loss reason identifier.")]
     int Id,
-    [property: Description("Nombre de la causa de pérdida.")]
+    [property: Description("Loss reason name.")]
     string Name,
-    [property: Description("Indica si la causa está activa.")]
+    [property: Description("Whether the loss reason is active.")]
     bool IsActive);

@@ -83,8 +83,8 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | # | Responsable | Título | Pasos del plan | Rama | Base | Est. | Depende de | Flujo | Estado |
 |---|---|---|---|---|---|---|---|---|---|
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
-| T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ commit `96915cb` — pendiente de merge a la base |
-| T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ⬜ |
+| T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
+| T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ commit `3500688` — pendiente de merge a la base |
 | T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
@@ -233,6 +233,7 @@ Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo a
 | `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | **T5 · Juan Camilo** (`DbSet` keyless del Reader, paso `F2.6`) |
 | `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
 | `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
+| `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | **T6–T10** (`ProjectReference` a `LossReason.Application`; la añade la primera que se mergee, las demás solo rebasan) |
 
 Ninguna tarea toca archivos de seguridad ni de configuración de acceso: con D12, D13 y D14 el servicio no implementa autenticación, permisos ni resolución propia de tenant.
 
@@ -295,6 +296,7 @@ El documento está listo cuando:
 |---|---|
 | 2026-08-14 | Versión inicial, derivada de `workplan_causas.md` §8 tras las cuatro enmiendas del plan del mismo día (§9.3) |
 | 2026-08-14 | **Resolución de los siete GAPs.** Los cinco bloqueos previos quedan cerrados; `T1` se cierra sin PR (el dueño del repositorio resolvió `GAP-1` en el commit `9f24956`, build verificado en verde) y `T2` pasa a ser la cabeza del camino crítico. Se añade `EXT-8` (autorizar del lado de Jack, riesgo R9) y las externas quedan con estado. Total: 42 puntos en 11 tareas |
+| 2026-08-21 | **T3 ejecutada** (`F1.1`–`F1.6` + `F2.5`, Juan Esteban): catálogo de errores, Args, agregado con sus dos invariantes de `Name`, filtro, contrato de repositorio y puerto del Reader, con los 11 tests del dominio en verde (355 en la suite). Commit `3500688` en `feat/loss-reasons-domain`. **La Fase 1 del plan queda `done`.** Se descubre un archivo compartido que §3 no declaraba, `tests/UnitTests/UnitTests.csproj`, y se agrega con su dueño |
 | 2026-08-21 | **Rama base del contexto.** Se crea `feat/loss-reasons` desde `main`; toda rama de tarea sale de ella y su PR va contra ella, y `main` recibe el contexto una sola vez al final (§0, *Modelo de ramas*). La columna `Base` pasa de `main` a `feat/loss-reasons` en las once tareas |
 | 2026-08-21 | **T2 ejecutada** (`F0.3`, Juan Esteban): `LossReason.Domain` y `LossReason.Application` creados y registrados en `Service.slnx` bajo `/src/Contexts/LossReason/`. `dotnet build Service.slnx -c Release` en verde (13 proyectos, 0 advertencias) y 344 tests unitarios en verde por el pre-commit. Commit `96915cb` en `feat/loss-reasons-scaffold`, pendiente de merge a la base |
 | 2026-08-21 | **Se elimina Jira del proceso.** La columna `Jira` se reemplaza por `Responsable` y se añade `Estado`: el backlog es este archivo y el tablero son los PRs (§0). **Reparto entre Juan Camilo, Brayan y Juan Esteban** (§2.2), con las seis olas de ejecución y sus esperas (§2.3), el camino crítico anotado por persona (§2.4) y el round-robin de revisión (§2.5). Los archivos compartidos quedan con dueño y orden de merge (§3). Se declara y se descarta la aceleración de solapar la ola 4 con la ola 3, por requerir enmienda del plan. Ningún paso, alcance ni estimación cambia |

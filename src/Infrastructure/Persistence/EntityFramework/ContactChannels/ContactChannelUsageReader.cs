@@ -1,5 +1,6 @@
 using ContactChannel.Application.Ports;
 using Infrastructure.Persistence.EntityFramework.Common;
+using Infrastructure.Persistence.EntityFramework.ContactChannels.Entities;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Results;
@@ -12,19 +13,17 @@ public sealed class ContactChannelUsageReader(
 {
     private const string Origin = nameof(ContactChannelUsageReader);
 
-    // Scalar query instead of a mapped entity: tbl_opo_oportunidades belongs to another aggregate
-    // and this context must not model it or navigate to it.
+    private readonly DbSet<ContactChannelUsage> _usages = context.Set<ContactChannelUsage>();
+
     public async Task<Result<bool>> IsReferencedAsync(int id, CancellationToken cancellationToken = default)
     {
         try
         {
-            var references = await context.Database
-                .SqlQuery<int>(
-                    $"SELECT COUNT(1) AS Value FROM tbl_opo_oportunidades WHERE opo_medcon_consecutivo = {id}")
-                .SingleAsync(cancellationToken)
+            var isReferenced = await _usages
+                .AnyAsync(usage => usage.ContactChannelId == id, cancellationToken)
                 .ConfigureAwait(false);
 
-            return Result<bool>.Success(references > 0);
+            return Result<bool>.Success(isReferenced);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

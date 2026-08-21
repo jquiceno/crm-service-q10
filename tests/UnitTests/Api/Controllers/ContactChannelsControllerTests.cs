@@ -1,7 +1,9 @@
+using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
@@ -115,5 +117,42 @@ public sealed class ContactChannelsControllerTests
         var (statusCode, _) = await ExecuteAsync(await InvokeAsync());
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    private static OutputCacheAttribute GetOutputCacheAttribute()
+    {
+        var attribute = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.GetContactChannels))!
+            .GetCustomAttribute<OutputCacheAttribute>();
+
+        attribute.ShouldNotBeNull();
+
+        return attribute;
+    }
+
+    [Fact]
+    public void GetContactChannels_IsCachedUnderTheContactChannelsTag()
+    {
+        var attribute = GetOutputCacheAttribute();
+
+        attribute.NoStore.ShouldBeFalse();
+        attribute.Tags.ShouldBe(["contact-channels"]);
+    }
+
+    [Fact]
+    public void GetContactChannels_DeclaresNoTtlOfItsOwn()
+    {
+        GetOutputCacheAttribute().Duration.ShouldBe(
+            0,
+            "the context uses the Cache:DefaultTtlSeconds of the service");
+    }
+
+    [Fact]
+    public void GetContactChannels_VariesByEveryQueryKey()
+    {
+        GetOutputCacheAttribute().VaryByQueryKeys.ShouldBe(
+            ["*"],
+            "the base policy pins variation to EntityCode, which would collapse every filter " +
+            "and page of the listing into a single cache entry");
     }
 }

@@ -18,6 +18,8 @@ namespace Api.Controllers;
 public sealed class ContactChannelsController(
     IGetContactChannelsUseCase getContactChannelsUseCase) : ControllerBase
 {
+    private const string CacheTag = "contact-channels";
+
     [HttpGet]
     [ValidateRequest]
     [EndpointSummary("Get contact channels")]
@@ -25,7 +27,7 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetContactChannelsOutputDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    [OutputCache(NoStore = true)]
+    [OutputCache(Tags = [CacheTag], VaryByQueryKeys = ["*"])]
     public async Task<HttpOkPagedResult<GetContactChannelsOutputDto>> GetContactChannels(
         [FromQuery] GetContactChannelsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,

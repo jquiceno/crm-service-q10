@@ -1,0 +1,257 @@
+using Activities.Domain.Enums;
+using Activities.Domain.Errors;
+using Activities.Domain.ValueObjects;
+using Shared.Domain.Aggregates;
+using Shared.Results;
+using Shared.Results.Errors;
+
+namespace Activities.Domain.Aggregates;
+
+/// <summary>
+/// Commercial activity on a deal: a task planned for the future (scheduled) or a fact that
+/// already happened (completed). Persisted to <c>tbl_opo_negocios_actividades</c>.
+/// </summary>
+/// <remarks>
+/// The factories make invalid states unrepresentable: <see cref="Schedule(ScheduleActivityArgs, DateTime)"/>
+/// builds the only scheduled shape (description + due date, never an outcome) and
+/// <see cref="RegisterCompleted(CompleteActivityArgs, DateTime)"/> the only completed one
+/// (outcome, never a planned description). The args-based overloads are the entry point for the
+/// application layer: they build the value objects themselves and accumulate every validation
+/// error; the value-object-typed overloads hold the invariants and fail fast with the first
+/// violated one, returning the <see cref="ActivityErrors"/> instance as-is.
+/// <para>
+/// Timestamps are tenant-local and injected by the caller through <c>now</c> (DEC-12).
+/// <c>UpdatedAt</c> stays null because the legacy table has no updated column, and <c>Id</c>
+/// stays 0 until the database generates the identity on save.
+/// </para>
+/// </remarks>
+public sealed class Activity : AggregateRoot<int>
+{
+    public int DealId { get; }
+    public int? OpportunityId { get; }
+    public ActivityType Type { get; }
+    public ActivityStatus Status { get; }
+    public Description? Description { get; }
+    public DateTime? DueAt { get; }
+    public Outcome? Outcome { get; }
+    public OutcomeType? OutcomeType { get; }
+    public AdvisorId AdvisorId { get; }
+    public AdvisorId CreatedById { get; }
+    public DateTime? CompletedAt { get; }
+
+    // The template stamps DateTime.UtcNow in Created(); this domain receives the tenant-local
+    // clock through the factories (DEC-12), so the constructor captures it for Created() to use.
+    private readonly DateTime _createdAtLocal;
+
+    private Activity(
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        ActivityStatus status,
+        Description? description,
+        DateTime? dueAt,
+        Outcome? outcome,
+        OutcomeType? outcomeType,
+        AdvisorId advisorId,
+        AdvisorId createdById,
+        DateTime now,
+        DateTime? completedAt)
+    {
+        DealId = dealId;
+        OpportunityId = opportunityId;
+        Type = type;
+        Status = status;
+        Description = description;
+        DueAt = dueAt;
+        Outcome = outcome;
+        OutcomeType = outcomeType;
+        AdvisorId = advisorId;
+        CreatedById = createdById;
+        CompletedAt = completedAt;
+        _createdAtLocal = now;
+    }
+
+    /// <summary>
+    /// Creates a scheduled activity from application-layer primitives, building the value objects
+    /// itself so the caller never handles their <c>Result</c> (see <see cref="ScheduleActivityArgs"/>).
+    /// Value object failures are accumulated; invariant failures are reported one at a time.
+    /// </summary>
+    public static Result<Activity> Schedule(ScheduleActivityArgs args, DateTime now)
+    {
+        var errors = new List<ValidationError>();
+
+        var description = Collect(Description.Create(args.Description), errors, args.Description);
+        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var createdById = Collect(
+            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+
+        if (errors.Count > 0)
+            return DomainError.FromValidationDomainErrors(errors);
+
+        var result = Schedule(
+            args.DealId, args.OpportunityId, args.Type, description!, args.DueAt,
+            advisorId!, createdById!, now);
+
+        return result.IsFailure
+            ? DomainError.FromValidationDomainErrors([result.TypedError])
+            : result.Value;
+    }
+
+    /// <summary>Creates an activity planned for the future.</summary>
+    public static Result<Activity, ValidationError> Schedule(
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        Description? description,
+        DateTime? dueAt,
+        AdvisorId advisorId,
+        AdvisorId createdById,
+        DateTime now)
+    {
+        var guardError = GuardWritable(dealId, type);
+        if (guardError is not null)
+            return guardError;
+
+        if (type == ActivityType.Note)
+            return ActivityErrors.NoteCannotBeScheduled;
+
+        if (description is null)
+            return ActivityErrors.DescriptionRequired;
+
+        if (dueAt is null)
+            return ActivityErrors.DueDateRequired;
+
+        var activity = new Activity(
+            dealId, opportunityId, type, ActivityStatus.Scheduled, description, dueAt,
+            outcome: null, outcomeType: null, advisorId, createdById, now, completedAt: null);
+        activity.Created();
+        return activity;
+    }
+
+    /// <summary>
+    /// Records an already-completed activity from application-layer primitives, building the
+    /// value objects itself and resolving <see cref="CompleteActivityArgs.OutcomeName"/> against
+    /// the catalogue of <see cref="CompleteActivityArgs.Type"/>. Value object failures are
+    /// accumulated; invariant failures are reported one at a time.
+    /// </summary>
+    public static Result<Activity> RegisterCompleted(CompleteActivityArgs args, DateTime now)
+    {
+        var errors = new List<ValidationError>();
+
+        var outcome = Collect(Outcome.Create(args.Outcome), errors, args.Outcome);
+        var advisorId = Collect(AdvisorId.Create(args.AdvisorId), errors, args.AdvisorId);
+        var createdById = Collect(
+            AdvisorId.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
+
+        // Only resolve the name for types that carry a coded outcome: for the rest it is
+        // discarded silently (legacy parity), and a missing name is the core factory's
+        // OutcomeTypeRequired, not a resolution failure.
+        OutcomeType? outcomeType = null;
+        if (AdmitsOutcomeType(args.Type) && !string.IsNullOrWhiteSpace(args.OutcomeName))
+            outcomeType = Collect(
+                OutcomeType.Create(args.Type, args.OutcomeName), errors, args.OutcomeName);
+
+        if (errors.Count > 0)
+            return DomainError.FromValidationDomainErrors(errors);
+
+        var result = RegisterCompleted(
+            args.DealId, args.OpportunityId, args.Type, outcome!, outcomeType, args.DueAt,
+            advisorId!, createdById!, now);
+
+        return result.IsFailure
+            ? DomainError.FromValidationDomainErrors([result.TypedError])
+            : result.Value;
+    }
+
+    /// <summary>Records an activity that already happened, born completed.</summary>
+    public static Result<Activity, ValidationError> RegisterCompleted(
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        Outcome? outcome,
+        OutcomeType? outcomeType,
+        DateTime? dueAt,
+        AdvisorId advisorId,
+        AdvisorId createdById,
+        DateTime now)
+    {
+        var guardError = GuardWritable(dealId, type);
+        if (guardError is not null)
+            return guardError;
+
+        if (outcome is null)
+            return ActivityErrors.OutcomeRequired;
+
+        if (AdmitsOutcomeType(type))
+        {
+            if (outcomeType is null)
+                return ActivityErrors.OutcomeTypeRequired;
+
+            if (outcomeType.Scope != type)
+                return ActivityErrors.OutcomeTypeScopeMismatch;
+        }
+        else
+        {
+            // Legacy parity: the monolith ignores the outcome type for these types instead of
+            // rejecting the request.
+            outcomeType = null;
+        }
+
+        var activity = new Activity(
+            dealId, opportunityId, type, ActivityStatus.Completed, description: null, dueAt,
+            outcome, outcomeType, advisorId, createdById, now, completedAt: now);
+        activity.Created();
+        return activity;
+    }
+
+    /// <summary>
+    /// True for the types this service can write. <see cref="ActivityType.VirtualMeeting"/> and
+    /// <see cref="ActivityType.LegacyMeeting"/> are returned on reads but never created (DEC-5).
+    /// </summary>
+    public static bool IsWritable(ActivityType type) =>
+        type is ActivityType.Call or ActivityType.WhatsApp or ActivityType.Email
+            or ActivityType.Note or ActivityType.Meeting;
+
+    /// <summary>Only calls and meetings carry a coded outcome type.</summary>
+    public static bool AdmitsOutcomeType(ActivityType type) =>
+        type is ActivityType.Call or ActivityType.Meeting;
+
+    private static ValidationError? GuardWritable(int dealId, ActivityType type)
+    {
+        if (dealId <= 0)
+            return ActivityErrors.DealIdRequired;
+
+        if (!Enum.IsDefined(type))
+            return ActivityErrors.InvalidActivityType;
+
+        if (!IsWritable(type))
+            return ActivityErrors.TypeNotWritable;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Unwraps a value object result, accumulating the failure enriched with the raw input and,
+    /// when the error definition is shared between fields, the actual property name.
+    /// </summary>
+    private static T? Collect<T>(
+        Result<T, ValidationError> result,
+        List<ValidationError> errors,
+        object? value,
+        string? property = null)
+        where T : class
+    {
+        if (result.IsSuccess)
+            return result.Value;
+
+        errors.Add(result.TypedError with
+        {
+            Property = property ?? result.TypedError.Property,
+            Value = value,
+        });
+        return null;
+    }
+
+    // UpdatedAt intentionally stays null: the legacy table has no updated column.
+    protected override void Created() => SetCreatedAt(_createdAtLocal);
+}

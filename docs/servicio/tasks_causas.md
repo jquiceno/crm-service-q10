@@ -85,7 +85,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
-| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
+| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | 🔄 **en curso** — los seis pasos `done` y verificados |
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
@@ -225,12 +225,13 @@ No producen código, no tienen rama, no se estiman. **Ninguna la ejecuta el equi
 
 Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo añaden.
 
-> Los cuatro ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
+> Los seis ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
 
 | Archivo | Lo toca primero | Lo tocan también |
 |---|---|---|
 | `Service.slnx` | T2 · **Juan Esteban** (añade los dos `.csproj`) | — |
 | `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | **T5 · Juan Camilo** (`DbSet` keyless del Reader, paso `F2.6`) |
+| `src/Infrastructure/Infrastructure.csproj` | T4 · **Brayan** (`ProjectReference` a `LossReason.Application`, para que compile el mapper de `F2.3`) | — · **ya cubre a T5**: la referencia a `Application` arrastra `Domain`, así que `F2.6` no lo toca |
 | `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
 | `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
 | `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | **T6–T10** (`ProjectReference` a `LossReason.Application`; la añade la primera que se mergee, las demás solo rebasan) |
@@ -271,7 +272,7 @@ Sin dueño, es trabajo que se pierde: por eso las diez filas lo declaran.
 | R5 | No mezcla capas de riesgo | ✅ T3 dominio + contratos, T4/T5 infraestructura, T6–T10 aplicación, T11 API. **No hay migraciones** (Database First sobre tabla existente) y **`Shared` no se toca**: la auditoría del plan §5.5 concluyó que no falta ninguna capacidad transversal |
 | R6 | Sirve a un flujo, o se declara andamiaje | ✅ T1 y T2 son andamiaje; las diez restantes declaran flujo. Ids provisionales por §0.1 |
 | R7 | Sin dependencias artificiales | ✅ Auditado: se eliminaron las cuatro dependencias encadenadas entre los casos de uso. Las que quedan son de código real, salvo el `depende_de: F2.7` de la ola 4, declarado y razonado en §2.3 |
-| R8 | Archivos compartidos declarados | ✅ Los cuatro en §3, con el único choque real señalado y sus dos dueños con nombre |
+| R8 | Archivos compartidos declarados | ✅ Los seis en §3, con el único choque real señalado y sus dos dueños con nombre |
 | R9 | Se estima la tarea, nunca la fase | ✅ Once estimaciones Fibonacci individuales (2–8), ninguna por fase |
 | R10 | Tarea reabierta se cierra y se recrea | ✅ Sin Jira, la regla se ejerce sobre el PR y sobre la columna `Estado` de §2: si una tarea vuelve, se cierra su PR y se abre uno nuevo; no se reabre el mergeado |
 

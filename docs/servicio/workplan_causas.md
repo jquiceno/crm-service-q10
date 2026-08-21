@@ -627,40 +627,42 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 > Estrategia de pruebas: unitarias sobre el mapper (función pura, incluidos los dos casos NULL de D6). El repositorio y el Reader se prueban en la Fase 5 contra SQL Server real: EF InMemory no honra constraints y la plantilla lo prohíbe.
 
 #### [F2.1] Create the LossReason persistence entity
-`id: F2.1 · depende_de: F1.5 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.1 · depende_de: F1.5 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: la fila de `tbl_opo_causas` como entidad EF, con la nulabilidad **real**.
 - Fuente: D6 · Discovery §4.1
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/LossReason.cs`
 - Detalle: `public sealed class LossReason { public int CauConsecutivoP { get; set; } public string? CauNombre { get; set; } public bool? CauEstado { get; set; } }`. **`string?` y `bool?` son obligatorios**: leer un NULL en una propiedad no anulable hace que SqlClient falle la query entera.
 - Hecho cuando: las tres propiedades reflejan exactamente el tipo y la nulabilidad del dump.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F2.2] Create the LossReason EF configuration
-`id: F2.2 · depende_de: F2.1 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.2 · depende_de: F2.1 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: mapear la entidad a la tabla legada.
 - Fuente: D1 · D3 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Configurations/LossReasonConfiguration.cs`
 - Detalle: `IEntityTypeConfiguration<LossReason>`; `ToTable("tbl_opo_causas")`, `HasKey(x => x.CauConsecutivoP)`, `Property(x => x.CauConsecutivoP).ValueGeneratedOnAdd()`, `Property(x => x.CauNombre).HasColumnType("varchar(200)")`. `HasMaxLength`/`IsRequired` solo para que EF genere el tipo de parámetro correcto, **no como validación** (proyecto Database First). Sin `DeleteBehavior` en cascada.
 - Hecho cuando: la configuración se descubre por `ApplyConfigurationsFromAssembly` sin registro manual.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F2.3] Create LossReasonRepositoryMapper
-`id: F2.3 · depende_de: F2.2 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.3 · depende_de: F2.2 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: traducir entidad ↔ agregado, normalizando los NULL.
 - Fuente: D6 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Mappers/LossReasonRepositoryMapper.cs`
 - Detalle: `ToDomain(LossReason)` llama `LossReasonAggregate.Reconstruct(d.CauConsecutivoP, d.CauNombre ?? string.Empty, d.CauEstado ?? false)` — **`Reconstruct`, nunca `Create`**. `ToDocument(LossReasonAggregate)` escribe `CauNombre`/`CauEstado` y **no** toca `CauConsecutivoP` en creación (lo asigna `IDENTITY`). `CreatedAt`/`UpdatedAt` no se persisten: no existen como columnas.
 - Hecho cuando: `ToDomain` de una fila con `CauNombre = null` y `CauEstado = null` devuelve un agregado con `Name = ""` e `IsActive = false`, sin lanzar.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
+- **Archivo compartido no previsto:** `src/Infrastructure/Infrastructure.csproj` no referenciaba el contexto, así que el mapper no compilaba (`CS0246`). Se añadió `ProjectReference` a `LossReason.Application.csproj` —que arrastra `LossReason.Domain`— por instrucción del 2026-08-21 tras reportarlo como GAP. **Esa única línea cubre también a T5** (`F2.6` necesita `ILossReasonUsageReader`, de `Application`), así que Juan Camilo no tiene que tocar este archivo. Registrado en `tasks_causas.md` §3.
 
 #### [F2.4] Implement LossReasonRepository
-`id: F2.4 · depende_de: F2.3 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.4 · depende_de: F2.3 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: la implementación del contrato de dominio.
 - Fuente: D1 · D2 · D3 · D8 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/LossReasonRepository.cs`
 - Detalle: `public sealed class LossReasonRepository(ApplicationDbContext context, ILoggerPort<LossReasonRepository> logger) : ILossReasonRepository`, `private const string Origin = nameof(LossReasonRepository);`. Lecturas con `.AsNoTracking()`. `GetAsync` filtra por `Name` (`Contains`) e `IsActive` cuando vienen, ordena `OrderBy(CauNombre).ThenBy(CauConsecutivoP)` — **el desempate por la clave es obligatorio** — y pagina con `Skip(page.Skip).Take(page.PageSize)` + `COUNT`. `GetAllAsync` delega en `GetAsync` con filtro vacío. `CreateAsync` hace `SaveChangesAsync` interno y devuelve el agregado con su `Id`. Cada método en `try/catch (Exception ex) when (ex is not OperationCanceledException)` → `logger.Error(...)` + `PersistenceErrors.Failure(Origin)`. **Ninguna excepción escapa.** No hereda de `RepositoryBaseEF`.
 - Hecho cuando: los 8 miembros del contrato están implementados y ninguno deja escapar una excepción.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
+- Nota de ejecución: **`CreateAsync` no puede devolver el mismo agregado con su `Id`.** `Entity<TId>.Id` tiene setter `protected` y `Shared` no expone un `AssignId` como el que ilustra `repositorio.md`; §5.5 prohíbe crear nada en `Shared`. Se devuelve `LossReasonRepositoryMapper.ToDomain(document)` después del `SaveChangesAsync`, que es el mismo estado observable (`CreatedAt`/`UpdatedAt` vuelven en `null`, y D6/§5.2 ya establecen que no se persisten). El `Update` sí asigna `CauConsecutivoP` sobre el documento del mapper: el mapper no lo escribe porque en creación lo asigna `IDENTITY`, pero un `UPDATE` necesita direccionar la fila.
 
 #### [F2.5] Declare ILossReasonUsageReader
 `id: F2.5 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: done`
@@ -681,22 +683,23 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.7] Register the LossReason DbSet in ApplicationDbContext
-`id: F2.7 · depende_de: F2.4 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.7 · depende_de: F2.4 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: exponer la entidad del agregado al contexto de EF.
 - Fuente: `contextos.md` §5.3
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`
 - Detalle: agregar `public DbSet<LossReasons.Entities.LossReason> LossReasons => Set<LossReasons.Entities.LossReason>();`. Es el **primer** `DbSet` del servicio. El `DbSet` keyless del Reader lo añade F2.6 sobre este mismo archivo compartido.
 - Hecho cuando: `ApplicationDbContext` lo expone y `ApplyConfigurationsFromAssembly` descubre `LossReasonConfiguration`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**. Es el primer `DbSet` del servicio; que el mapeo apunte de verdad a `tbl_opo_causas` lo verifica F5.1 contra SQL real, como declara la estrategia de pruebas de esta fase.
 
 #### [F2.8] Unit tests for the mapper
-`id: F2.8 · depende_de: F2.7 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.8 · depende_de: F2.7 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: fijar la normalización de NULL, que es la corrección de Discovery D3.
 - Fuente: D6 · `testing.md`
 - Archivos: `tests/UnitTests/Infrastructure/Persistence/LossReasons/LossReasonRepositoryMapperTests.cs`
 - Detalle: `ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`, `ToDomain_WithCompleteRow_MapsAllFields`, `ToDocument_OnCreate_DoesNotSetIdentityColumn`.
 - Hecho cuando: los 4 tests pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 4 pasan** (359 en total en la suite).
+- Nota de ejecución: `tests/UnitTests/UnitTests.csproj` **no** necesitó cambios: ya referenciaba `Infrastructure.csproj`. El tipo de la entidad se importa con alias (`LossReasonDocument`) porque `LossReason` es a la vez el nombre de la entidad y el namespace raíz del contexto.
 
 ### Fase 3 — Aplicación · `pending`
 

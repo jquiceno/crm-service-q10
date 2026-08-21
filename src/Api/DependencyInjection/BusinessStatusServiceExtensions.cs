@@ -1,4 +1,5 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses;
@@ -13,6 +14,7 @@ public static class BusinessStatusServiceExtensions
 
         services.AddScoped<ICreateBusinessStatusUseCase, CreateBusinessStatusUseCase>();
         services.AddScoped<IUpdateBusinessStatusUseCase, UpdateBusinessStatusUseCase>();
+        services.AddScoped<IDeleteBusinessStatusUseCase, DeleteBusinessStatusUseCase>();
 
         return services;
     }

@@ -5,8 +5,8 @@ namespace Infrastructure.Persistence.EntityFramework;
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : DbContext(options)
 {
-    public DbSet<BusinessStatuses.Entities.BusinessStatusRow> BusinessStatuses =>
-        Set<BusinessStatuses.Entities.BusinessStatusRow>();
+    public DbSet<BusinessStatuses.Entities.BusinessStatus> BusinessStatuses =>
+        Set<BusinessStatuses.Entities.BusinessStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -99,6 +99,14 @@ public sealed class BusinessStatusAggregate : AggregateRoot<int>
     }
 
     /// <summary>
+    /// Receives the identifier the database generated on insert, which only exists after the
+    /// statement runs. It lets the repository complete the very aggregate it was given instead of
+    /// building a second one, so whatever <c>Create</c> set — the audit timestamps among it —
+    /// survives the round trip.
+    /// </summary>
+    public void AssignId(int id) => Id = id;
+
+    /// <summary>
     /// Rebuilds the aggregate from persisted data. It validates nothing: a legacy row may hold a name
     /// longer than <see cref="MaxNameLength"/>, a colour this service would never accept or a terminal
     /// percentage, and reading it must not fail. The decimal-to-integer conversion of the real column

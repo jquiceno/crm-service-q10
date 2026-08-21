@@ -4,7 +4,6 @@ using BusinessStatus.Domain.Errors;
 using BusinessStatus.Domain.Queries;
 using BusinessStatus.Domain.Repositories;
 using Infrastructure.Adapters.Persistence.SqlServer;
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Mappers;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Microsoft.Data.SqlClient;
@@ -134,16 +133,12 @@ public sealed class BusinessStatusRepository(
             await context.BusinessStatuses.AddAsync(row, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            // The aggregate exposes no identifier mutator, so the identity travels back through
-            // the inserted row.
-            return BusinessStatusRepositoryMapper.ToDomain(row);
+            // The IDENTITY is only populated after SaveChanges.
+            aggregate.AssignId(row.Id);
+
+            return aggregate;
         }
         catch (DbUpdateException ex)
-        {
-            logger.Error(ex, "Database error inserting a business status");
-            return SqlServerErrorClassifier.Classify(ex, Origin);
-        }
-        catch (SqlException ex)
         {
             logger.Error(ex, "Database error inserting a business status");
             return SqlServerErrorClassifier.Classify(ex, Origin);
@@ -226,8 +221,8 @@ public sealed class BusinessStatusRepository(
             Origin = Origin
         };
 
-    private static IQueryable<BusinessStatusRow> ApplyFilter(
-        IQueryable<BusinessStatusRow> query, BusinessStatusFilter filter)
+    private static IQueryable<Entities.BusinessStatus> ApplyFilter(
+        IQueryable<Entities.BusinessStatus> query, BusinessStatusFilter filter)
     {
         if (!string.IsNullOrWhiteSpace(filter.Name))
         {

@@ -1,14 +1,14 @@
 using BusinessStatus.Domain.Aggregates;
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Mappers;
 using Shouldly;
 using Xunit;
+using Entities = Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 
 namespace UnitTests.Infrastructure.Persistence.BusinessStatuses;
 
 public sealed class BusinessStatusRepositoryMapperTests
 {
-    private static BusinessStatusRow Row(
+    private static Entities.BusinessStatus Row(
         int id = 7,
         string? name = "Negotiation",
         bool? isActive = true,

@@ -1,11 +1,10 @@
 using BusinessStatus.Domain.Aggregates;
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 
 namespace Infrastructure.Persistence.EntityFramework.BusinessStatuses.Mappers;
 
 public static class BusinessStatusRepositoryMapper
 {
-    public static BusinessStatusAggregate ToDomain(BusinessStatusRow row) =>
+    public static BusinessStatusAggregate ToDomain(Entities.BusinessStatus row) =>
         BusinessStatusAggregate.Reconstruct(
             row.Id,
             row.Name ?? string.Empty,
@@ -13,7 +12,7 @@ public static class BusinessStatusRepositoryMapper
             row.Color,
             row.IsActive ?? false);
 
-    public static BusinessStatusRow ToDocument(BusinessStatusAggregate aggregate) =>
+    public static Entities.BusinessStatus ToDocument(BusinessStatusAggregate aggregate) =>
         new()
         {
             Name = aggregate.Name,

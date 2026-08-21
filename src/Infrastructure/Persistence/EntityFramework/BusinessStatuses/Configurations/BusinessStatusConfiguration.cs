@@ -1,4 +1,3 @@
-using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -9,9 +8,9 @@ namespace Infrastructure.Persistence.EntityFramework.BusinessStatuses.Configurat
 /// the real schema, not as validation — that lives in the domain. Nothing is <c>IsRequired()</c>:
 /// the table admits NULL in the four non-key columns.
 /// </summary>
-internal sealed class BusinessStatusRowConfiguration : IEntityTypeConfiguration<BusinessStatusRow>
+internal sealed class BusinessStatusConfiguration : IEntityTypeConfiguration<Entities.BusinessStatus>
 {
-    public void Configure(EntityTypeBuilder<BusinessStatusRow> builder)
+    public void Configure(EntityTypeBuilder<Entities.BusinessStatus> builder)
     {
         builder.ToTable("tbl_opo_negocios_estados");
 

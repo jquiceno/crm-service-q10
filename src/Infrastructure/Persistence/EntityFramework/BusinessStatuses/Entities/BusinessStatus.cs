@@ -1,6 +1,6 @@
 namespace Infrastructure.Persistence.EntityFramework.BusinessStatuses.Entities;
 
-public sealed class BusinessStatusRow
+public sealed class BusinessStatus
 {
     public int Id { get; set; }
 

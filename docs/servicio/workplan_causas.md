@@ -1,10 +1,10 @@
-﻿---
+---
 service: crm-service-q10
 context: loss-reasons (Causas de pérdida)
 doc: plan
 status: draft
 source: discovery_causas.md
-updated: 2026-08-14
+updated: 2026-08-21
 ---
 
 # Plan de trabajo — Causas de pérdida (`crm-service-q10`)
@@ -690,11 +690,11 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.6] Implement LossReasonUsageReader
-`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: pending`
+`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: done`
 - Objetivo: leer `tbl_opo_negocios` sin crearle un repositorio.
 - Fuente: D7 · Discovery §4.1
-- Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/DealLossReasonUsage.cs`, `…/Configurations/DealLossReasonUsageConfiguration.cs`, `…/LossReasonUsageReader.cs`, `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`
-- Detalle: entidad **keyless** con una sola propiedad `int? NegCauConsecutivo`, configurada `ToTable("tbl_opo_negocios").HasNoKey()` — es solo lectura y no se le crea repositorio (regla explícita). El reader hace `AnyAsync(x => x.NegCauConsecutivo == lossReasonId)` con `.AsNoTracking()`, `private const string Origin = nameof(LossReasonUsageReader);`, y el mismo `try/catch` → `PersistenceErrors.Failure(Origin)`. La implementación vive en `Persistence/EntityFramework/`, **no** en `Adapters/`. Registrar su `DbSet` de solo lectura en `ApplicationDbContext` — es un archivo compartido con F2.7, solo se añade.
+- Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/DealLossReasonUsage.cs`, `…/Configurations/DealLossReasonUsageConfiguration.cs`, `…/LossReasonUsageReader.cs`
+- Detalle: entidad **keyless** con una sola propiedad `int? LossReasonId` mapeada a la columna legada `neg_cau_consecutivo`, configurada `ToTable("tbl_opo_negocios").HasNoKey()` — es solo lectura y no se le crea repositorio (regla explícita). El reader hace `AnyAsync(x => x.LossReasonId == lossReasonId)` con `.AsNoTracking()`, `private const string Origin = nameof(LossReasonUsageReader);`, y el mismo `try/catch` → `PersistenceErrors.Failure(Origin)`. La implementación vive en `Persistence/EntityFramework/`, **no** en `Adapters/`. **No se registra `DbSet` en `ApplicationDbContext`**: la revisión del PR lo retiró por no tener consumidor —el reader consulta con `context.Set<DealLossReasonUsage>()` y `ApplyConfigurationsFromAssembly` descubre la configuración sola—, así que este paso **no toca el archivo compartido con F2.7**.
 - Hecho cuando: la entidad keyless no expone escritura y el reader devuelve `Result<bool>` en las tres ramas (usada, libre, fallo).
 - Verificar: `dotnet build Service.slnx -c Release`
 
@@ -966,6 +966,8 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-21 | **`cau_nombre` y `cau_estado` son `NOT NULL`: D6 se invierte.** La verificación contra la BD contradice a `discovery_causas.md` §4.1, que las daba como NULLABLE con un `[verificado en BD]`. La entidad EF pasa de `string?`/`bool?` a `string`/`bool`, `LossReasonConfiguration` declara `.IsRequired()` sobre `Name`, el mapper pierde los `?? string.Empty` / `?? false` y el filtro de `GetAsync` pierde la guarda `x.Name != null`, que quedó como código muerto. Se borran los dos tests de NULL del mapper (`ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`) y `GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper` del repositorio, más las filas NULL que sembraban los tests de filtro; entra `ToDomain_WithInactiveRow_MapsTheState` para no perder el caso `false`. **La discrepancia con el Discovery queda abierta** y se corrige en su propia revisión: este plan no lo reescribe | **D6 (invertida)** | `F2.1`, `F2.2`, `F2.3`, `F2.8`, `F2.9` · §4 · encabezado de estrategia de la Fase 2 | ninguna — T4 se corrige en su propia rama |
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
+| 2026-08-21 | **F2.6 ejecutado** (T5 — Juan Camilo): entidad keyless `DealLossReasonUsage` (`tbl_opo_negocios`, `HasNoKey()`), su configuración EF y `LossReasonUsageReader` (implementa `ILossReasonUsageReader` con `AnyAsync` + `AsNoTracking` + guard `OperationCanceledException` → `PersistenceErrors.Failure`). **Descubrimiento:** `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia. Verificado: `dotnet build Service.slnx -c Release` (0 errores, 0 advertencias) y `dotnet test tests/UnitTests -c Release` (357/357 en verde). F2.6 → `done` | — | F2.6 | ninguna |
+| 2026-08-21 | **Revisión del PR de T5.** La propiedad de la entidad keyless pasa de `NegCauConsecutivo` a **`LossReasonId`** (nombres en inglés y sin abreviar; el nombre de columna legado se queda solo en la configuración EF), el Reader deja de nombrar la tabla en su comentario, y **se retira el `DbSet<DealLossReasonUsage>` de `ApplicationDbContext`** por no tener consumidor. Con eso **`F2.6` deja de tocar el archivo compartido** y el choque declarado entre T4 y T5 desaparece. Sin cambios de comportamiento | — | `F2.6` (lista de `Archivos:` y detalle) | ninguna |
 
 ---
 

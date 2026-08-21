@@ -86,7 +86,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
 | T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`–`F2.9` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ✅ **mergeada** a la base — PR #5, merge `3ea1607`. Validada después del merge: build limpio y 381 tests en verde |
-| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
+| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ✅ **ejecutada** — PR abierto, comentarios de revisión aplicados (`0492989`), pendiente de merge |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ✅ **mergeada** a la base — PR #19, merge `9eea4c8`; dos rondas de revisión de QA aplicadas |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
 | T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | ⬜ |
@@ -233,7 +233,7 @@ Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo a
 | Archivo | Lo toca primero | Lo tocan también |
 |---|---|---|
 | `Service.slnx` | T2 · **Juan Esteban** (añade los dos `.csproj`) | — |
-| `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | **T5 · Juan Camilo** (`DbSet` keyless del Reader, paso `F2.6`) |
+| `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | ~~T5 · Juan Camilo~~ — **el choque no llegó a existir**: la revisión del PR de T5 retiró el `DbSet` keyless (nadie lo usaba; el Reader consulta con `context.Set<DealLossReasonUsage>()`), así que `F2.6` no toca este archivo |
 | `src/Infrastructure/Infrastructure.csproj` | T4 · **Brayan** (`ProjectReference` a `LossReason.Application`, para que compile el mapper de `F2.3`) | — · **ya cubre a T5**: la referencia a `Application` arrastra `Domain`, así que `F2.6` no lo toca |
 | `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
 | `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
@@ -241,7 +241,7 @@ Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo a
 
 Ninguna tarea toca archivos de seguridad ni de configuración de acceso: con D12, D13 y D14 el servicio no implementa autenticación, permisos ni resolución propia de tenant.
 
-**El único choque real es `ApplicationDbContext.cs` entre T4 (Brayan) y T5 (Juan Camilo)**, las dos tareas paralelas de la ola 3. Cada una añade su propio `DbSet` y ninguna reescribe el archivo: **quien mergee segundo rebasa y resuelve un conflicto de una línea**. Declararlo es lo que permite que vayan en paralelo en vez de apilar ramas para evitarlo.
+**El único choque real declarado era `ApplicationDbContext.cs` entre T4 (Brayan) y T5 (Juan Camilo)**, las dos tareas paralelas de la ola 3, y **no llegó a producirse**: la revisión del PR de T5 retiró el `DbSet` keyless por no tener consumidor, así que el archivo quedó con un solo autor, T4. Declararlo de antemano igual valió la pena — es lo que permitió que las dos fueran en paralelo en vez de apilar ramas para evitarlo.
 
 T6–T10 van en paralelo y **no comparten ningún archivo**: cada caso de uso vive en su propia carpeta con sus cinco archivos coubicados. Ese es el motivo por el que la división por caso de uso, además de respetar R2, no genera conflictos entre las tres personas en la ola más ancha.
 
@@ -294,7 +294,7 @@ El documento está listo cuando:
 
 **El backlog está en ejecución. Cuatro tareas dentro de la base** —T2, T3, T4 (PR #5) y T6 (PR #19)— **con la base verde**: build limpio y 385 tests unitarios.
 
-- **Ola 3:** solo queda **T5** (Juan Camilo, `feat/loss-reasons-usage-reader`). No bloquea a nadie salvo a **T10**.
+- **Ola 3:** solo queda **T5** (Juan Camilo, `feat/loss-reasons-usage-reader`) — **PR abierto, comentarios de revisión ya aplicados** (`0492989`), pendiente de merge. No bloquea a nadie salvo a **T10**.
 - **Ola 4, ya abierta** porque T4 entró: **T7** (Juan Camilo) y **T8** y **T9** (Brayan) pueden arrancar hoy; **T10** espera además a T5. T6 ya está hecha.
 - **Antes de abrir cualquiera de esas ramas, rebasar sobre la base**: entre T4 y T6 cambiaron `ApplicationDbContext.cs`, `Infrastructure.csproj` y `UnitTests.csproj`, y **los tres quedan resueltos** —T6 dejó puesta la `ProjectReference` a `LossReason.Application` que T7–T10 iban a necesitar—.
 - **T7–T10 se escriben con las reglas que salieron de la revisión de T6:** `Description` de los DTOs **en inglés** y `{X}Mapping.cs` **solo con `ToOutputDto()`/`ToAggregate()`/`ToUpdateArgs()`**, con el objeto de filtro construido inline en el caso de uso (plan §3.1 y §5.6).
@@ -316,3 +316,5 @@ El documento está listo cuando:
 | 2026-08-21 | **Rama base del contexto.** Se crea `feat/loss-reasons` desde `main`; toda rama de tarea sale de ella y su PR va contra ella, y `main` recibe el contexto una sola vez al final (§0, *Modelo de ramas*). La columna `Base` pasa de `main` a `feat/loss-reasons` en las once tareas |
 | 2026-08-21 | **T2 ejecutada** (`F0.3`, Juan Esteban): `LossReason.Domain` y `LossReason.Application` creados y registrados en `Service.slnx` bajo `/src/Contexts/LossReason/`. `dotnet build Service.slnx -c Release` en verde (13 proyectos, 0 advertencias) y 344 tests unitarios en verde por el pre-commit. Commit `96915cb` en `feat/loss-reasons-scaffold`, pendiente de merge a la base |
 | 2026-08-21 | **Se elimina Jira del proceso.** La columna `Jira` se reemplaza por `Responsable` y se añade `Estado`: el backlog es este archivo y el tablero son los PRs (§0). **Reparto entre Juan Camilo, Brayan y Juan Esteban** (§2.2), con las seis olas de ejecución y sus esperas (§2.3), el camino crítico anotado por persona (§2.4) y el round-robin de revisión (§2.5). Los archivos compartidos quedan con dueño y orden de merge (§3). Se declara y se descarta la aceleración de solapar la ola 4 con la ola 3, por requerir enmienda del plan. Ningún paso, alcance ni estimación cambia |
+| 2026-08-21 | **Revisión de QA sobre el PR de T5**, aplicada en `feat/loss-reasons-usage-reader` (`0492989`): la propiedad de la entidad keyless pasa de `NegCauConsecutivo` a **`LossReasonId`** —nombres en inglés y sin abreviar, el nombre de columna legado se queda solo en la configuración EF—; el Reader deja de nombrar `tbl_opo_negocios` en su comentario; **se retira el `DbSet<DealLossReasonUsage>` de `ApplicationDbContext`**, que no lo usaba nadie (el Reader consulta con `context.Set<DealLossReasonUsage>()`), con lo que **T5 deja de tocar el archivo compartido de §3**; y el comentario del test distingue las ramas reales, con un caso nuevo para la causa libre. Sin cambios de comportamiento |
+| 2026-08-21 | **T5 ejecutada** (`F2.6`, Juan Camilo — rama `feat/loss-reasons-usage-reader`): entidad keyless `DealLossReasonUsage` + configuración EF (`tbl_opo_negocios`, `HasNoKey()`) y `LossReasonUsageReader` que implementa `ILossReasonUsageReader` con `AnyAsync`/`AsNoTracking`/guard `OperationCanceledException`. Descubrimiento de infraestructura: `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia (no es cambio de alcance, era una omisión del scaffold) — T4 la añadió también y el merge la deja resuelta. Tests: 357/357 en verde en su momento; **388/388 tras rebasar sobre la base con T4 y T6 dentro**. F2.6 → `done`. Pendiente de PR a `feat/loss-reasons` (revisor: Juan Esteban) |

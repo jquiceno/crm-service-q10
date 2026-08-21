@@ -85,7 +85,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
-| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | 🔄 **en curso** — los seis pasos `done` y verificados |
+| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | 🔄 **en curso** — los seis pasos `done` y verificados; commit `fbafbda`, **pendiente de merge** a la base |
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
@@ -289,12 +289,13 @@ El documento está listo cuando:
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 queda abierta**: Brayan puede arrancar **T4** y Juan Camilo **T5**, en paralelo, cada uno desde la base actualizada. Juan Esteban queda en revisión hasta que T4 entre y le abra T6.
+**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde. **T4 está terminada y verificada en su rama** (`feat/loss-reasons-persistence`, commit `fbafbda`, 359 tests unitarios), esperando revisión de Juan Camilo y merge a la base. La **ola 4 se abre cuando T4 entre**: Juan Esteban con **T6**, Brayan con **T8** y **T9**, Juan Camilo con **T7**. De la ola 3 sigue pendiente **T5** (Juan Camilo), que no bloquea a nadie salvo a **T10**. Quien tome un caso de uso rebasa sobre la base después de ese merge: T4 tocó `ApplicationDbContext.cs` e `Infrastructure.csproj`, y este último ya deja resuelto lo que T5 necesitaba de él.
 
 ## Changelog
 
 | Fecha | Cambio |
 |---|---|
+| 2026-08-21 | **T4 ejecutada** (`F2.1`–`F2.4`, `F2.7`, `F2.8`, Brayan): entidad de persistencia con la nulabilidad real de `tbl_opo_causas`, configuración EF sobre la tabla legada, mapper que normaliza los dos NULL de D6, repositorio con los 8 miembros del contrato y el primer `DbSet` del servicio, con los 4 tests del mapper en verde (359 en la suite). Commit `fbafbda` en `feat/loss-reasons-persistence`, **pendiente de merge a la base**. Se descubre un **segundo archivo compartido no declarado**, `src/Infrastructure/Infrastructure.csproj` —no referenciaba el contexto y el mapper no compilaba—; se reportó como GAP y, autorizado, se añadió la referencia a `LossReason.Application`, que **también cubre a T5**. §3 lo registra. Cuando T4 entre a la base quedan abiertas **T6, T7, T8 y T9**; T10 seguirá esperando T5 |
 | 2026-08-14 | Versión inicial, derivada de `workplan_causas.md` §8 tras las cuatro enmiendas del plan del mismo día (§9.3) |
 | 2026-08-14 | **Resolución de los siete GAPs.** Los cinco bloqueos previos quedan cerrados; `T1` se cierra sin PR (el dueño del repositorio resolvió `GAP-1` en el commit `9f24956`, build verificado en verde) y `T2` pasa a ser la cabeza del camino crítico. Se añade `EXT-8` (autorizar del lado de Jack, riesgo R9) y las externas quedan con estado. Total: 42 puntos en 11 tareas |
 | 2026-08-21 | **Revisión de QA sobre T3**, aplicada en `feat/loss-reasons-domain`: el agregado deja de narrar el `IDENTITY` en un comentario, `Create` deja de pasar el `Id` (constructor privado partido en dos) y `Created()` deja de fijar `UpdatedAt`. Los 11 tests siguen en verde con un assert cambiado. El plan queda enmendado en §5.2 y F1.3 (§9.3) |

@@ -135,7 +135,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         var dueAt = Now.AddDays(1);
         var scheduled = Activity.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call the applicant").Value, dueAt,
-            Advisor, Creator, Now).Value;
+            Advisor, Creator).Value;
 
         var id = await SaveAsync(variant, scheduled).ConfigureAwait(true);
         id.ShouldBeGreaterThan(0, "the legacy identity column generates the id");
@@ -148,7 +148,10 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         activity.Type.ShouldBe(ActivityType.Call);
         activity.Description!.Value.ShouldBe("call the applicant");
         activity.DueAt.ShouldBe(dueAt);
-        activity.CreatedAt.ShouldBe(Now);
+        // Created() stamps CreatedAt with DateTime.UtcNow, so the round-trip asserts fidelity
+        // against the in-memory aggregate instead of a fixed instant, with tolerance for the
+        // precision of the legacy datetime column.
+        activity.CreatedAt!.Value.ShouldBe(scheduled.CreatedAt!.Value, TimeSpan.FromSeconds(1));
         activity.Outcome.ShouldBeNull();
         activity.OutcomeType.ShouldBeNull();
         activity.CompletedAt.ShouldBeNull();

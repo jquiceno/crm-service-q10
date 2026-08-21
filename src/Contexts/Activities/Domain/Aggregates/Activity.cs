@@ -34,12 +34,12 @@ public sealed class Activity : AggregateRoot<int>
     public int? OpportunityId { get; }
     public ActivityType Type { get; }
 
-    public ActivityStatus Status { get; private set; }
+    public ActivityStatus Status { get; }
 
     public Description? Description { get; }
     public DateTime? DueAt { get; }
     public Outcome? Outcome { get; }
-    public OutcomeType? OutcomeType { get; private set; }
+    public OutcomeType? OutcomeType { get; }
 
     /// <summary>
     /// Null only on migrated historic rows read from the legacy database (§4.1); every factory
@@ -47,13 +47,8 @@ public sealed class Activity : AggregateRoot<int>
     /// </summary>
     public PersonCode? AdvisorId { get; }
 
-    // negact_per_codigo is NOT NULL in every measured schema variant (0 nulls in data); the
-    // null! covers only the parameterless EF materialization constructor.
-    public PersonCode CreatedById { get; } = null!;
+    public PersonCode CreatedById { get; }
     public DateTime? CompletedAt { get; }
-
-    // EF Core materialization only.
-    private Activity() { }
 
     private Activity(
         int dealId,
@@ -64,7 +59,7 @@ public sealed class Activity : AggregateRoot<int>
         DateTime? dueAt,
         Outcome? outcome,
         OutcomeType? outcomeType,
-        PersonCode advisorId,
+        PersonCode? advisorId,
         PersonCode createdById,
         DateTime? completedAt)
     {
@@ -262,21 +257,43 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     /// <summary>
-    /// Persistence-only rehydration for the two legacy shapes a value converter cannot rebuild
-    /// (a converter sees a single column): the (<c>negact_completada</c>, <c>negact_anulada</c>)
-    /// bit pair collapses into one <see cref="ActivityStatus"/> (NULL ⇒ false — DEC-6), and
-    /// <c>negact_resultado</c> is a char whose meaning depends on <see cref="Type"/> ('3' is a
-    /// wrong number for a call but a closed deal for a meeting). The EF materialization
-    /// interceptor resolves both and hands them back through this hook, keeping the legacy
-    /// representation in Infrastructure (DEC-15). Note: the restored
-    /// <see cref="OutcomeType.Scope"/> names the catalogue, so legacy/virtual meeting rows carry
-    /// Scope = Meeting while Type keeps their real value — Scope == Type is an invariant of the
-    /// factories only, not of reads.
+    /// Rebuilds the aggregate from persistence without validation or audit stamping (the
+    /// template's reconstruction factory): a legacy row is valid data even where today's
+    /// creation invariants would reject it — missing advisor, read-only types, rows carrying
+    /// both <see cref="Description"/> and <see cref="Outcome"/> at once, or an
+    /// <see cref="OutcomeType"/> whose <see cref="OutcomeType.Scope"/> names the catalogue
+    /// (Meeting) while <see cref="Type"/> keeps the real legacy/virtual value. Only the
+    /// persistence mapper calls it; Scope == Type is an invariant of the factories, not of reads.
+    /// The identity is the one exception: it defines equality (<c>Entity&lt;TId&gt;</c>), so a
+    /// non-positive one is a programming error, never legacy data.
     /// </summary>
-    internal void RestoreLegacyState(ActivityStatus status, OutcomeType? outcomeType)
+    internal static Activity Reconstruct(
+        int id,
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        ActivityStatus status,
+        Description? description,
+        DateTime? dueAt,
+        Outcome? outcome,
+        OutcomeType? outcomeType,
+        PersonCode? advisorId,
+        PersonCode createdById,
+        DateTime createdAt,
+        DateTime? completedAt)
     {
-        Status = status;
-        OutcomeType = outcomeType;
+        if (id <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(id), id, "A persisted activity always has a positive identity.");
+
+        var activity = new Activity(
+            dealId, opportunityId, type, status, description, dueAt, outcome, outcomeType,
+            advisorId, createdById, completedAt)
+        {
+            Id = id,
+        };
+        activity.SetCreatedAt(createdAt);
+        return activity;
     }
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.

@@ -28,10 +28,14 @@
     <PackageReference Include="StackExchange.Redis" Version="2.8.*" />
   </ItemGroup>
 
-  <!-- SqlServerErrorClassifier stays internal but its decision table is unit tested directly. -->
+  <!-- SqlServerErrorClassifier and the Activities persistence entity/mapper stay internal (the
+       legacy chars must not be reachable from Api/Application — DEC-15) but are tested directly. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>UnitTests</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>IntegrationTests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
 

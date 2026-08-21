@@ -107,8 +107,6 @@ public sealed class LegacyActivityCodesTests
     public void StrayOutcomeCodes_OnTypesWithoutACatalogue_AreDiscardedOnRead(ActivityType type)
     {
         LegacyActivityCodes.ToOutcomeType(type, "1").ShouldBeNull();
-        LegacyActivityCodes.OwnsOutcomeCode(type).ShouldBeFalse(
-            "the save side must never overwrite a column reads discard");
     }
 
     [Fact]

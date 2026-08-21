@@ -108,11 +108,11 @@ public sealed class ContactChannelAggregateTests
     }
 
     [Fact]
-    public void Create_DoesNotSetAuditDates_BecauseTheCatalogIsNotAudited()
+    public void Create_StampsCreatedAt_AndLeavesUpdatedAtUnset()
     {
         var result = ContactChannelAggregate.Create(new CreateContactChannelArgs(ValidName, IsActive: true));
 
-        result.Value.CreatedAt.ShouldBeNull();
+        result.Value.CreatedAt.ShouldNotBeNull();
         result.Value.UpdatedAt.ShouldBeNull();
     }
 
@@ -167,6 +167,7 @@ public sealed class ContactChannelAggregateTests
         ShouldBeValidationFailure(result.IsFailure, result.Error, ContactChannelErrors.NameRequired.Message);
         aggregate.Name.ShouldBe(ValidName);
         aggregate.IsActive.ShouldBeTrue();
+        aggregate.UpdatedAt.ShouldBeNull();
     }
 
     [Fact]
@@ -181,13 +182,13 @@ public sealed class ContactChannelAggregateTests
     }
 
     [Fact]
-    public void Update_DoesNotSetUpdatedAt_BecauseTheCatalogIsNotAudited()
+    public void Update_StampsUpdatedAt()
     {
         var aggregate = ContactChannelAggregate.Reconstruct(id: 7, name: ValidName, isActive: true);
 
         aggregate.Update(new UpdateContactChannelArgs("Feria", IsActive: true));
 
-        aggregate.UpdatedAt.ShouldBeNull();
+        aggregate.UpdatedAt.ShouldNotBeNull();
     }
 
     [Fact]
@@ -205,7 +206,7 @@ public sealed class ContactChannelAggregateTests
         error.Type.ShouldBe(ErrorType.DomainError);
 
         var detail = error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(ContactChannelErrors.NameProperty);
+        detail.Property.ShouldBe(nameof(ContactChannelAggregate.Name));
         detail.Errors.ShouldNotBeNull();
         detail.Errors.ShouldContain(expectedMessage);
     }

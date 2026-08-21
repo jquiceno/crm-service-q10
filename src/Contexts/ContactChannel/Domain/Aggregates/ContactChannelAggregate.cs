@@ -10,7 +10,6 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     public const int NameMaxLength = 100;
 
     public string Name { get; private set; } = string.Empty;
-
     public bool IsActive { get; private set; }
 
     private ContactChannelAggregate(int id, string name, bool isActive)
@@ -28,7 +27,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ContactChannelAggregate(id: 0, name, input.IsActive);
+        var aggregate = new ContactChannelAggregate(0, name, input.IsActive);
 
         aggregate.Created();
 
@@ -49,11 +48,14 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         Name = name;
         IsActive = input.IsActive;
 
+        SetUpdatedAt(DateTime.UtcNow);
+
         return Result.Success();
     }
 
     protected override void Created()
     {
+        SetCreatedAt(DateTime.UtcNow);
     }
 
     private static string Normalize(string? name) => name?.Trim() ?? string.Empty;

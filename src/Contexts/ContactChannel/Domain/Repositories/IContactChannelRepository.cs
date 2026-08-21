@@ -8,7 +8,7 @@ namespace ContactChannel.Domain.Repositories;
 
 public interface IContactChannelRepository : IRootRepository<ContactChannelAggregate, int>
 {
-    Task<PagedResult<ContactChannelAggregate>> SearchAsync(
+    Task<PagedResult<ContactChannelAggregate>> GetAsync(
         ContactChannelFilter filter,
         PageQuery page,
         CancellationToken cancellationToken = default);

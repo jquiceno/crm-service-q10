@@ -1,3 +1,4 @@
+using ContactChannel.Domain.Aggregates;
 using ContactChannel.Domain.Errors;
 using Shared.Results.Errors;
 using Shouldly;
@@ -11,7 +12,7 @@ public sealed class ContactChannelErrorsTests
     public void NameRequired_IsAValidationErrorStampedWithContextAndProperty()
     {
         ContactChannelErrors.NameRequired.Type.ShouldBe(ErrorType.Validation);
-        ContactChannelErrors.NameRequired.Property.ShouldBe(ContactChannelErrors.NameProperty);
+        ContactChannelErrors.NameRequired.Property.ShouldBe(nameof(ContactChannelAggregate.Name));
         ContactChannelErrors.NameRequired.Context.ShouldBe(ContactChannelErrors.Context);
     }
 
@@ -19,7 +20,7 @@ public sealed class ContactChannelErrorsTests
     public void NameTooLong_IsAValidationErrorStampedWithContextAndProperty()
     {
         ContactChannelErrors.NameTooLong.Type.ShouldBe(ErrorType.Validation);
-        ContactChannelErrors.NameTooLong.Property.ShouldBe(ContactChannelErrors.NameProperty);
+        ContactChannelErrors.NameTooLong.Property.ShouldBe(nameof(ContactChannelAggregate.Name));
         ContactChannelErrors.NameTooLong.Context.ShouldBe(ContactChannelErrors.Context);
     }
 

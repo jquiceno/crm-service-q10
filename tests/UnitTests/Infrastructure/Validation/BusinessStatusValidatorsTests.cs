@@ -1,4 +1,5 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Aggregates;
 using Infrastructure.Validation.FluentValidation.BusinessStatuses;
 using Shouldly;
@@ -9,8 +10,16 @@ namespace UnitTests.Infrastructure.Validation;
 public sealed class BusinessStatusValidatorsTests
 {
     private readonly CreateBusinessStatusInputValidator _createValidator = new();
+    private readonly UpdateBusinessStatusInputValidator _updateValidator = new();
 
     private static CreateBusinessStatusInputDto CreateInput(
+        string? name = "Negotiation",
+        decimal percentage = 50m,
+        string? color = "49ff7c",
+        bool isActive = true) =>
+        new(name, percentage, color, isActive);
+
+    private static UpdateBusinessStatusInputDto UpdateInput(
         string? name = "Negotiation",
         decimal percentage = 50m,
         string? color = "49ff7c",
@@ -109,6 +118,102 @@ public sealed class BusinessStatusValidatorsTests
     public void CreateValidator_WithAcceptedColor_ReturnsValid(string? color)
     {
         var result = _createValidator.Validate(CreateInput(color: color));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void UpdateValidator_WithValidInput_ReturnsValid()
+    {
+        var result = _updateValidator.Validate(UpdateInput());
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void UpdateValidator_WithBlankName_HasErrorOnName(string? name)
+    {
+        var result = _updateValidator.Validate(UpdateInput(name: name));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(UpdateBusinessStatusInputDto.Name));
+    }
+
+    [Fact]
+    public void UpdateValidator_WithNameOverTheMaximumLength_HasErrorOnName()
+    {
+        var result = _updateValidator.Validate(
+            UpdateInput(name: new string('a', BusinessStatusAggregate.MaxNameLength + 1)));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(UpdateBusinessStatusInputDto.Name));
+    }
+
+    [Fact]
+    public void UpdateValidator_WithNameAtTheMaximumLength_ReturnsValid()
+    {
+        var result = _updateValidator.Validate(
+            UpdateInput(name: new string('a', BusinessStatusAggregate.MaxNameLength)));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public void UpdateValidator_WithPercentageOutOfRange_HasErrorOnPercentage(int percentage)
+    {
+        var result = _updateValidator.Validate(UpdateInput(percentage: percentage));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(UpdateBusinessStatusInputDto.Percentage));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100)]
+    public void UpdateValidator_WithTerminalPercentage_ReturnsValid(int percentage)
+    {
+        // INV-1 and INV-2 belong to the aggregate: the structural layer cannot know whether the stored
+        // status is terminal, and a terminal status legitimately resends its own percentage.
+        var result = _updateValidator.Validate(UpdateInput(percentage: percentage));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void UpdateValidator_WithNonIntegerPercentageInRange_ReturnsValid()
+    {
+        // PercentageMustBeInteger is a domain error too.
+        var result = _updateValidator.Validate(UpdateInput(percentage: 50.5m));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("#49ff7c")]
+    [InlineData("49ff7")]
+    [InlineData("49ff7cc")]
+    [InlineData("zzzzzz")]
+    public void UpdateValidator_WithMalformedColor_HasErrorOnColor(string color)
+    {
+        var result = _updateValidator.Validate(UpdateInput(color: color));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e => e.PropertyName == nameof(UpdateBusinessStatusInputDto.Color));
+    }
+
+    [Theory]
+    [InlineData("49ff7c")]
+    [InlineData("49FF7C")]
+    [InlineData(null)]
+    [InlineData("")]
+    public void UpdateValidator_WithAcceptedColor_ReturnsValid(string? color)
+    {
+        var result = _updateValidator.Validate(UpdateInput(color: color));
 
         result.IsValid.ShouldBeTrue();
     }

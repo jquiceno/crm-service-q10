@@ -17,10 +17,10 @@ public static class AdsChannelErrors
         };
 
     public static readonly ValidationError NameTooLong =
-        new("Name cannot exceed 100 characters.", ErrorType.Validation)
+        new($"Name cannot exceed {AdsChannelAggregate.MaxNameLength} characters.", ErrorType.Validation)
         {
             Property = nameof(AdsChannelAggregate.Name),
-            Attributes = new Dictionary<string, object?> { ["maxLength"] = 100 }
+            Attributes = new Dictionary<string, object?> { ["maxLength"] = AdsChannelAggregate.MaxNameLength }
         };
 
     public static DomainError NameAlreadyExists(string name) =>

@@ -55,9 +55,9 @@ public sealed class AdsChannelAggregateTests
     }
 
     [Fact]
-    public void Create_WithNameExceeding100Characters_ReturnsNameTooLongValidationError()
+    public void Create_WithNameExceedingMaxLength_ReturnsNameTooLongValidationError()
     {
-        var name = new string('a', 101);
+        var name = new string('a', AdsChannelAggregate.MaxNameLength + 1);
 
         var result = AdsChannelAggregate.Create(new CreateAdsChannelArgs(name));
 
@@ -65,18 +65,39 @@ public sealed class AdsChannelAggregateTests
         result.Error.Type.ShouldBe(ErrorType.DomainError);
         result.Error.Details[0].Property.ShouldBe(nameof(AdsChannelAggregate.Name));
         result.Error.Details[0].Errors.ShouldNotBeNull();
-        result.Error.Details[0].Errors!.ShouldContain("Name cannot exceed 100 characters.");
+        result.Error.Details[0].Errors!.ShouldContain(
+            $"Name cannot exceed {AdsChannelAggregate.MaxNameLength} characters.");
     }
 
     [Fact]
-    public void Create_WithNameOfExactly100Characters_Succeeds()
+    public void Create_WithNameOfExactlyMaxLength_Succeeds()
     {
-        var name = new string('a', 100);
+        var name = new string('a', AdsChannelAggregate.MaxNameLength);
 
         var result = AdsChannelAggregate.Create(new CreateAdsChannelArgs(name));
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Name.ShouldBe(name);
+    }
+
+    [Fact]
+    public void Create_TrimsLeadingAndTrailingWhitespaceFromName()
+    {
+        var result = AdsChannelAggregate.Create(new CreateAdsChannelArgs("  Google Ads  "));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Name.ShouldBe("Google Ads");
+    }
+
+    [Fact]
+    public void Create_WithNameExceedingMaxLengthOnlyBeforeTrimming_Succeeds()
+    {
+        var name = "  " + new string('a', AdsChannelAggregate.MaxNameLength) + "  ";
+
+        var result = AdsChannelAggregate.Create(new CreateAdsChannelArgs(name));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Name.Length.ShouldBe(AdsChannelAggregate.MaxNameLength);
     }
 
     // ── Reconstruct ───────────────────────────────────────────────────────────
@@ -133,15 +154,27 @@ public sealed class AdsChannelAggregateTests
     }
 
     [Fact]
-    public void Update_WithNameExceeding100Characters_ReturnsNameTooLongAndDoesNotMutate()
+    public void Update_WithNameExceedingMaxLength_ReturnsNameTooLongAndDoesNotMutate()
     {
         var aggregate = AdsChannelAggregate.Reconstruct(1, "Old name", true);
 
-        var result = aggregate.Update(new UpdateAdsChannelArgs(new string('b', 101), false));
+        var result = aggregate.Update(
+            new UpdateAdsChannelArgs(new string('b', AdsChannelAggregate.MaxNameLength + 1), false));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Validation);
-        result.Error.Message.ShouldBe("Name cannot exceed 100 characters.");
+        result.Error.Message.ShouldBe($"Name cannot exceed {AdsChannelAggregate.MaxNameLength} characters.");
         aggregate.Name.ShouldBe("Old name");
+    }
+
+    [Fact]
+    public void Update_TrimsLeadingAndTrailingWhitespaceFromName()
+    {
+        var aggregate = AdsChannelAggregate.Reconstruct(1, "Old name", true);
+
+        var result = aggregate.Update(new UpdateAdsChannelArgs("  New name  ", true));
+
+        result.IsSuccess.ShouldBeTrue();
+        aggregate.Name.ShouldBe("New name");
     }
 }

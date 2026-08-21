@@ -1,3 +1,4 @@
+using AdsChannel.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -12,7 +13,10 @@ public sealed class AdsChannelConfiguration : IEntityTypeConfiguration<Entities.
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id).HasColumnName("medpub_consecutivoP").ValueGeneratedOnAdd();
-        builder.Property(x => x.Name).HasColumnName("medpub_nombre").HasMaxLength(100).IsUnicode(false);
+        builder.Property(x => x.Name)
+            .HasColumnName("medpub_nombre")
+            .HasMaxLength(AdsChannelAggregate.MaxNameLength)
+            .IsUnicode(false);
         builder.Property(x => x.IsActive).HasColumnName("medpub_estado");
     }
 }

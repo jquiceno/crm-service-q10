@@ -1,3 +1,4 @@
+using AdsChannel.Domain.Aggregates;
 using AdsChannel.Domain.Errors;
 using Shared.Results.Errors;
 using Shouldly;
@@ -38,6 +39,6 @@ public sealed class AdsChannelErrorsTests
         AdsChannelErrors.NameTooLong.Type.ShouldBe(ErrorType.Validation);
         AdsChannelErrors.NameTooLong.Property.ShouldBe("Name");
         AdsChannelErrors.NameTooLong.Attributes.ShouldNotBeNull();
-        AdsChannelErrors.NameTooLong.Attributes!["maxLength"].ShouldBe(100);
+        AdsChannelErrors.NameTooLong.Attributes!["maxLength"].ShouldBe(AdsChannelAggregate.MaxNameLength);
     }
 }

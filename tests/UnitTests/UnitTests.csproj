@@ -23,6 +23,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\Contexts\LossReason\Domain\LossReason.Domain.csproj" />
         <ProjectReference Include="..\..\src\Contexts\ServiceInfo\Domain\ServiceInfo.Domain.csproj" />
         <ProjectReference Include="..\..\src\Contexts\ServiceInfo\Application\ServiceInfo.Application.csproj" />
         <ProjectReference Include="..\..\src\Shared\Application\Shared.Application.csproj" />

@@ -99,14 +99,15 @@ Estado del repositorio destino: **fork limpio de `service-template-dotnet`**, un
 * **Consecuencias:** **es paridad exacta con el frente web del legado** (`CausasViewModel.MaxLength(50)`), que es el consumidor que se corta primero. Elimina las tres longitudes en conflicto del Discovery D4 dejando una sola en el servicio. Cierra el escenario de Discovery D6 —el fallo de validación que convertía una edición en creación— porque crear y actualizar pasan a ser verbos distintos (§6.3), no porque el input deje de ser inválido. **Riesgo asumido:** la columna admite 200 y el endpoint `GET api/causas` del legado nunca validó longitud, así que **pueden existir filas con más de 50 caracteres**; el servicio las **lee** sin problema (`Reconstruct` no valida, D6) pero **rechaza el `PUT`** hasta que se acorte el nombre. Queda como riesgo R7, con la consulta de verificación en §9.1.
 * **Afecta:** §5.2 · §5.4 · §6.1 · §6.2 · §6.3 · §9.1 R4, R7 · pasos F1.1, F1.3, F1.6, F4.1, F4.4, F5.1.
 
-### D6 — La entidad de persistencia declara la nulabilidad **real**; el mapper normaliza
+### D6 — La entidad de persistencia declara la nulabilidad **real**: ambas columnas son `NOT NULL`
 
-`estado: aprobada · firmó: tech lead · fecha: 2026-08-14 · origen: [Discovery §4.1] + [template]`
+`estado: aprobada · firmó: tech lead · fecha: 2026-08-14 · revisada: 2026-08-21 · origen: [Discovery §4.1] + [template] + [verificación en BD, 2026-08-21]`
 
-* **Decisión:** `LossReason.Name` se declara `string?` y `LossReason.IsActive` como `bool?` en la entidad EF, porque **ambas columnas son NULLABLE en la BD**. `LossReasonRepositoryMapper.ToDomain` normaliza: `null → string.Empty` para el nombre y `null → false` para el estado. El dominio expone `string` y `bool` no anulables.
-* **Alternativas descartadas:** declarar la entidad con la nulabilidad *deseada* (`string`/`bool`), porque `repositorio.md` lo prohíbe expresamente: leer un `NULL` en una propiedad no anulable hace que SqlClient lance `SqlNullValueException` **para la query entera**, no para la fila · corregir los datos con un `UPDATE` previo, porque es trabajo sobre la BD de cada tenant y este plan no lo cubre.
-* **Consecuencias:** cierra Discovery D3 con el veredicto «se corrige»: una fila con `cau_estado` NULL ya no tumba el listado, se muestra como inactiva. Una fila con nombre NULL se muestra con nombre vacío en vez de romper. **El servicio no escribe NULL nunca**, porque la invariante del agregado lo impide.
-* **Afecta:** §4 · pasos F2.1, F2.3, F1.3.
+* **Decisión:** `LossReason.Name` se declara `string` y `LossReason.IsActive` como `bool` en la entidad EF, **no anulables**, porque **ambas columnas son `NOT NULL` en la BD**. `LossReasonRepositoryMapper.ToDomain` pasa los dos valores tal cual a `Reconstruct`, sin normalizar. La configuración lo declara explícito con `.IsRequired()` sobre `Name`; para `IsActive`, `bool` no anulable ya lo implica por convención.
+* **Alternativas descartadas:** declarar la entidad anulable «por si acaso» (`string?`/`bool?`) y normalizar `null → string.Empty` / `null → false` en el mapper —que es como estuvo escrita esta decisión hasta el 2026-08-21—, porque la entidad de persistencia debe reflejar el esquema **real**: declararla más laxa esconde un contrato que la BD ya garantiza, obliga a un `??` en cada lectura y sostiene dos tests de un caso imposible.
+* **Consecuencias:** el mapper es una traducción directa, sin ramas. **El servicio no escribe NULL nunca**, porque la invariante del agregado lo impide, y **tampoco lo lee**, porque la columna no lo admite. El filtro por nombre del repositorio pierde su guarda `x.Name != null`, que pasó a ser código muerto. Discovery D2/D3 —que registraban ambas columnas como NULLABLE con el veredicto «se corrige → `NOT NULL`»— quedan **cerrados por el esquema**, no por código del servicio: la corrección ya está aplicada en BD.
+* **Contradicción registrada:** `discovery_causas.md` §4.1 (líneas 192-193) sigue afirmando `[verificado en BD]` que las dos columnas aceptan NULL, y D2/D3 de su §7 se apoyan en eso. **La verificación del 2026-08-21 sobre la BD dice lo contrario y es la que manda.** El Discovery no se reescribe desde acá; queda como discrepancia abierta a corregir en su propia revisión.
+* **Afecta:** §4 · pasos F2.1, F2.2, F2.3, F2.8, F2.9, F1.3.
 
 ### D7 — El borrado valida el uso con un Reader antes de borrar, y deja el 547 como red de seguridad
 
@@ -229,8 +230,8 @@ Estado del repositorio destino: **fork limpio de `service-template-dotnet`**, un
 | Columna / SP legado | Propiedad de dominio | Tipo | Persistencia | Trampa |
 |---|---|---|---|---|
 | `cau_consecutivoP` | `Id` | `int` | PK, `ValueGeneratedOnAdd()` | Es `IDENTITY`: obliga a `CreateAsync` y prohíbe el `AddAsync`+`CommitAsync` (D3) |
-| `cau_nombre` | `Name` | `string` | `varchar(200)`, entidad `string?` | La columna **acepta NULL** aunque el legado la trate como obligatoria: la entidad la declara anulable y el mapper normaliza a `string.Empty` (D6) |
-| `cau_estado` | `IsActive` | `bool` | `bit`, entidad `bool?` | Idem: **acepta NULL**; el mapper normaliza a `false` (D6). Es lo que hoy tumbaría el listado del legado (Discovery D3) |
+| `cau_nombre` | `Name` | `string` | `varchar(200) NOT NULL`, entidad `string` + `.IsRequired()` | La columna **no acepta NULL** (verificado en BD el 2026-08-21): la entidad la declara no anulable y el mapper no normaliza (D6). Discovery §4.1 afirma lo contrario y está desactualizado |
+| `cau_estado` | `IsActive` | `bool` | `bit NOT NULL`, entidad `bool` | Idem: **no acepta NULL** (D6). Discovery D3 —el NULL que tumbaba el listado del legado— ya está cerrado por el esquema |
 | `@aplent_codigoP` (los 6 SPs) | — | — | — | Parámetro declarado y **nunca usado** en ningún cuerpo (Discovery D5). No cruza al modelo: el aislamiento es por base de datos, no por columna |
 | `total_count` (`pa_apis_opo_causas_retornar`) | — | — | — | Lo reemplaza `PagedResult<T>.TotalCount`; no es una columna del dominio |
 | `RETURN SCOPE_IDENTITY()` (`pa_opo_causas_ingresar`) | valor de retorno de `CreateAsync` | `int` | — | El legado lo descarta (`IngresarCausa` es `void`, Discovery D9); acá el 201 devuelve el recurso creado con su `id` |
@@ -624,43 +625,50 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 ### Fase 2 — Persistencia · `pending`
 
 > Decisiones que la afectan: **D1, D2, D3, D6, D7**.
-> Estrategia de pruebas: unitarias sobre el mapper (función pura, incluidos los dos casos NULL de D6). El repositorio y el Reader se prueban en la Fase 5 contra SQL Server real: EF InMemory no honra constraints y la plantilla lo prohíbe.
+> Estrategia de pruebas: unitarias sobre el mapper (función pura; **sin casos NULL** desde la revisión de D6 del 2026-08-21: las columnas son `NOT NULL`). **Enmendada el 2026-08-21 (pendiente de firma del tech lead):** el repositorio se prueba **también** con unitarios sobre `ApplicationDbContext` + EF InMemory (paso F2.9), porque la puerta de cobertura de CI mide **solo unit tests** y 77 renglones sin cubrir dejaban el pipeline en 89,6 %, por debajo del piso de 90. Lo que InMemory no puede honrar —constraints, el 547 de D7, la `IDENTITY`, el `varchar`— **sigue siendo materia de la Fase 5 contra SQL Server real**, igual que el Reader. Precedente en el propio repositorio: `RepositoryBaseEFTests` ya prueba así el repositorio genérico de la plantilla.
 
 #### [F2.1] Create the LossReason persistence entity
-`id: F2.1 · depende_de: F1.5 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.1 · depende_de: F1.5 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: la fila de `tbl_opo_causas` como entidad EF, con la nulabilidad **real**.
 - Fuente: D6 · Discovery §4.1
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/LossReason.cs`
-- Detalle: `public sealed class LossReason { public int CauConsecutivoP { get; set; } public string? CauNombre { get; set; } public bool? CauEstado { get; set; } }`. **`string?` y `bool?` son obligatorios**: leer un NULL en una propiedad no anulable hace que SqlClient falle la query entera.
+- Detalle: `public sealed class LossReason { public int CauConsecutivoP { get; set; } public string? CauNombre { get; set; } public bool? CauEstado { get; set; } }`. ~~**`string?` y `bool?` son obligatorios**: leer un NULL en una propiedad no anulable hace que SqlClient falle la query entera.~~ **Superado por la enmienda de nulabilidad del 2026-08-21, abajo.**
 - Hecho cuando: las tres propiedades reflejan exactamente el tipo y la nulabilidad del dump.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
+- **Enmienda de nulabilidad del 2026-08-21 (verificación en BD):** ambas columnas son **`NOT NULL`**, así que la entidad queda `public string Name { get; set; } = string.Empty;` y `public bool IsActive { get; set; } = true;`. Los inicializadores **no son valores de negocio**: `Nullable` está en `enable` y `TreatWarningsAsErrors` en `true` (`Directory.Build.props`), así que un `string` no anulable sin inicializar es `CS8618` → error de compilación. El mapper asigna los dos antes de persistir, y en lectura EF los sobrescribe con la fila. Ver D6 revisada.
+- **Enmienda del 2026-08-21 (revisión del PR de T4):** las propiedades se nombran en **inglés y sin abreviar** —`Id`, `Name`, `IsActive`— y los nombres legados se citan en la configuración con `HasColumnName` (F2.2). El snippet de arriba las nombraba como las columnas (`CauConsecutivoP`, `CauNombre`, `CauEstado`), que son español abreviado y contradicen la regla de idioma de §3.1 y el ejemplo de `contextos.md` §5.3, donde la entidad usa nombres propios y el mapeo al esquema vive en el `IEntityTypeConfiguration`. **El tipo y la nulabilidad no cambian**, que es lo que D6 exige.
 
 #### [F2.2] Create the LossReason EF configuration
-`id: F2.2 · depende_de: F2.1 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.2 · depende_de: F2.1 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: mapear la entidad a la tabla legada.
 - Fuente: D1 · D3 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Configurations/LossReasonConfiguration.cs`
-- Detalle: `IEntityTypeConfiguration<LossReason>`; `ToTable("tbl_opo_causas")`, `HasKey(x => x.CauConsecutivoP)`, `Property(x => x.CauConsecutivoP).ValueGeneratedOnAdd()`, `Property(x => x.CauNombre).HasColumnType("varchar(200)")`. `HasMaxLength`/`IsRequired` solo para que EF genere el tipo de parámetro correcto, **no como validación** (proyecto Database First). Sin `DeleteBehavior` en cascada.
+- Detalle: `IEntityTypeConfiguration<LossReason>`; `ToTable("tbl_opo_causas")`, `HasKey(x => x.Id)`, `Property(x => x.Id).HasColumnName("cau_consecutivoP").ValueGeneratedOnAdd()`, `Property(x => x.Name).HasColumnName("cau_nombre").HasMaxLength(200).IsUnicode(false)`, `Property(x => x.IsActive).HasColumnName("cau_estado")` — **aquí es donde los nombres legados se citan tal cual** (enmienda de F2.1). `HasMaxLength`/`IsRequired` solo para que EF genere el tipo de parámetro correcto, **no como validación** (proyecto Database First). Sin `DeleteBehavior` en cascada.
+  **El `200` es el ancho de la columna, no el límite del servicio.** D5 fija 50 y ese número vive en `LossReasonAggregate.NameMaxLength`, en el dominio y en el validador; acá se declara el esquema real, así que **no se reemplaza por la constante** — son dos números distintos a propósito (R7 existe justamente porque no coinciden).
+  `IsUnicode(false)` **no es opcional**: sin él `HasMaxLength(200)` produce `nvarchar(200)` y cada consulta mandaría un parámetro `nvarchar` contra una columna `varchar`, con conversión implícita en el servidor.
+- Nota de ejecución: se implementó primero con `HasColumnType("varchar(200)")`, que da el mismo tipo pero acopla la configuración a la sintaxis de SQL Server. **Corregido el 2026-08-21 por la revisión del PR** a `HasMaxLength(200).IsUnicode(false)`, que es la forma del ejemplo de `contextos.md` §5.3. ~~**Sin `IsRequired`**: la columna admite NULL y D6 exige que la entidad lo refleje.~~ **Corregido el 2026-08-21:** la columna es `NOT NULL`, así que `Property(x => x.Name)` lleva `.IsRequired()`. Sobre `IsActive` no se declara: `bool` no anulable ya lo hace requerido por convención.
 - Hecho cuando: la configuración se descubre por `ApplyConfigurationsFromAssembly` sin registro manual.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F2.3] Create LossReasonRepositoryMapper
-`id: F2.3 · depende_de: F2.2 · tarea: T4 (Brayan) · estado: pending`
-- Objetivo: traducir entidad ↔ agregado, normalizando los NULL.
+`id: F2.3 · depende_de: F2.2 · tarea: T4 (Brayan) · estado: done`
+- Objetivo: traducir entidad ↔ agregado. ~~normalizando los NULL~~ — **sin normalización desde el 2026-08-21** (D6 revisada: las columnas son `NOT NULL`).
 - Fuente: D6 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Mappers/LossReasonRepositoryMapper.cs`
-- Detalle: `ToDomain(LossReason)` llama `LossReasonAggregate.Reconstruct(d.CauConsecutivoP, d.CauNombre ?? string.Empty, d.CauEstado ?? false)` — **`Reconstruct`, nunca `Create`**. `ToDocument(LossReasonAggregate)` escribe `CauNombre`/`CauEstado` y **no** toca `CauConsecutivoP` en creación (lo asigna `IDENTITY`). `CreatedAt`/`UpdatedAt` no se persisten: no existen como columnas.
-- Hecho cuando: `ToDomain` de una fila con `CauNombre = null` y `CauEstado = null` devuelve un agregado con `Name = ""` e `IsActive = false`, sin lanzar.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Detalle: `ToDomain(LossReason)` llama `LossReasonAggregate.Reconstruct(d.Id, d.Name, d.IsActive)` — **`Reconstruct`, nunca `Create`**. Los `?? string.Empty` / `?? false` que este paso especificaba originalmente **se eliminaron el 2026-08-21** con la revisión de D6. `ToDocument(LossReasonAggregate)` escribe `CauNombre`/`CauEstado` y **no** toca `CauConsecutivoP` en creación (lo asigna `IDENTITY`). `CreatedAt`/`UpdatedAt` no se persisten: no existen como columnas.
+- Hecho cuando: `ToDomain` de una fila completa devuelve el agregado con los tres campos idénticos, sin ramas de normalización. ~~El caso «fila con `CauNombre = null` y `CauEstado = null`» ya no existe: la BD no lo admite (D6 revisada, 2026-08-21).~~
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
+- **Archivo compartido no previsto:** `src/Infrastructure/Infrastructure.csproj` no referenciaba el contexto, así que el mapper no compilaba (`CS0246`). Se añadió `ProjectReference` a `LossReason.Application.csproj` —que arrastra `LossReason.Domain`— por instrucción del 2026-08-21 tras reportarlo como GAP. **Esa única línea cubre también a T5** (`F2.6` necesita `ILossReasonUsageReader`, de `Application`), así que Juan Camilo no tiene que tocar este archivo. Registrado en `tasks_causas.md` §3.
 
 #### [F2.4] Implement LossReasonRepository
-`id: F2.4 · depende_de: F2.3 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.4 · depende_de: F2.3 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: la implementación del contrato de dominio.
 - Fuente: D1 · D2 · D3 · D8 · `repositorio.md`
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/LossReasonRepository.cs`
 - Detalle: `public sealed class LossReasonRepository(ApplicationDbContext context, ILoggerPort<LossReasonRepository> logger) : ILossReasonRepository`, `private const string Origin = nameof(LossReasonRepository);`. Lecturas con `.AsNoTracking()`. `GetAsync` filtra por `Name` (`Contains`) e `IsActive` cuando vienen, ordena `OrderBy(CauNombre).ThenBy(CauConsecutivoP)` — **el desempate por la clave es obligatorio** — y pagina con `Skip(page.Skip).Take(page.PageSize)` + `COUNT`. `GetAllAsync` delega en `GetAsync` con filtro vacío. `CreateAsync` hace `SaveChangesAsync` interno y devuelve el agregado con su `Id`. Cada método en `try/catch (Exception ex) when (ex is not OperationCanceledException)` → `logger.Error(...)` + `PersistenceErrors.Failure(Origin)`. **Ninguna excepción escapa.** No hereda de `RepositoryBaseEF`.
 - Hecho cuando: los 8 miembros del contrato están implementados y ninguno deja escapar una excepción.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
+- Nota de ejecución: **`CreateAsync` no puede devolver el mismo agregado con su `Id`.** `Entity<TId>.Id` tiene setter `protected` y `Shared` no expone un `AssignId` como el que ilustra `repositorio.md`; §5.5 prohíbe crear nada en `Shared`. Se devuelve `LossReasonRepositoryMapper.ToDomain(document)` después del `SaveChangesAsync`, que es el mismo estado observable (`CreatedAt`/`UpdatedAt` vuelven en `null`, y D6/§5.2 ya establecen que no se persisten). El `Update` sí asigna `CauConsecutivoP` sobre el documento del mapper: el mapper no lo escribe porque en creación lo asigna `IDENTITY`, pero un `UPDATE` necesita direccionar la fila.
 
 #### [F2.5] Declare ILossReasonUsageReader
 `id: F2.5 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: done`
@@ -681,22 +689,33 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.7] Register the LossReason DbSet in ApplicationDbContext
-`id: F2.7 · depende_de: F2.4 · tarea: T4 (Brayan) · estado: pending`
+`id: F2.7 · depende_de: F2.4 · tarea: T4 (Brayan) · estado: done`
 - Objetivo: exponer la entidad del agregado al contexto de EF.
 - Fuente: `contextos.md` §5.3
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`
 - Detalle: agregar `public DbSet<LossReasons.Entities.LossReason> LossReasons => Set<LossReasons.Entities.LossReason>();`. Es el **primer** `DbSet` del servicio. El `DbSet` keyless del Reader lo añade F2.6 sobre este mismo archivo compartido.
 - Hecho cuando: `ApplicationDbContext` lo expone y `ApplyConfigurationsFromAssembly` descubre `LossReasonConfiguration`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**. Es el primer `DbSet` del servicio; que el mapeo apunte de verdad a `tbl_opo_causas` lo verifica F5.1 contra SQL real, como declara la estrategia de pruebas de esta fase.
 
 #### [F2.8] Unit tests for the mapper
-`id: F2.8 · depende_de: F2.7 · tarea: T4 (Brayan) · estado: pending`
-- Objetivo: fijar la normalización de NULL, que es la corrección de Discovery D3.
+`id: F2.8 · depende_de: F2.7 · tarea: T4 (Brayan) · estado: done`
+- Objetivo: fijar la traducción del mapper. ~~la normalización de NULL, que es la corrección de Discovery D3~~ — reencuadrado el 2026-08-21: no hay NULL que normalizar (D6 revisada).
 - Fuente: D6 · `testing.md`
 - Archivos: `tests/UnitTests/Infrastructure/Persistence/LossReasons/LossReasonRepositoryMapperTests.cs`
-- Detalle: `ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`, `ToDomain_WithCompleteRow_MapsAllFields`, `ToDocument_OnCreate_DoesNotSetIdentityColumn`.
-- Hecho cuando: los 4 tests pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Detalle: ~~`ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`~~, `ToDomain_WithCompleteRow_MapsAllFields`, `ToDocument_OnCreate_DoesNotSetIdentityColumn`. **Revisión del 2026-08-21:** los dos tests de NULL se **borran** —probaban un caso que el esquema no admite— y en su lugar queda `ToDomain_WithInactiveRow_MapsTheState`, que cubre el `false` sin fingir un NULL. Quedan 3.
+- Hecho cuando: los 3 tests pasan.
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 4 pasan** (359 en total en la suite). Commit `fbafbda` en `feat/loss-reasons-persistence`. **Reejecutado el 2026-08-21 tras la revisión de D6: los 3 pasan** (381 en total en la suite).
+- Nota de ejecución: `tests/UnitTests/UnitTests.csproj` **no** necesitó cambios: ya referenciaba `Infrastructure.csproj`. El tipo de la entidad se importa con alias (`LossReasonDocument`) porque `LossReason` es a la vez el nombre de la entidad y el namespace raíz del contexto.
+
+#### [F2.9] Unit tests for the repository
+`id: F2.9 · depende_de: F2.8 · tarea: T4 (Brayan) · estado: done`
+- Objetivo: dar cobertura de unit test a las 77 líneas del repositorio, que la puerta de CI exige y la Fase 5 no puede aportar.
+- Fuente: **enmienda del 2026-08-21** (pendiente de firma) · `testing.md` (puerta de cobertura) · precedente `RepositoryBaseEFTests`
+- Archivos: `tests/UnitTests/Infrastructure/Persistence/LossReasons/LossReasonRepositoryTests.cs`
+- Detalle: `ApplicationDbContext` real sobre `UseInMemoryDatabase`, una base por test, `ChangeTracker.Clear()` después del seed para partir de un contexto como el de un request. `ILoggerPort` con NSubstitute. Se cubren las tres cosas que se rompen en silencio y no necesitan constraints: que `GetAsync` **ordene con el desempate por la clave** (dos filas de igual nombre salen por `Id`), que filtre por `Name` y por `IsActive` —incluida la fila con `cau_estado` NULL, que no es `false` para el filtro—, y que `GetByIdAsync`/`RemoveAsync` devuelvan `NotFound` **con su `Origin`**. Además: `GetAllAsync` sin filtro, la página que no es la primera con su `TotalCount` sin paginar, `CreateAsync` que confirma y devuelve el `Id`, `AddAsync`/`Update`/`RemoveAsync` que **solo dejan el cambio encolado** para el Unit of Work, y la rama de fallo de cada método —alcanzada disponiendo el contexto bajo el repositorio— que vuelve como `Internal` con el `Origin` del repositorio y deja un `logger.Error`.
+- **Fuera de este paso, sigue en F5.1:** el 547 de una causa en uso, la `IDENTITY` real, el `varchar(200)`, y que el filtro por nombre sea insensible a mayúsculas (la colación del servidor). Los asserts de este paso usan la misma capitalización a propósito, para significar lo mismo en los dos proveedores.
+- Hecho cuando: los 24 tests pasan y `LossReasonRepository` queda sin líneas descubiertas en el reporte de cobertura.
+- Verificar: `dotnet test tests/UnitTests -c Release --collect:"XPlat Code Coverage" --settings coverlet.runsettings` — **ejecutado el 2026-08-21: 383 pasan, cobertura de línea 97,1 %** (1025/1055; era 89,6 % con el repositorio descubierto, por debajo del piso de 90).
 
 ### Fase 3 — Aplicación · `pending`
 
@@ -924,6 +943,10 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-14 | F4.1 y F4.2 declaran sus dependencias reales sobre los casos de uso que consumen, en vez de colgar de F3.5 por posición | — | F4.1, F4.2 | ninguna — el plan no se había ejecutado |
 | 2026-08-14 | El anexo con la tabla de tareas se reemplaza por un puntero a `tasks_causas.md`, para no sostener dos fuentes de verdad del reparto en PRs | — | — | ninguna |
 | 2026-08-21 | **Revisión de QA sobre la rama de T3.** Tres ajustes en `LossReasonAggregate`, ninguno de comportamiento observable por el consumidor: (a) se elimina el comentario que explicaba el `IDENTITY` — el dominio no narra infraestructura; (b) `Create` deja de pasar el `Id`: se parte el constructor privado en dos, uno sin `Id` para `Create` y otro con `Id` que delega, solo para `Reconstruct`; (c) `Created()` deja de llamar `SetUpdatedAt`, así que `UpdatedAt` es `null` hasta la primera mutación. **(c) es una desviación del ejemplo de `entidades-y-agregados.md`** y se declara como tal | — | F1.3 (detalle) · F1.6 (un assert) | ninguna — T3 se corrige en su propia rama |
+| 2026-08-21 | **La entidad de persistencia usa nombres propios en inglés, no los de las columnas.** La revisión del PR de T4 objetó los identificadores en español abreviado (`CauNombre`, `CauEstado`, `CauConsecutivoP`) que el snippet de F2.1 prescribía: contradicen la regla de idioma de §3.1 y el ejemplo de `contextos.md` §5.3. Pasan a `Id`, `Name`, `IsActive`, y el esquema legado se cita en `HasColumnName`. Tipo y nulabilidad intactos, así que **D6 no se toca**. Se aprovechó para podar los comentarios que repetían decisiones del plan: el código no documenta la migración, solo lo que no se ve en él | — | `F2.1`, `F2.2` (detalle) · `F2.3`, `F2.4`, `F2.8`, `F2.9` (mismo rename) | ninguna |
+| 2026-08-21 | **El repositorio se prueba también con unitarios (EF InMemory); se agrega el paso F2.9.** La puerta de cobertura de CI mide solo unit tests, así que los 77 renglones de `LossReasonRepository` dejaron el pipeline de T4 en **89,6 %**, bajo el piso de 90 — y F5.1 no lo puede arreglar porque los tests de integración no cuentan para el porcentaje. La estrategia de la Fase 2 decía que el repositorio se probaba solo en la Fase 5; se enmienda para admitir unitarios sobre `ApplicationDbContext` + InMemory, con el precedente de `RepositoryBaseEFTests`. **Es una desviación de `testing.md` («No usar EF InMemory») y queda pendiente de la firma del tech lead.** Todo lo que depende de constraints sigue en F5.1. Cobertura resultante: **97,1 %** | — | **F2.9 nuevo** · encabezado de estrategia de la Fase 2 | ninguna |
+| 2026-08-21 | **`Infrastructure.csproj` se declara archivo compartido del contexto.** `F2.3` no podía compilar: el proyecto de infraestructura no referenciaba `LossReason`. Se añadió la `ProjectReference` a `LossReason.Application` (arrastra `Domain`), reportado como GAP y autorizado antes de aplicarlo. No cambia ninguna decisión ni dependencia; la referencia cubre a T4 y a T5, así que `F2.6` no toca ese archivo | — | `F2.3`, `F2.4` (lista de `Archivos:`) · `F2.6` no lo necesita | ninguna |
+| 2026-08-21 | **`cau_nombre` y `cau_estado` son `NOT NULL`: D6 se invierte.** La verificación contra la BD contradice a `discovery_causas.md` §4.1, que las daba como NULLABLE con un `[verificado en BD]`. La entidad EF pasa de `string?`/`bool?` a `string`/`bool`, `LossReasonConfiguration` declara `.IsRequired()` sobre `Name`, el mapper pierde los `?? string.Empty` / `?? false` y el filtro de `GetAsync` pierde la guarda `x.Name != null`, que quedó como código muerto. Se borran los dos tests de NULL del mapper (`ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`) y `GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper` del repositorio, más las filas NULL que sembraban los tests de filtro; entra `ToDomain_WithInactiveRow_MapsTheState` para no perder el caso `false`. **La discrepancia con el Discovery queda abierta** y se corrige en su propia revisión: este plan no lo reescribe | **D6 (invertida)** | `F2.1`, `F2.2`, `F2.3`, `F2.8`, `F2.9` · §4 · encabezado de estrategia de la Fase 2 | ninguna — T4 se corrige en su propia rama |
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
 

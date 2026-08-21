@@ -85,7 +85,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
-| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
+| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`–`F2.9` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | 🔄 **en curso** — los siete pasos `done` y verificados; commits `fbafbda`+`ef5f7c1`, **pendiente de merge** a la base |
 | T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
@@ -129,7 +129,7 @@ Es dueño de las **invariantes** (D4, D5: `NameMaxLength` como fuente única del
 
 | Tarea | Pasos | Fase del plan | Puede empezar cuando |
 |---|---|---|---|
-| **T4** | `F2.1` → `F2.2` → `F2.3` → `F2.4` → `F2.7` → `F2.8` | Fase 2 (rama del agregado) | T3 mergeada |
+| **T4** | `F2.1` → `F2.2` → `F2.3` → `F2.4` → `F2.7` → `F2.8` → `F2.9` | Fase 2 (rama del agregado) | T3 mergeada |
 | **T8** | `F3.3`, `F3.8` | Fase 3 | T4 mergeada (la suya) |
 | **T9** | `F3.4`, `F3.9` | Fase 3 | T4 mergeada (la suya) |
 
@@ -161,7 +161,7 @@ Una ola es un tramo donde nadie espera a nadie dentro de la ola. Se avanza de ol
 | **0 · Preparación** | `F0.1` | `F0.1` | `F0.1` | nada — arranca ya |
 | **1 · Andamiaje** | **T2** (`F0.3`) | sin código: `F0.1` + entorno | sin código: `F0.1` + entorno | ola 0 |
 | **2 · Dominio** | **T3** (`F1.1`–`F1.6`, `F2.5`) | sin código: preparar `F2.1`–`F2.3` sobre el dump | sin código: leer `cache.md`, `controllers.md`, `validaciones.md` para T11 | T2 mergeada |
-| **3 · Persistencia** | revisión de PRs | **T4** (`F2.1`–`F2.4`, `F2.7`, `F2.8`) | **T5** (`F2.6`) | T3 mergeada |
+| **3 · Persistencia** | revisión de PRs | **T4** (`F2.1`–`F2.4`, `F2.7`–`F2.9`) | **T5** (`F2.6`) | T3 mergeada |
 | **4 · Aplicación** | **T6** (`F3.1`, `F3.6`) | **T8** (`F3.3`, `F3.8`) y **T9** (`F3.4`, `F3.9`) | **T7** (`F3.2`, `F3.7`) y **T10** (`F3.5`, `F3.10`) | T4 mergeada · T10 además espera T5 |
 | **5 · API** | revisión + preparar el seed de `F5.1` | revisión | **T11** (`F4.1`–`F4.4`) | T6, T7, T8, T9, T10 mergeadas |
 | **6 · Verificación** | **T12** (`F5.1`, `F5.2`) | revisión | revisión | T11 mergeada |
@@ -225,12 +225,13 @@ No producen código, no tienen rama, no se estiman. **Ninguna la ejecuta el equi
 
 Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo añaden.
 
-> Los cuatro ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
+> Los seis ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
 
 | Archivo | Lo toca primero | Lo tocan también |
 |---|---|---|
 | `Service.slnx` | T2 · **Juan Esteban** (añade los dos `.csproj`) | — |
 | `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | **T5 · Juan Camilo** (`DbSet` keyless del Reader, paso `F2.6`) |
+| `src/Infrastructure/Infrastructure.csproj` | T4 · **Brayan** (`ProjectReference` a `LossReason.Application`, para que compile el mapper de `F2.3`) | — · **ya cubre a T5**: la referencia a `Application` arrastra `Domain`, así que `F2.6` no lo toca |
 | `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
 | `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
 | `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | **T6–T10** (`ProjectReference` a `LossReason.Application`; la añade la primera que se mergee, las demás solo rebasan) |
@@ -271,7 +272,7 @@ Sin dueño, es trabajo que se pierde: por eso las diez filas lo declaran.
 | R5 | No mezcla capas de riesgo | ✅ T3 dominio + contratos, T4/T5 infraestructura, T6–T10 aplicación, T11 API. **No hay migraciones** (Database First sobre tabla existente) y **`Shared` no se toca**: la auditoría del plan §5.5 concluyó que no falta ninguna capacidad transversal |
 | R6 | Sirve a un flujo, o se declara andamiaje | ✅ T1 y T2 son andamiaje; las diez restantes declaran flujo. Ids provisionales por §0.1 |
 | R7 | Sin dependencias artificiales | ✅ Auditado: se eliminaron las cuatro dependencias encadenadas entre los casos de uso. Las que quedan son de código real, salvo el `depende_de: F2.7` de la ola 4, declarado y razonado en §2.3 |
-| R8 | Archivos compartidos declarados | ✅ Los cuatro en §3, con el único choque real señalado y sus dos dueños con nombre |
+| R8 | Archivos compartidos declarados | ✅ Los seis en §3, con el único choque real señalado y sus dos dueños con nombre |
 | R9 | Se estima la tarea, nunca la fase | ✅ Once estimaciones Fibonacci individuales (2–8), ninguna por fase |
 | R10 | Tarea reabierta se cierra y se recrea | ✅ Sin Jira, la regla se ejerce sobre el PR y sobre la columna `Estado` de §2: si una tarea vuelve, se cierra su PR y se abre uno nuevo; no se reabre el mergeado |
 
@@ -281,19 +282,21 @@ El documento está listo cuando:
 
 - [x] Cada tarea tiene responsable, rama, base, estimación y dependencias.
 - [x] Cada persona sabe qué puede empezar hoy y qué espera a un merge ajeno → §2.2 y §2.3.
-- [x] Cada tarea mapea a un rango de pasos del plan, sin pasos huérfanos ni duplicados → de los **33 pasos** de §8 (`F0.1`–`F5.2`), **32 están cubiertos exactamente una vez**. El único no cubierto por una tarea es `F0.1`, que es lectura y no produce PR: **lo ejecutan las tres personas** en la ola 0.
+- [x] Cada tarea mapea a un rango de pasos del plan, sin pasos huérfanos ni duplicados → de los **34 pasos** de §8 (`F0.1`–`F5.2`, incluido el `F2.9` de la enmienda del 2026-08-21), **33 están cubiertos exactamente una vez**. El único no cubierto por una tarea es `F0.1`, que es lectura y no produce PR: **lo ejecutan las tres personas** en la ola 0.
 - [x] Cada paso del plan declara su tarea y su responsable en el campo `tarea:` de §8.
 - [x] Cada tarea sirve a un flujo o está etiquetada como andamiaje.
 - [x] Ninguna tarea excede el techo de R2.
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 queda abierta**: Brayan puede arrancar **T4** y Juan Camilo **T5**, en paralelo, cada uno desde la base actualizada. Juan Esteban queda en revisión hasta que T4 entre y le abra T6.
+**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde. **T4 está terminada y verificada en su rama** (`feat/loss-reasons-persistence`, commit `fbafbda`, 359 tests unitarios), esperando revisión de Juan Camilo y merge a la base. La **ola 4 se abre cuando T4 entre**: Juan Esteban con **T6**, Brayan con **T8** y **T9**, Juan Camilo con **T7**. De la ola 3 sigue pendiente **T5** (Juan Camilo), que no bloquea a nadie salvo a **T10**. Quien tome un caso de uso rebasa sobre la base después de ese merge: T4 tocó `ApplicationDbContext.cs` e `Infrastructure.csproj`, y este último ya deja resuelto lo que T5 necesitaba de él.
 
 ## Changelog
 
 | Fecha | Cambio |
 |---|---|
+| 2026-08-21 | **La puerta de cobertura obliga a probar el repositorio con unitarios.** El pipeline de T4 falló en **89,6 %** (piso 90): los 77 renglones de `LossReasonRepository` no los cubre ningún unit test y los de integración de F5.1 **no cuentan** para el porcentaje. Se enmienda la estrategia de pruebas de la Fase 2 y nace el paso **`F2.9`**, con 24 tests sobre `ApplicationDbContext` + EF InMemory — cobertura **97,1 %**. Es una desviación de `testing.md` («No usar EF InMemory») **pendiente de la firma del tech lead**; lo que depende de constraints sigue en F5.1. La estimación de T4 no cambia |
+| 2026-08-21 | **T4 ejecutada** (`F2.1`–`F2.4`, `F2.7`–`F2.9`, Brayan): entidad de persistencia con la nulabilidad real de `tbl_opo_causas`, configuración EF sobre la tabla legada, mapper que normaliza los dos NULL de D6, repositorio con los 8 miembros del contrato y el primer `DbSet` del servicio, con los 4 tests del mapper en verde (359 en la suite). Commit `fbafbda` en `feat/loss-reasons-persistence`, **pendiente de merge a la base**. Se descubre un **segundo archivo compartido no declarado**, `src/Infrastructure/Infrastructure.csproj` —no referenciaba el contexto y el mapper no compilaba—; se reportó como GAP y, autorizado, se añadió la referencia a `LossReason.Application`, que **también cubre a T5**. §3 lo registra. Cuando T4 entre a la base quedan abiertas **T6, T7, T8 y T9**; T10 seguirá esperando T5 |
 | 2026-08-14 | Versión inicial, derivada de `workplan_causas.md` §8 tras las cuatro enmiendas del plan del mismo día (§9.3) |
 | 2026-08-14 | **Resolución de los siete GAPs.** Los cinco bloqueos previos quedan cerrados; `T1` se cierra sin PR (el dueño del repositorio resolvió `GAP-1` en el commit `9f24956`, build verificado en verde) y `T2` pasa a ser la cabeza del camino crítico. Se añade `EXT-8` (autorizar del lado de Jack, riesgo R9) y las externas quedan con estado. Total: 42 puntos en 11 tareas |
 | 2026-08-21 | **Revisión de QA sobre T3**, aplicada en `feat/loss-reasons-domain`: el agregado deja de narrar el `IDENTITY` en un comentario, `Create` deja de pasar el `Id` (constructor privado partido en dos) y `Created()` deja de fijar `UpdatedAt`. Los 11 tests siguen en verde con un assert cambiado. El plan queda enmendado en §5.2 y F1.3 (§9.3) |

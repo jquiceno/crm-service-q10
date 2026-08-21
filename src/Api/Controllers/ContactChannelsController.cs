@@ -1,3 +1,4 @@
+using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Mvc;
@@ -5,6 +6,7 @@ using Microsoft.AspNetCore.OutputCaching;
 using Shared.Application.Dtos;
 using Shared.Domain.Pagination;
 using Shared.Presentation.Attributes;
+using Shared.Presentation.Filters;
 using Shared.Presentation.Responses;
 using Shared.Presentation.Results;
 
@@ -18,7 +20,8 @@ namespace Api.Controllers;
 [Tags("ContactChannels")]
 public sealed class ContactChannelsController(
     IGetContactChannelsUseCase getContactChannelsUseCase,
-    IGetContactChannelByIdUseCase getContactChannelByIdUseCase) : ControllerBase
+    IGetContactChannelByIdUseCase getContactChannelByIdUseCase,
+    IDeleteContactChannelUseCase deleteContactChannelUseCase) : ControllerBase
 {
     private const string CacheTag = "contact-channels";
 
@@ -54,5 +57,23 @@ public sealed class ContactChannelsController(
         CancellationToken cancellationToken = default)
     {
         return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpDelete("{id:int}")]
+    [EndpointSummary("Delete contact channel")]
+    [EndpointDescription(
+        "Deletes the contact channel with the given identifier. A channel referenced by an " +
+        "opportunity cannot be deleted.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpNoContentResult> DeleteContactChannel(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await deleteContactChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

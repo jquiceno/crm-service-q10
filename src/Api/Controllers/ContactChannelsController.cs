@@ -1,3 +1,4 @@
+using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -15,7 +16,9 @@ namespace Api.Controllers;
 [ApiController]
 [Route("[controller]")]
 [Tags("ContactChannels")]
-public sealed class ContactChannelsController : ControllerBase
+public sealed class ContactChannelsController(
+    IGetContactChannelsUseCase getContactChannelsUseCase,
+    IGetContactChannelByIdUseCase getContactChannelByIdUseCase) : ControllerBase
 {
     private const string CacheTag = "contact-channels";
 
@@ -28,7 +31,6 @@ public sealed class ContactChannelsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkPagedResult<GetContactChannelsOutputDto>> GetContactChannels(
-        IGetContactChannelsUseCase getContactChannelsUseCase,
         [FromQuery] GetContactChannelsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,
         CancellationToken cancellationToken = default)
@@ -37,5 +39,20 @@ public sealed class ContactChannelsController : ControllerBase
             filter,
             new PageQuery(pagination.PageIndex, pagination.PageSize),
             cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("{id:int}")]
+    [EndpointSummary("Get contact channel by id")]
+    [EndpointDescription("Returns the contact channel with the given identifier.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetContactChannelByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCache(Tags = [CacheTag], Duration = 259200)]
+    public async Task<HttpOkResult<GetContactChannelByIdOutputDto>> GetContactChannelById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

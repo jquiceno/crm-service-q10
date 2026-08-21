@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
+using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannels;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OutputCaching;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Routing;
 using NSubstitute;
 using Shared.Application.Dtos;
 using Shared.Domain.Pagination;
+using Shared.Presentation.Filters;
 using Shared.Presentation.Results;
 using Shared.Results;
 using Shared.Results.Errors;
@@ -150,5 +152,87 @@ public sealed class ContactChannelsControllerTests
     public void GetContactChannels_DeclaresNoQueryVariationOfItsOwn()
     {
         GetOutputCacheAttribute().VaryByQueryKeys.ShouldBeNull();
+    }
+
+    private readonly ICreateContactChannelUseCase _createContactChannelUseCase =
+        Substitute.For<ICreateContactChannelUseCase>();
+
+    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteCreatedAsync(
+        HttpCreatedResult<CreateContactChannelOutputDto> result)
+    {
+        var httpContext = new DefaultHttpContext();
+        httpContext.Response.Body = new MemoryStream();
+        var actionContext = new ActionContext(httpContext, new RouteData(), new ActionDescriptor());
+
+        await result.ExecuteResultAsync(actionContext).ConfigureAwait(false);
+
+        httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        using var reader = new StreamReader(httpContext.Response.Body);
+        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
+        return (httpContext.Response.StatusCode, JsonDocument.Parse(json));
+    }
+
+    private Task<HttpCreatedResult<CreateContactChannelOutputDto>> InvokeCreateAsync(
+        CreateContactChannelInputDto? input = null) =>
+        new ContactChannelsController().CreateContactChannel(
+            _createContactChannelUseCase,
+            input ?? new CreateContactChannelInputDto("WhatsApp", IsActive: true),
+            CancellationToken.None);
+
+    private void ReturnsCreated(Result<CreateContactChannelOutputDto> result) =>
+        _createContactChannelUseCase
+            .ExecuteAsync(Arg.Any<CreateContactChannelInputDto>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+    [Fact]
+    public async Task CreateContactChannel_WhenTheUseCaseSucceeds_Returns201WithTheGeneratedIdentifier()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Success(
+            new CreateContactChannelOutputDto(42, "WhatsApp", true)));
+
+        var (statusCode, body) = await ExecuteCreatedAsync(await InvokeCreateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status201Created);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(42);
+        data.GetProperty("name").GetString().ShouldBe("WhatsApp");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task CreateContactChannel_ForwardsTheInputUntouched()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Success(
+            new CreateContactChannelOutputDto(1, "Feria", false)));
+
+        await InvokeCreateAsync(new CreateContactChannelInputDto("  Feria  ", IsActive: false));
+
+        await _createContactChannelUseCase.Received(1).ExecuteAsync(
+            Arg.Is<CreateContactChannelInputDto>(i => i.Name == "  Feria  " && !i.IsActive),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateContactChannel_WhenTheNameIsRejected_ReturnsTheMappedErrorStatus()
+    {
+        ReturnsCreated(Result<CreateContactChannelOutputDto>.Failure(
+            new DomainError("Domain validation failed.", ErrorType.DomainError)));
+
+        var (statusCode, _) = await ExecuteCreatedAsync(await InvokeCreateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public void CreateContactChannel_InvalidatesTheCacheOfTheListing()
+    {
+        var attribute = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.CreateContactChannel))!
+            .GetCustomAttribute<OutputCacheInvalidateAttribute>();
+
+        attribute.ShouldNotBeNull();
+        attribute.Tag.ShouldBe(
+            GetOutputCacheAttribute().Tags!.Single(),
+            "a creation must evict the very tag the listing is cached under");
     }
 }

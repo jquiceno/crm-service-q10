@@ -86,7 +86,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
 | T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
-| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ⬜ |
+| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ✅ **ejecutada** — pendiente de PR y merge |
 | T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
 | T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | ⬜ |
@@ -288,7 +288,7 @@ El documento está listo cuando:
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 queda abierta**: Brayan puede arrancar **T4** y Juan Camilo **T5**, en paralelo, cada uno desde la base actualizada. Juan Esteban queda en revisión hasta que T4 entre y le abra T6.
+**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 quedó abierta**: Brayan arranca **T4** y Juan Camilo completó **T5** (`feat/loss-reasons-usage-reader`, pendiente de PR). **T4 es el único bloqueo del camino crítico** para pasar a la ola 4.
 
 ## Changelog
 
@@ -300,3 +300,4 @@ El documento está listo cuando:
 | 2026-08-21 | **Rama base del contexto.** Se crea `feat/loss-reasons` desde `main`; toda rama de tarea sale de ella y su PR va contra ella, y `main` recibe el contexto una sola vez al final (§0, *Modelo de ramas*). La columna `Base` pasa de `main` a `feat/loss-reasons` en las once tareas |
 | 2026-08-21 | **T2 ejecutada** (`F0.3`, Juan Esteban): `LossReason.Domain` y `LossReason.Application` creados y registrados en `Service.slnx` bajo `/src/Contexts/LossReason/`. `dotnet build Service.slnx -c Release` en verde (13 proyectos, 0 advertencias) y 344 tests unitarios en verde por el pre-commit. Commit `96915cb` en `feat/loss-reasons-scaffold`, pendiente de merge a la base |
 | 2026-08-21 | **Se elimina Jira del proceso.** La columna `Jira` se reemplaza por `Responsable` y se añade `Estado`: el backlog es este archivo y el tablero son los PRs (§0). **Reparto entre Juan Camilo, Brayan y Juan Esteban** (§2.2), con las seis olas de ejecución y sus esperas (§2.3), el camino crítico anotado por persona (§2.4) y el round-robin de revisión (§2.5). Los archivos compartidos quedan con dueño y orden de merge (§3). Se declara y se descarta la aceleración de solapar la ola 4 con la ola 3, por requerir enmienda del plan. Ningún paso, alcance ni estimación cambia |
+| 2026-08-21 | **T5 ejecutada** (`F2.6`, Juan Camilo — rama `feat/loss-reasons-usage-reader`): entidad keyless `DealLossReasonUsage` + configuración EF (`tbl_opo_negocios`, `HasNoKey()`), `LossReasonUsageReader` que implementa `ILossReasonUsageReader` con `AnyAsync`/`AsNoTracking`/guard `OperationCanceledException`, y `DbSet<DealLossReasonUsage>` añadido a `ApplicationDbContext`. Descubrimiento de infraestructura: `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia (no es cambio de alcance, era una omisión del scaffold). Tests: 357/357 en verde. F2.6 → `done`. Pendiente de PR a `feat/loss-reasons` (revisor: Juan Esteban) |

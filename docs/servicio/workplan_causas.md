@@ -1,10 +1,10 @@
-﻿---
+---
 service: crm-service-q10
 context: loss-reasons (Causas de pérdida)
 doc: plan
 status: draft
 source: discovery_causas.md
-updated: 2026-08-14
+updated: 2026-08-21
 ---
 
 # Plan de trabajo — Causas de pérdida (`crm-service-q10`)
@@ -671,7 +671,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.6] Implement LossReasonUsageReader
-`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: pending`
+`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: done`
 - Objetivo: leer `tbl_opo_negocios` sin crearle un repositorio.
 - Fuente: D7 · Discovery §4.1
 - Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/DealLossReasonUsage.cs`, `…/Configurations/DealLossReasonUsageConfiguration.cs`, `…/LossReasonUsageReader.cs`, `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`
@@ -924,6 +924,7 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-14 | El anexo con la tabla de tareas se reemplaza por un puntero a `tasks_causas.md`, para no sostener dos fuentes de verdad del reparto en PRs | — | — | ninguna |
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
+| 2026-08-21 | **F2.6 ejecutado** (T5 — Juan Camilo): entidad keyless `DealLossReasonUsage` (`tbl_opo_negocios`, `HasNoKey()`), su configuración EF, `LossReasonUsageReader` (implementa `ILossReasonUsageReader` con `AnyAsync` + `AsNoTracking` + guard `OperationCanceledException` → `PersistenceErrors.Failure`), y `DbSet<DealLossReasonUsage>` añadido a `ApplicationDbContext`. **Descubrimiento:** `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia. Verificado: `dotnet build Service.slnx -c Release` (0 errores, 0 advertencias) y `dotnet test tests/UnitTests -c Release` (357/357 en verde). F2.6 → `done` | — | F2.6 | ninguna |
 
 ---
 

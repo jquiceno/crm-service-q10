@@ -61,6 +61,12 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
         // relationship that matters for this test is created here so the real FK-conflict -> 409 path
         // (D4) is exercised end-to-end, without depending on the legacy table's full, unverified shape
         // (see Discovery GAP-1 for tbl_opo_oportunidades).
+        //
+        // Respawn snapshots which tables to reset once, at fixture startup — before this table exists —
+        // so it never learns about tbl_opo_oportunidades and never cleans it between tests. The row
+        // inserted below is therefore deleted explicitly in `finally`: leaving it behind would keep a
+        // live FK reference into tbl_opo_medios_publicitarios that blocks Respawn from resetting *that*
+        // table (which it does know about) for every test that runs afterwards.
         await Db.Database.ExecuteSqlRawAsync(
             """
             IF OBJECT_ID('tbl_opo_oportunidades', 'U') IS NULL
@@ -74,8 +80,16 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
         await Db.Database.ExecuteSqlInterpolatedAsync(
             $"INSERT INTO tbl_opo_oportunidades (opo_medpub_consecutivoP) VALUES ({adsChannel.Id})");
 
-        var response = await Client.DeleteAsync($"/ads-channels/{adsChannel.Id}");
+        try
+        {
+            var response = await Client.DeleteAsync($"/ads-channels/{adsChannel.Id}");
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+            response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        }
+        finally
+        {
+            await Db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM tbl_opo_oportunidades WHERE opo_medpub_consecutivoP = {adsChannel.Id}");
+        }
     }
 }

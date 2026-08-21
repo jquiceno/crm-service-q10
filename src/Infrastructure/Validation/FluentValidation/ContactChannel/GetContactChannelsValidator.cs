@@ -1,7 +1,7 @@
 using ContactChannel.Application.UseCases.GetContactChannels;
 using FluentValidation;
 
-namespace Infrastructure.Validation.FluentValidation.ContactChannels;
+namespace Infrastructure.Validation.FluentValidation.ContactChannel;
 
 public sealed class GetContactChannelsValidator
     : AbstractValidator<GetContactChannelsInputDto>, IStructuralValidator<GetContactChannelsInputDto>

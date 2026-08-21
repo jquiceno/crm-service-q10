@@ -85,9 +85,9 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | ~~T1~~ | — | ~~Restore missing template DTO~~ | `F0.2` | — | — | — | — | andamiaje | ✅ **Cerrada sin PR** — commit `9f24956` |
 | T2 | **Juan Esteban** | Scaffold LossReason context projects | `F0.3` | `feat/loss-reasons-scaffold` | `feat/loss-reasons` | 2 | — | andamiaje | ✅ **mergeada** a la base — `96915cb`, merge `261f289` |
 | T3 | **Juan Esteban** | LossReason domain model and read port | `F1.1`–`F1.6`, `F2.5` | `feat/loss-reasons-domain` | `feat/loss-reasons` | 5 | T2 | F1–F5 | ✅ **mergeada** a la base — `3500688`, merge `1dc36ec` |
-| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`, `F2.8` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ⬜ |
-| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ✅ **ejecutada** — pendiente de PR y merge |
-| T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ⬜ |
+| T4 | **Brayan** | LossReason persistence | `F2.1`–`F2.4`, `F2.7`–`F2.9` | `feat/loss-reasons-persistence` | `feat/loss-reasons` | 8 | T3 | F1–F5 | ✅ **mergeada** a la base — PR #5, merge `3ea1607`. Validada después del merge: build limpio y 381 tests en verde |
+| T5 | **Juan Camilo** | Loss reason usage reader | `F2.6` | `feat/loss-reasons-usage-reader` | `feat/loss-reasons` | 3 | T3 | F5 | ✅ **ejecutada** — PR abierto, comentarios de revisión aplicados (`0492989`), pendiente de merge |
+| T6 | **Juan Esteban** | Get loss reasons use case | `F3.1`, `F3.6` | `feat/loss-reasons-get-list` | `feat/loss-reasons` | 3 | T4 | F1 | ✅ **mergeada** a la base — PR #19, merge `9eea4c8`; dos rondas de revisión de QA aplicadas |
 | T7 | **Juan Camilo** | Get loss reason by id use case | `F3.2`, `F3.7` | `feat/loss-reasons-get-by-id` | `feat/loss-reasons` | 2 | T4 | F2 | ⬜ |
 | T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | ⬜ |
 | T9 | **Brayan** | Update loss reason use case | `F3.4`, `F3.9` | `feat/loss-reasons-update` | `feat/loss-reasons` | 3 | T4 | F4 | ⬜ |
@@ -129,7 +129,7 @@ Es dueño de las **invariantes** (D4, D5: `NameMaxLength` como fuente única del
 
 | Tarea | Pasos | Fase del plan | Puede empezar cuando |
 |---|---|---|---|
-| **T4** | `F2.1` → `F2.2` → `F2.3` → `F2.4` → `F2.7` → `F2.8` | Fase 2 (rama del agregado) | T3 mergeada |
+| **T4** | `F2.1` → `F2.2` → `F2.3` → `F2.4` → `F2.7` → `F2.8` → `F2.9` | Fase 2 (rama del agregado) | T3 mergeada |
 | **T8** | `F3.3`, `F3.8` | Fase 3 | T4 mergeada (la suya) |
 | **T9** | `F3.4`, `F3.9` | Fase 3 | T4 mergeada (la suya) |
 
@@ -161,7 +161,7 @@ Una ola es un tramo donde nadie espera a nadie dentro de la ola. Se avanza de ol
 | **0 · Preparación** | `F0.1` | `F0.1` | `F0.1` | nada — arranca ya |
 | **1 · Andamiaje** | **T2** (`F0.3`) | sin código: `F0.1` + entorno | sin código: `F0.1` + entorno | ola 0 |
 | **2 · Dominio** | **T3** (`F1.1`–`F1.6`, `F2.5`) | sin código: preparar `F2.1`–`F2.3` sobre el dump | sin código: leer `cache.md`, `controllers.md`, `validaciones.md` para T11 | T2 mergeada |
-| **3 · Persistencia** | revisión de PRs | **T4** (`F2.1`–`F2.4`, `F2.7`, `F2.8`) | **T5** (`F2.6`) | T3 mergeada |
+| **3 · Persistencia** | revisión de PRs | **T4** (`F2.1`–`F2.4`, `F2.7`–`F2.9`) | **T5** (`F2.6`) | T3 mergeada |
 | **4 · Aplicación** | **T6** (`F3.1`, `F3.6`) | **T8** (`F3.3`, `F3.8`) y **T9** (`F3.4`, `F3.9`) | **T7** (`F3.2`, `F3.7`) y **T10** (`F3.5`, `F3.10`) | T4 mergeada · T10 además espera T5 |
 | **5 · API** | revisión + preparar el seed de `F5.1` | revisión | **T11** (`F4.1`–`F4.4`) | T6, T7, T8, T9, T10 mergeadas |
 | **6 · Verificación** | **T12** (`F5.1`, `F5.2`) | revisión | revisión | T11 mergeada |
@@ -218,26 +218,30 @@ No producen código, no tienen rama, no se estiman. **Ninguna la ejecuta el equi
 | `EXT-6` | Decidir el destino de la escritura de `neg_cau_consecutivo` | tech lead | `GAP-7` | ✅ Hecha — se queda en el monolito |
 | `EXT-7` | Escribir `03-flujos.md` con el inventario definitivo, los criterios de aceptación y el plan de rollback | tech lead + QA | fija los ids de §0.1 | ⬜ Pendiente |
 | `EXT-8` | **Autorizar del lado de Jack las rutas que hoy son `[AllowAnonymous]`**, y darle sus filas de función al controller que llame al servicio | tech lead + dueño de `GestionComercial` | riesgo **R9** | ⬜ Pendiente — condición del corte |
+| `EXT-9` | **Contar filas con NULL** (`SELECT COUNT(*) FROM tbl_opo_causas WHERE cau_nombre IS NULL OR cau_estado IS NULL;`) en los tenants objetivo, y limpiarlas si las hay | tech lead + DBA | riesgo **R10** | ⬜ Pendiente — **condición del corte**: con D6 el servicio exige `NOT NULL` donde la BD no lo exige, y una sola fila con NULL tumba el listado completo de ese tenant |
 
-**Ninguna externa bloquea ya el camino crítico.** Las tres pendientes (`EXT-5`, `EXT-7`, `EXT-8`) son condiciones del **corte**, no de la construcción: corren en paralelo a las olas 0–6 sin detener a nadie.
+**Ninguna externa bloquea ya el camino crítico.** Las cuatro pendientes (`EXT-5`, `EXT-7`, `EXT-8`, `EXT-9`) son condiciones del **corte**, no de la construcción: corren en paralelo a las olas 0–6 sin detener a nadie.
+
+`EXT-5` y `EXT-9` son la misma clase de trabajo —contar filas que el servicio ya no va a tolerar— y conviene correrlas juntas, en una sola pasada por los tenants: `EXT-5` mira los nombres de más de 50 caracteres (R7, que responde 400 en el `PUT`) y `EXT-9` los NULL (R10, que tumba el listado entero).
 
 ## 3. Archivos compartidos
 
 Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo añaden.
 
-> Los cuatro ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
+> Los seis ya existen en el repositorio, así que ninguna tarea los crea. La columna declara **quién los toca primero**, para que las demás solo añadan y el conflicto sea de una línea.
 
 | Archivo | Lo toca primero | Lo tocan también |
 |---|---|---|
 | `Service.slnx` | T2 · **Juan Esteban** (añade los dos `.csproj`) | — |
-| `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | **T5 · Juan Camilo** (`DbSet` keyless del Reader, paso `F2.6`) |
+| `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | ~~T5 · Juan Camilo~~ — **el choque no llegó a existir**: la revisión del PR de T5 retiró el `DbSet` keyless (nadie lo usaba; el Reader consulta con `context.Set<DealLossReasonUsage>()`), así que `F2.6` no toca este archivo |
+| `src/Infrastructure/Infrastructure.csproj` | T4 · **Brayan** (`ProjectReference` a `LossReason.Application`, para que compile el mapper de `F2.3`) | — · **ya cubre a T5**: la referencia a `Application` arrastra `Domain`, así que `F2.6` no lo toca |
 | `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
 | `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
-| `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | **T6–T10** (`ProjectReference` a `LossReason.Application`; la añade la primera que se mergee, las demás solo rebasan) |
+| `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | ~~T6–T10~~ **Ya resuelto: T6 añadió la `ProjectReference` a `LossReason.Application`.** T7–T10 no tienen que tocar el archivo, solo rebasar sobre la base |
 
 Ninguna tarea toca archivos de seguridad ni de configuración de acceso: con D12, D13 y D14 el servicio no implementa autenticación, permisos ni resolución propia de tenant.
 
-**El único choque real es `ApplicationDbContext.cs` entre T4 (Brayan) y T5 (Juan Camilo)**, las dos tareas paralelas de la ola 3. Cada una añade su propio `DbSet` y ninguna reescribe el archivo: **quien mergee segundo rebasa y resuelve un conflicto de una línea**. Declararlo es lo que permite que vayan en paralelo en vez de apilar ramas para evitarlo.
+**El único choque real declarado era `ApplicationDbContext.cs` entre T4 (Brayan) y T5 (Juan Camilo)**, las dos tareas paralelas de la ola 3, y **no llegó a producirse**: la revisión del PR de T5 retiró el `DbSet` keyless por no tener consumidor, así que el archivo quedó con un solo autor, T4. Declararlo de antemano igual valió la pena — es lo que permitió que las dos fueran en paralelo en vez de apilar ramas para evitarlo.
 
 T6–T10 van en paralelo y **no comparten ningún archivo**: cada caso de uso vive en su propia carpeta con sus cinco archivos coubicados. Ese es el motivo por el que la división por caso de uso, además de respetar R2, no genera conflictos entre las tres personas en la ola más ancha.
 
@@ -271,7 +275,7 @@ Sin dueño, es trabajo que se pierde: por eso las diez filas lo declaran.
 | R5 | No mezcla capas de riesgo | ✅ T3 dominio + contratos, T4/T5 infraestructura, T6–T10 aplicación, T11 API. **No hay migraciones** (Database First sobre tabla existente) y **`Shared` no se toca**: la auditoría del plan §5.5 concluyó que no falta ninguna capacidad transversal |
 | R6 | Sirve a un flujo, o se declara andamiaje | ✅ T1 y T2 son andamiaje; las diez restantes declaran flujo. Ids provisionales por §0.1 |
 | R7 | Sin dependencias artificiales | ✅ Auditado: se eliminaron las cuatro dependencias encadenadas entre los casos de uso. Las que quedan son de código real, salvo el `depende_de: F2.7` de la ola 4, declarado y razonado en §2.3 |
-| R8 | Archivos compartidos declarados | ✅ Los cuatro en §3, con el único choque real señalado y sus dos dueños con nombre |
+| R8 | Archivos compartidos declarados | ✅ Los seis en §3, con el único choque real señalado y sus dos dueños con nombre |
 | R9 | Se estima la tarea, nunca la fase | ✅ Once estimaciones Fibonacci individuales (2–8), ninguna por fase |
 | R10 | Tarea reabierta se cierra y se recrea | ✅ Sin Jira, la regla se ejerce sobre el PR y sobre la columna `Estado` de §2: si una tarea vuelve, se cierra su PR y se abre uno nuevo; no se reabre el mergeado |
 
@@ -281,23 +285,36 @@ El documento está listo cuando:
 
 - [x] Cada tarea tiene responsable, rama, base, estimación y dependencias.
 - [x] Cada persona sabe qué puede empezar hoy y qué espera a un merge ajeno → §2.2 y §2.3.
-- [x] Cada tarea mapea a un rango de pasos del plan, sin pasos huérfanos ni duplicados → de los **33 pasos** de §8 (`F0.1`–`F5.2`), **32 están cubiertos exactamente una vez**. El único no cubierto por una tarea es `F0.1`, que es lectura y no produce PR: **lo ejecutan las tres personas** en la ola 0.
+- [x] Cada tarea mapea a un rango de pasos del plan, sin pasos huérfanos ni duplicados → de los **34 pasos** de §8 (`F0.1`–`F5.2`, incluido el `F2.9` de la enmienda del 2026-08-21), **33 están cubiertos exactamente una vez**. El único no cubierto por una tarea es `F0.1`, que es lectura y no produce PR: **lo ejecutan las tres personas** en la ola 0.
 - [x] Cada paso del plan declara su tarea y su responsable en el campo `tarea:` de §8.
 - [x] Cada tarea sirve a un flujo o está etiquetada como andamiaje.
 - [x] Ninguna tarea excede el techo de R2.
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está en ejecución.** **T2 y T3 están mergeadas a `feat/loss-reasons`** y la base está verde (355 tests unitarios). Con eso, la **ola 3 quedó abierta**: Brayan arranca **T4** y Juan Camilo completó **T5** (`feat/loss-reasons-usage-reader`, pendiente de PR). **T4 es el único bloqueo del camino crítico** para pasar a la ola 4.
+**El backlog está en ejecución. Cuatro tareas dentro de la base** —T2, T3, T4 (PR #5) y T6 (PR #19)— **con la base verde**: build limpio y 385 tests unitarios.
+
+- **Ola 3:** solo queda **T5** (Juan Camilo, `feat/loss-reasons-usage-reader`) — **PR abierto, comentarios de revisión ya aplicados** (`0492989`), pendiente de merge. No bloquea a nadie salvo a **T10**.
+- **Ola 4, ya abierta** porque T4 entró: **T7** (Juan Camilo) y **T8** y **T9** (Brayan) pueden arrancar hoy; **T10** espera además a T5. T6 ya está hecha.
+- **Antes de abrir cualquiera de esas ramas, rebasar sobre la base**: entre T4 y T6 cambiaron `ApplicationDbContext.cs`, `Infrastructure.csproj` y `UnitTests.csproj`, y **los tres quedan resueltos** —T6 dejó puesta la `ProjectReference` a `LossReason.Application` que T7–T10 iban a necesitar—.
+- **T7–T10 se escriben con las reglas que salieron de la revisión de T6:** `Description` de los DTOs **en inglés** y `{X}Mapping.cs` **solo con `ToOutputDto()`/`ToAggregate()`/`ToUpdateArgs()`**, con el objeto de filtro construido inline en el caso de uso (plan §3.1 y §5.6).
 
 ## Changelog
 
 | Fecha | Cambio |
 |---|---|
+| 2026-08-21 | **La puerta de cobertura obliga a probar el repositorio con unitarios.** El pipeline de T4 falló en **89,6 %** (piso 90): los 77 renglones de `LossReasonRepository` no los cubre ningún unit test y los de integración de F5.1 **no cuentan** para el porcentaje. Se enmienda la estrategia de pruebas de la Fase 2 y nace el paso **`F2.9`**, con 24 tests sobre `ApplicationDbContext` + EF InMemory — cobertura **97,1 %**. Es una desviación de `testing.md` («No usar EF InMemory») **pendiente de la firma del tech lead**; lo que depende de constraints sigue en F5.1. La estimación de T4 no cambia |
+| 2026-08-21 | **T4 ejecutada** (`F2.1`–`F2.4`, `F2.7`–`F2.9`, Brayan): entidad de persistencia con la nulabilidad real de `tbl_opo_causas`, configuración EF sobre la tabla legada, mapper que normaliza los dos NULL de D6, repositorio con los 8 miembros del contrato y el primer `DbSet` del servicio, con los 4 tests del mapper en verde (359 en la suite). Commit `fbafbda` en `feat/loss-reasons-persistence`, **pendiente de merge a la base**. Se descubre un **segundo archivo compartido no declarado**, `src/Infrastructure/Infrastructure.csproj` —no referenciaba el contexto y el mapper no compilaba—; se reportó como GAP y, autorizado, se añadió la referencia a `LossReason.Application`, que **también cubre a T5**. §3 lo registra. Cuando T4 entre a la base quedan abiertas **T6, T7, T8 y T9**; T10 seguirá esperando T5 |
 | 2026-08-14 | Versión inicial, derivada de `workplan_causas.md` §8 tras las cuatro enmiendas del plan del mismo día (§9.3) |
 | 2026-08-14 | **Resolución de los siete GAPs.** Los cinco bloqueos previos quedan cerrados; `T1` se cierra sin PR (el dueño del repositorio resolvió `GAP-1` en el commit `9f24956`, build verificado en verde) y `T2` pasa a ser la cabeza del camino crítico. Se añade `EXT-8` (autorizar del lado de Jack, riesgo R9) y las externas quedan con estado. Total: 42 puntos en 11 tareas |
+| 2026-08-21 | **T6 aprobada y mergeada** a la base (PR #19, merge `9eea4c8`). Se registra además el merge de **T4** (PR #5, merge `3ea1607`), que había quedado como «en curso» en §2 aunque ya estaba dentro. Con las dos, la base queda con cuatro tareas y 385 tests en verde, y la **ola 4 abierta** para T7, T8 y T9 |
+| 2026-08-21 | **Revisión de QA sobre el PR de T6** (en dos rondas). Descriptions de los DTOs **en inglés**; `{X}Mapping.cs` **se conserva con `ToOutputDto()`** y **sin `ToFilter()`**, que era el que sobraba —el filtro se arma inline en el caso de uso—; y fuera el comentario del catálogo vacío. Las dos primeras son reglas del contexto: **T7–T10 se escriben así desde el arranque** (plan §3.1 y §5.6, con la tabla de qué va en el Mapping). Sin cambios de comportamiento; los 4 tests siguen en verde |
+| 2026-08-21 | **T6 ejecutada** (`F3.1`, `F3.6`, Juan Esteban) en paralelo a T5, de la que no depende: el listado paginado y filtrado con sus cinco archivos coubicados y sus 4 tests en verde. Añade la `ProjectReference` a `LossReason.Application` que §3 dejaba pendiente para la primera de T6–T10, así que **T7–T10 ya no tocan `UnitTests.csproj`**. Entregada como PR contra la base, sin merge directo |
+| 2026-08-21 | **T4 mergeada y validada.** Build limpio y 381 tests unitarios en verde. De la validación salen tres resoluciones del tech lead: los nombres de entidad en inglés son la convención; los unitarios del repositorio con EF InMemory se quedan (la puerta de cobertura de GitHub exige >90 % y solo cuenta unit tests); y **D6 se mantiene en el código pero se reescribe en el plan**, porque su motivo declarado era falso: la BD **sí** admite NULL, y tratar las columnas como obligatorias es una decisión técnica de integridad, no un reflejo del esquema. Se abre **R10** y la externa **`EXT-9`** (contar y limpiar nulos antes del corte) |
+| 2026-08-21 | **Revisión de QA sobre T3**, aplicada en `feat/loss-reasons-domain`: el agregado deja de narrar el `IDENTITY` en un comentario, `Create` deja de pasar el `Id` (constructor privado partido en dos) y `Created()` deja de fijar `UpdatedAt`. Los 11 tests siguen en verde con un assert cambiado. El plan queda enmendado en §5.2 y F1.3 (§9.3) |
 | 2026-08-21 | **T3 ejecutada** (`F1.1`–`F1.6` + `F2.5`, Juan Esteban): catálogo de errores, Args, agregado con sus dos invariantes de `Name`, filtro, contrato de repositorio y puerto del Reader, con los 11 tests del dominio en verde (355 en la suite). Commit `3500688` en `feat/loss-reasons-domain`. **La Fase 1 del plan queda `done`.** Se descubre un archivo compartido que §3 no declaraba, `tests/UnitTests/UnitTests.csproj`, y se agrega con su dueño |
 | 2026-08-21 | **Rama base del contexto.** Se crea `feat/loss-reasons` desde `main`; toda rama de tarea sale de ella y su PR va contra ella, y `main` recibe el contexto una sola vez al final (§0, *Modelo de ramas*). La columna `Base` pasa de `main` a `feat/loss-reasons` en las once tareas |
 | 2026-08-21 | **T2 ejecutada** (`F0.3`, Juan Esteban): `LossReason.Domain` y `LossReason.Application` creados y registrados en `Service.slnx` bajo `/src/Contexts/LossReason/`. `dotnet build Service.slnx -c Release` en verde (13 proyectos, 0 advertencias) y 344 tests unitarios en verde por el pre-commit. Commit `96915cb` en `feat/loss-reasons-scaffold`, pendiente de merge a la base |
 | 2026-08-21 | **Se elimina Jira del proceso.** La columna `Jira` se reemplaza por `Responsable` y se añade `Estado`: el backlog es este archivo y el tablero son los PRs (§0). **Reparto entre Juan Camilo, Brayan y Juan Esteban** (§2.2), con las seis olas de ejecución y sus esperas (§2.3), el camino crítico anotado por persona (§2.4) y el round-robin de revisión (§2.5). Los archivos compartidos quedan con dueño y orden de merge (§3). Se declara y se descarta la aceleración de solapar la ola 4 con la ola 3, por requerir enmienda del plan. Ningún paso, alcance ni estimación cambia |
-| 2026-08-21 | **T5 ejecutada** (`F2.6`, Juan Camilo — rama `feat/loss-reasons-usage-reader`): entidad keyless `DealLossReasonUsage` + configuración EF (`tbl_opo_negocios`, `HasNoKey()`), `LossReasonUsageReader` que implementa `ILossReasonUsageReader` con `AnyAsync`/`AsNoTracking`/guard `OperationCanceledException`, y `DbSet<DealLossReasonUsage>` añadido a `ApplicationDbContext`. Descubrimiento de infraestructura: `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia (no es cambio de alcance, era una omisión del scaffold). Tests: 357/357 en verde. F2.6 → `done`. Pendiente de PR a `feat/loss-reasons` (revisor: Juan Esteban) |
+| 2026-08-21 | **Revisión de QA sobre el PR de T5**, aplicada en `feat/loss-reasons-usage-reader` (`0492989`): la propiedad de la entidad keyless pasa de `NegCauConsecutivo` a **`LossReasonId`** —nombres en inglés y sin abreviar, el nombre de columna legado se queda solo en la configuración EF—; el Reader deja de nombrar `tbl_opo_negocios` en su comentario; **se retira el `DbSet<DealLossReasonUsage>` de `ApplicationDbContext`**, que no lo usaba nadie (el Reader consulta con `context.Set<DealLossReasonUsage>()`), con lo que **T5 deja de tocar el archivo compartido de §3**; y el comentario del test distingue las ramas reales, con un caso nuevo para la causa libre. Sin cambios de comportamiento |
+| 2026-08-21 | **T5 ejecutada** (`F2.6`, Juan Camilo — rama `feat/loss-reasons-usage-reader`): entidad keyless `DealLossReasonUsage` + configuración EF (`tbl_opo_negocios`, `HasNoKey()`) y `LossReasonUsageReader` que implementa `ILossReasonUsageReader` con `AnyAsync`/`AsNoTracking`/guard `OperationCanceledException`. Descubrimiento de infraestructura: `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia (no es cambio de alcance, era una omisión del scaffold) — T4 la añadió también y el merge la deja resuelta. Tests: 357/357 en verde en su momento; **388/388 tras rebasar sobre la base con T4 y T6 dentro**. F2.6 → `done`. Pendiente de PR a `feat/loss-reasons` (revisor: Juan Esteban) |

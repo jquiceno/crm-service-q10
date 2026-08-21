@@ -9,14 +9,19 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
 {
     public const int NameMaxLength = 50;
 
-    public string Name { get; private set; } = string.Empty;
+    public string Name { get; private set; }
     public bool IsActive { get; private set; }
 
-    private LossReasonAggregate(int id, string name, bool isActive)
+    private LossReasonAggregate(string name, bool isActive)
     {
-        Id = id;
         Name = name;
         IsActive = isActive;
+    }
+
+    private LossReasonAggregate(int id, string name, bool isActive)
+        : this(name, isActive)
+    {
+        Id = id;
     }
 
     public static Result<LossReasonAggregate> Create(CreateLossReasonArgs input)
@@ -26,8 +31,7 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        // Id stays at its default: the database assigns it through IDENTITY.
-        var aggregate = new LossReasonAggregate(id: default, input.Name!, input.IsActive);
+        var aggregate = new LossReasonAggregate(name: input.Name!, isActive: input.IsActive);
         aggregate.Created();
 
         return aggregate;
@@ -50,11 +54,7 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
         return Result.Success();
     }
 
-    protected override void Created()
-    {
-        SetCreatedAt(DateTime.UtcNow);
-        SetUpdatedAt(DateTime.UtcNow);
-    }
+    protected override void Created() => SetCreatedAt(DateTime.UtcNow);
 
     private static List<ValidationError> ValidateName(string? name)
     {

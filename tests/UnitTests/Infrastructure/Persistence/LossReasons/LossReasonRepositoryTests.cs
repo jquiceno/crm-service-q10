@@ -15,15 +15,10 @@ using LossReasonDocument = Infrastructure.Persistence.EntityFramework.LossReason
 namespace UnitTests.Infrastructure.Persistence.LossReasons;
 
 /// <summary>
-/// Exercises the repository against a real <see cref="ApplicationDbContext"/> backed by EF
-/// InMemory, the same approach <c>RepositoryBaseEFTests</c> already uses for the generic base.
+/// Runs the repository against a real <see cref="ApplicationDbContext"/> on the in-memory
+/// provider. What that provider cannot honour — constraints, store-generated keys, column types
+/// and the server collation — is covered by the integration tests instead.
 /// </summary>
-/// <remarks>
-/// What InMemory cannot promise stays out of here on purpose and lives in the integration tests:
-/// the IDENTITY column, the <c>varchar</c> length, the 547 of a loss reason still in use, and the
-/// case-insensitive collation of the real server — the name filter below is asserted with matching
-/// case so it means the same thing under both providers.
-/// </remarks>
 public sealed class LossReasonRepositoryTests
 {
     private const string Origin = nameof(LossReasonRepository);
@@ -31,16 +26,16 @@ public sealed class LossReasonRepositoryTests
     private readonly ILoggerPort<LossReasonRepository> _logger =
         Substitute.For<ILoggerPort<LossReasonRepository>>();
 
-    private static ApplicationDbContext CreateContext(string name) =>
+    private static ApplicationDbContext CreateContext(string databaseName) =>
         new(new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(name)
+            .UseInMemoryDatabase(databaseName)
             .Options);
 
-    private static async Task<ApplicationDbContext> SeededContextAsync(
-        string name,
+    private static async Task<ApplicationDbContext> CreateSeededContextAsync(
+        string databaseName,
         params LossReasonDocument[] documents)
     {
-        var context = CreateContext(name);
+        var context = CreateContext(databaseName);
         context.LossReasons.AddRange(documents);
         await context.SaveChangesAsync().ConfigureAwait(false);
         // A repository always starts from a clean change tracker: it gets a per-request context.
@@ -48,21 +43,21 @@ public sealed class LossReasonRepositoryTests
         return context;
     }
 
-    private LossReasonRepository RepositoryOn(ApplicationDbContext context) => new(context, _logger);
+    private LossReasonRepository CreateRepository(ApplicationDbContext context) => new(context, _logger);
 
-    private static LossReasonDocument Row(int id, string? name, bool? isActive) =>
-        new() { CauConsecutivoP = id, CauNombre = name, CauEstado = isActive };
+    private static LossReasonDocument LossReasonRow(int id, string? name, bool? isActive) =>
+        new() { Id = id, Name = name, IsActive = isActive };
 
     private static PageQuery FirstPage => new(pageIndex: 0, pageSize: 20);
 
     [Fact]
     public async Task GetByIdAsync_WithExistingRow_ReturnsMappedAggregate()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetByIdAsync_WithExistingRow_ReturnsMappedAggregate),
-            Row(7, "Precio", isActive: true));
+            LossReasonRow(7, "Precio", isActive: true));
 
-        var result = await RepositoryOn(context).GetByIdAsync(7);
+        var result = await CreateRepository(context).GetByIdAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(7);
@@ -73,11 +68,11 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper),
-            Row(7, name: null, isActive: null));
+            LossReasonRow(7, name: null, isActive: null));
 
-        var result = await RepositoryOn(context).GetByIdAsync(7);
+        var result = await CreateRepository(context).GetByIdAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Name.ShouldBe(string.Empty);
@@ -89,7 +84,7 @@ public sealed class LossReasonRepositoryTests
     {
         using var context = CreateContext(nameof(GetByIdAsync_WithMissingRow_ReturnsNotFoundStampedWithItsOrigin));
 
-        var result = await RepositoryOn(context).GetByIdAsync(404);
+        var result = await CreateRepository(context).GetByIdAsync(404);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
@@ -99,7 +94,8 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetByIdAsync_WhenTheQueryFails_ReturnsPersistenceFailure()
     {
-        var result = await OnBrokenContext(nameof(GetByIdAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(GetByIdAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
             repository => repository.GetByIdAsync(7));
 
         ShouldBePersistenceFailure(result);
@@ -108,11 +104,11 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task ExistsAsync_WithExistingRow_ReturnsTrue()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(ExistsAsync_WithExistingRow_ReturnsTrue),
-            Row(7, "Precio", isActive: true));
+            LossReasonRow(7, "Precio", isActive: true));
 
-        var result = await RepositoryOn(context).ExistsAsync(7);
+        var result = await CreateRepository(context).ExistsAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeTrue();
@@ -123,7 +119,7 @@ public sealed class LossReasonRepositoryTests
     {
         using var context = CreateContext(nameof(ExistsAsync_WithMissingRow_ReturnsFalseInsteadOfFailing));
 
-        var result = await RepositoryOn(context).ExistsAsync(404);
+        var result = await CreateRepository(context).ExistsAsync(404);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeFalse();
@@ -132,7 +128,8 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task ExistsAsync_WhenTheQueryFails_ReturnsPersistenceFailure()
     {
-        var result = await OnBrokenContext(nameof(ExistsAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(ExistsAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
             repository => repository.ExistsAsync(7));
 
         ShouldBePersistenceFailure(result);
@@ -141,31 +138,31 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WithoutFilter_OrdersByNameAndBreaksTiesWithTheKey()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithoutFilter_OrdersByNameAndBreaksTiesWithTheKey),
-            Row(3, "Precio", isActive: true),
-            Row(1, "Precio", isActive: true),
-            Row(2, "Competencia", isActive: true));
+            LossReasonRow(3, "Precio", isActive: true),
+            LossReasonRow(1, "Precio", isActive: true),
+            LossReasonRow(2, "Competencia", isActive: true));
 
-        var result = await RepositoryOn(context)
+        var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter(Name: null, IsActive: null), FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(3);
-        // Without the tie-break by the key, OFFSET/FETCH could repeat or skip the two "Precio" rows.
+        // Without the tie-break, paging could repeat or skip the two rows sharing a name.
         result.Items.Select(x => x.Id).ShouldBe([2, 1, 3]);
     }
 
     [Fact]
     public async Task GetAsync_WithNameFilter_ReturnsOnlyTheRowsThatContainIt()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithNameFilter_ReturnsOnlyTheRowsThatContainIt),
-            Row(1, "Precio alto", isActive: true),
-            Row(2, "Competencia", isActive: true),
-            Row(3, null, isActive: true));
+            LossReasonRow(1, "Precio alto", isActive: true),
+            LossReasonRow(2, "Competencia", isActive: true),
+            LossReasonRow(3, null, isActive: true));
 
-        var result = await RepositoryOn(context)
+        var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter("Precio", IsActive: null), FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
@@ -176,12 +173,12 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WithBlankNameFilter_IgnoresIt()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithBlankNameFilter_IgnoresIt),
-            Row(1, "Precio", isActive: true),
-            Row(2, "Competencia", isActive: true));
+            LossReasonRow(1, "Precio", isActive: true),
+            LossReasonRow(2, "Competencia", isActive: true));
 
-        var result = await RepositoryOn(context)
+        var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter("   ", IsActive: null), FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
@@ -191,13 +188,13 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WithIsActiveFilter_ReturnsOnlyThatState()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithIsActiveFilter_ReturnsOnlyThatState),
-            Row(1, "Precio", isActive: true),
-            Row(2, "Competencia", isActive: false),
-            Row(3, "Tiempo", isActive: null));
+            LossReasonRow(1, "Precio", isActive: true),
+            LossReasonRow(2, "Competencia", isActive: false),
+            LossReasonRow(3, "Tiempo", isActive: null));
 
-        var result = await RepositoryOn(context)
+        var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter(Name: null, IsActive: false), FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
@@ -208,11 +205,11 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WithNoMatches_ReturnsAnEmptySuccessfulPage()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithNoMatches_ReturnsAnEmptySuccessfulPage),
-            Row(1, "Precio", isActive: true));
+            LossReasonRow(1, "Precio", isActive: true));
 
-        var result = await RepositoryOn(context)
+        var result = await CreateRepository(context)
             .GetAsync(new LossReasonFilter("Competencia", IsActive: null), FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
@@ -223,13 +220,13 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WithASecondPage_ReturnsThatPageAndTheUnpagedTotal()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAsync_WithASecondPage_ReturnsThatPageAndTheUnpagedTotal),
-            Row(1, "Alfa", isActive: true),
-            Row(2, "Beta", isActive: true),
-            Row(3, "Gamma", isActive: true));
+            LossReasonRow(1, "Alfa", isActive: true),
+            LossReasonRow(2, "Beta", isActive: true),
+            LossReasonRow(3, "Gamma", isActive: true));
 
-        var result = await RepositoryOn(context).GetAsync(
+        var result = await CreateRepository(context).GetAsync(
             new LossReasonFilter(Name: null, IsActive: null),
             new PageQuery(pageIndex: 1, pageSize: 2));
 
@@ -241,7 +238,8 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAsync_WhenTheQueryFails_ReturnsPersistenceFailure()
     {
-        var result = await OnBrokenContext(nameof(GetAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(GetAsync_WhenTheQueryFails_ReturnsPersistenceFailure),
             repository => repository.GetAsync(new LossReasonFilter(Name: null, IsActive: null), FirstPage));
 
         ShouldBePersistenceFailure(result);
@@ -250,12 +248,12 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task GetAllAsync_Always_ReturnsEveryRowWithoutFiltering()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(GetAllAsync_Always_ReturnsEveryRowWithoutFiltering),
-            Row(1, "Precio", isActive: true),
-            Row(2, "Competencia", isActive: false));
+            LossReasonRow(1, "Precio", isActive: true),
+            LossReasonRow(2, "Competencia", isActive: false));
 
-        var result = await RepositoryOn(context).GetAllAsync(FirstPage);
+        var result = await CreateRepository(context).GetAllAsync(FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(2);
@@ -268,16 +266,16 @@ public sealed class LossReasonRepositoryTests
         using var context = CreateContext(nameof(CreateAsync_WithValidAggregate_CommitsAndReturnsTheGeneratedId));
         var aggregate = LossReasonAggregate.Create(new CreateLossReasonArgs("Precio", IsActive: true)).Value;
 
-        var result = await RepositoryOn(context).CreateAsync(aggregate);
+        var result = await CreateRepository(context).CreateAsync(aggregate);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldNotBe(0);
         result.Value.Name.ShouldBe("Precio");
-        // The insert is already committed: a use case creating through here does not commit again.
+        // Already committed: a use case creating through here does not commit again.
         var persisted = await context.LossReasons.AsNoTracking().SingleAsync();
-        persisted.CauNombre.ShouldBe("Precio");
-        persisted.CauEstado.ShouldBe(true);
-        persisted.CauConsecutivoP.ShouldBe(result.Value.Id);
+        persisted.Name.ShouldBe("Precio");
+        persisted.IsActive.ShouldBe(true);
+        persisted.Id.ShouldBe(result.Value.Id);
     }
 
     [Fact]
@@ -285,7 +283,8 @@ public sealed class LossReasonRepositoryTests
     {
         var aggregate = LossReasonAggregate.Create(new CreateLossReasonArgs("Precio", IsActive: true)).Value;
 
-        var result = await OnBrokenContext(nameof(CreateAsync_WhenTheInsertFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(CreateAsync_WhenTheInsertFails_ReturnsPersistenceFailure),
             repository => repository.CreateAsync(aggregate));
 
         ShouldBePersistenceFailure(result);
@@ -297,7 +296,7 @@ public sealed class LossReasonRepositoryTests
         using var context = CreateContext(nameof(AddAsync_WithValidAggregate_StagesTheInsertWithoutCommitting));
         var aggregate = LossReasonAggregate.Create(new CreateLossReasonArgs("Precio", IsActive: true)).Value;
 
-        var result = await RepositoryOn(context).AddAsync(aggregate);
+        var result = await CreateRepository(context).AddAsync(aggregate);
 
         result.IsSuccess.ShouldBeTrue();
         context.ChangeTracker.Entries<LossReasonDocument>()
@@ -309,7 +308,8 @@ public sealed class LossReasonRepositoryTests
     {
         var aggregate = LossReasonAggregate.Create(new CreateLossReasonArgs("Precio", IsActive: true)).Value;
 
-        var result = await OnBrokenContext(nameof(AddAsync_WhenTheStagingFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(AddAsync_WhenTheStagingFails_ReturnsPersistenceFailure),
             repository => repository.AddAsync(aggregate));
 
         ShouldBePersistenceFailure(result);
@@ -318,27 +318,27 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task Update_WithExistingAggregate_AddressesTheRowItCameFrom()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(Update_WithExistingAggregate_AddressesTheRowItCameFrom),
-            Row(7, "Precio", isActive: true));
+            LossReasonRow(7, "Precio", isActive: true));
         var aggregate = LossReasonAggregate.Reconstruct(7, "Precio", isActive: true);
         aggregate.Update(new UpdateLossReasonArgs("Competencia", IsActive: false)).IsSuccess.ShouldBeTrue();
 
-        var result = RepositoryOn(context).Update(aggregate);
+        var result = CreateRepository(context).Update(aggregate);
 
         result.IsSuccess.ShouldBeTrue();
         await context.SaveChangesAsync();
         var persisted = await context.LossReasons.AsNoTracking().SingleAsync();
-        persisted.CauConsecutivoP.ShouldBe(7);
-        persisted.CauNombre.ShouldBe("Competencia");
-        persisted.CauEstado.ShouldBe(false);
+        persisted.Id.ShouldBe(7);
+        persisted.Name.ShouldBe("Competencia");
+        persisted.IsActive.ShouldBe(false);
     }
 
     [Fact]
     public void Update_WhenTheStagingFails_ReturnsPersistenceFailure()
     {
         var context = CreateContext(nameof(Update_WhenTheStagingFails_ReturnsPersistenceFailure));
-        var repository = RepositoryOn(context);
+        var repository = CreateRepository(context);
         var aggregate = LossReasonAggregate.Reconstruct(7, "Precio", isActive: true);
         context.Dispose();
 
@@ -350,10 +350,10 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task RemoveAsync_WithExistingRow_StagesTheDeleteForTheUnitOfWork()
     {
-        using var context = await SeededContextAsync(
+        using var context = await CreateSeededContextAsync(
             nameof(RemoveAsync_WithExistingRow_StagesTheDeleteForTheUnitOfWork),
-            Row(7, "Precio", isActive: true));
-        var repository = RepositoryOn(context);
+            LossReasonRow(7, "Precio", isActive: true));
+        var repository = CreateRepository(context);
 
         var result = await repository.RemoveAsync(7);
 
@@ -369,7 +369,7 @@ public sealed class LossReasonRepositoryTests
     {
         using var context = CreateContext(nameof(RemoveAsync_WithMissingRow_ReturnsNotFoundStampedWithItsOrigin));
 
-        var result = await RepositoryOn(context).RemoveAsync(404);
+        var result = await CreateRepository(context).RemoveAsync(404);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
@@ -379,20 +379,19 @@ public sealed class LossReasonRepositoryTests
     [Fact]
     public async Task RemoveAsync_WhenTheLookupFails_ReturnsPersistenceFailure()
     {
-        var result = await OnBrokenContext(nameof(RemoveAsync_WhenTheLookupFails_ReturnsPersistenceFailure),
+        var result = await ExecuteAgainstDisposedContextAsync(
+            nameof(RemoveAsync_WhenTheLookupFails_ReturnsPersistenceFailure),
             repository => repository.RemoveAsync(7));
 
         ShouldBePersistenceFailure(result);
     }
 
-    /// <summary>
-    /// Runs an operation against a repository whose context was disposed underneath it, which is
-    /// how the failure branch is reached without a real database.
-    /// </summary>
-    private async Task<T> OnBrokenContext<T>(string name, Func<LossReasonRepository, Task<T>> operation)
+    private async Task<TResult> ExecuteAgainstDisposedContextAsync<TResult>(
+        string databaseName,
+        Func<LossReasonRepository, Task<TResult>> operation)
     {
-        var context = CreateContext(name);
-        var repository = RepositoryOn(context);
+        var context = CreateContext(databaseName);
+        var repository = CreateRepository(context);
         await context.DisposeAsync().ConfigureAwait(false);
 
         return await operation(repository).ConfigureAwait(false);

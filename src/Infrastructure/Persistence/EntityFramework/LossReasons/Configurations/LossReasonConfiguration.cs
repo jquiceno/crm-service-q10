@@ -3,31 +3,23 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Persistence.EntityFramework.LossReasons.Configurations;
 
-/// <summary>
-/// Maps the loss reason entity to the legacy <c>tbl_opo_causas</c> table.
-/// </summary>
-/// <remarks>
-/// This is a Database First project: the column type and length are declared so EF generates the
-/// right parameter type against the real schema (<c>varchar</c>, not <c>nvarchar</c>), never as
-/// validation. The invariants live in the aggregate and in FluentValidation.
-/// </remarks>
 public sealed class LossReasonConfiguration : IEntityTypeConfiguration<Entities.LossReason>
 {
     public void Configure(EntityTypeBuilder<Entities.LossReason> builder)
     {
         builder.ToTable("tbl_opo_causas");
 
-        builder.HasKey(x => x.CauConsecutivoP);
+        builder.HasKey(x => x.Id);
 
-        builder.Property(x => x.CauConsecutivoP)
+        builder.Property(x => x.Id)
             .HasColumnName("cau_consecutivoP")
             .ValueGeneratedOnAdd();
 
-        builder.Property(x => x.CauNombre)
+        builder.Property(x => x.Name)
             .HasColumnName("cau_nombre")
             .HasColumnType("varchar(200)");
 
-        builder.Property(x => x.CauEstado)
+        builder.Property(x => x.IsActive)
             .HasColumnName("cau_estado");
     }
 }

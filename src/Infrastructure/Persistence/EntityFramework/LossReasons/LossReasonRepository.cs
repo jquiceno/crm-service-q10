@@ -11,13 +11,6 @@ using Shared.Results;
 
 namespace Infrastructure.Persistence.EntityFramework.LossReasons;
 
-/// <summary>
-/// Persists the loss reason aggregate against the legacy <c>tbl_opo_causas</c> table.
-/// </summary>
-/// <remarks>
-/// Implements the domain contract directly: <c>RepositoryBaseEF</c> assumes the aggregate is the
-/// mapped entity, and here they are two different types. No method lets an exception escape.
-/// </remarks>
 public sealed class LossReasonRepository(
     ApplicationDbContext context,
     ILoggerPort<LossReasonRepository> logger) : ILossReasonRepository
@@ -34,7 +27,7 @@ public sealed class LossReasonRepository(
         {
             var document = await _lossReasons
                 .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.CauConsecutivoP == id, cancellationToken)
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
                 .ConfigureAwait(false);
 
             if (document is null)
@@ -55,7 +48,7 @@ public sealed class LossReasonRepository(
         {
             var exists = await _lossReasons
                 .AsNoTracking()
-                .AnyAsync(x => x.CauConsecutivoP == id, cancellationToken)
+                .AnyAsync(x => x.Id == id, cancellationToken)
                 .ConfigureAwait(false);
 
             return Result<bool>.Success(exists);
@@ -67,10 +60,6 @@ public sealed class LossReasonRepository(
         }
     }
 
-    /// <summary>
-    /// Delegates to <see cref="GetAsync"/> with an empty filter: the unfiltered listing is the
-    /// filtered one without criteria, and duplicating the query would let the two orderings diverge.
-    /// </summary>
     public Task<PagedResult<LossReasonAggregate>> GetAllAsync(
         PageQuery page,
         CancellationToken cancellationToken = default) =>
@@ -87,18 +76,18 @@ public sealed class LossReasonRepository(
 
             var name = filter.Name;
             if (!string.IsNullOrWhiteSpace(name))
-                query = query.Where(x => x.CauNombre != null && x.CauNombre.Contains(name));
+                query = query.Where(x => x.Name != null && x.Name.Contains(name));
 
             if (filter.IsActive.HasValue)
-                query = query.Where(x => x.CauEstado == filter.IsActive.Value);
+                query = query.Where(x => x.IsActive == filter.IsActive.Value);
 
             var totalCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
-            // The tie-break by the key is mandatory: cau_nombre is neither unique nor indexed, and
+            // The tie-break by the key is mandatory: the name is neither unique nor indexed, and
             // OFFSET/FETCH can repeat or skip rows between pages when the ordering is not unique.
             var documents = await query
-                .OrderBy(x => x.CauNombre)
-                .ThenBy(x => x.CauConsecutivoP)
+                .OrderBy(x => x.Name)
+                .ThenBy(x => x.Id)
                 .Skip(page.Skip)
                 .Take(page.PageSize)
                 .ToListAsync(cancellationToken)
@@ -116,10 +105,6 @@ public sealed class LossReasonRepository(
         }
     }
 
-    /// <summary>
-    /// Persists the insert and returns the aggregate carrying the identity value the database
-    /// assigned. A use case that creates through here does not commit: the commit already happened.
-    /// </summary>
     public async Task<Result<LossReasonAggregate>> CreateAsync(
         LossReasonAggregate aggregate,
         CancellationToken cancellationToken = default)
@@ -131,8 +116,7 @@ public sealed class LossReasonRepository(
             await _lossReasons.AddAsync(document, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            // cau_consecutivoP is populated after SaveChanges; the aggregate is rebuilt from the row
-            // because the identity value cannot be assigned onto an existing aggregate.
+            // Rebuilt from the row because the generated key cannot be assigned onto the aggregate.
             return LossReasonRepositoryMapper.ToDomain(document);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -165,9 +149,8 @@ public sealed class LossReasonRepository(
         {
             var document = LossReasonRepositoryMapper.ToDocument(aggregate);
 
-            // The mapper leaves the identity column untouched because it is not written on insert;
-            // an update does need it to address the existing row.
-            document.CauConsecutivoP = aggregate.Id;
+            // The mapper leaves the key unset for inserts; an update needs it to address the row.
+            document.Id = aggregate.Id;
 
             _lossReasons.Update(document);
 
@@ -186,7 +169,7 @@ public sealed class LossReasonRepository(
         {
             // Tracked on purpose: the delete is staged here and committed by the unit of work.
             var document = await _lossReasons
-                .FirstOrDefaultAsync(x => x.CauConsecutivoP == id, cancellationToken)
+                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
                 .ConfigureAwait(false);
 
             if (document is null)

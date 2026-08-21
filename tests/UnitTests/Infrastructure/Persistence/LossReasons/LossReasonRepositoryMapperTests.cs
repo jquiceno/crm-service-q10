@@ -15,9 +15,9 @@ public sealed class LossReasonRepositoryMapperTests
     {
         var document = new LossReasonDocument
         {
-            CauConsecutivoP = 3,
-            CauNombre = null,
-            CauEstado = true
+            Id = 3,
+            Name = null,
+            IsActive = true
         };
 
         var aggregate = LossReasonRepositoryMapper.ToDomain(document);
@@ -32,9 +32,9 @@ public sealed class LossReasonRepositoryMapperTests
     {
         var document = new LossReasonDocument
         {
-            CauConsecutivoP = 4,
-            CauNombre = ValidName,
-            CauEstado = null
+            Id = 4,
+            Name = ValidName,
+            IsActive = null
         };
 
         var aggregate = LossReasonRepositoryMapper.ToDomain(document);
@@ -48,9 +48,9 @@ public sealed class LossReasonRepositoryMapperTests
     {
         var document = new LossReasonDocument
         {
-            CauConsecutivoP = 7,
-            CauNombre = ValidName,
-            CauEstado = true
+            Id = 7,
+            Name = ValidName,
+            IsActive = true
         };
 
         var aggregate = LossReasonRepositoryMapper.ToDomain(document);
@@ -58,7 +58,7 @@ public sealed class LossReasonRepositoryMapperTests
         aggregate.Id.ShouldBe(7);
         aggregate.Name.ShouldBe(ValidName);
         aggregate.IsActive.ShouldBeTrue();
-        // Reconstruct does not validate nor stamp audit dates: the legacy table has no columns for them.
+        // Reconstruct neither validates nor stamps audit dates.
         aggregate.CreatedAt.ShouldBeNull();
         aggregate.UpdatedAt.ShouldBeNull();
     }
@@ -71,8 +71,8 @@ public sealed class LossReasonRepositoryMapperTests
 
         var document = LossReasonRepositoryMapper.ToDocument(result.Value);
 
-        document.CauConsecutivoP.ShouldBe(0);
-        document.CauNombre.ShouldBe(ValidName);
-        document.CauEstado.ShouldBe(true);
+        document.Id.ShouldBe(0);
+        document.Name.ShouldBe(ValidName);
+        document.IsActive.ShouldBe(true);
     }
 }

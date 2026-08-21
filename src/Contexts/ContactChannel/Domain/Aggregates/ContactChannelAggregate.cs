@@ -12,9 +12,8 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     public string Name { get; private set; } = string.Empty;
     public bool IsActive { get; private set; }
 
-    private ContactChannelAggregate(int id, string name, bool isActive)
+    private ContactChannelAggregate(string name, bool isActive)
     {
-        Id = id;
         Name = name;
         IsActive = isActive;
     }
@@ -27,7 +26,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ContactChannelAggregate(0, name, input.IsActive);
+        var aggregate = new ContactChannelAggregate(name, input.IsActive);
 
         aggregate.Created();
 
@@ -35,7 +34,7 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     }
 
     public static ContactChannelAggregate Reconstruct(int id, string name, bool isActive) =>
-        new(id, name, isActive);
+        new(name, isActive) { Id = id };
 
     public Result Update(UpdateContactChannelArgs input)
     {

@@ -8,6 +8,7 @@ Migración del catálogo de causas de pérdida del CRM (área `GestionComercial`
 
 | Documento | Qué es | Quién lo consulta |
 |---|---|---|
+| [`discovery_causas.md`](discovery_causas.md) | **La verdad del legado**, sin diseño del servicio nuevo: rutas, SPs, esquema real de `tbl_opo_causas`, defectos encontrados y su veredicto. Es de dónde salen D5, D6 y D7 del plan | Quien necesite entender *por qué* el plan decide lo que decide, o quien vaya a hablar con el monolito |
 | [`workplan_causas.md`](workplan_causas.md) | **El plan.** 14 decisiones firmadas (D1–D14), el mapeo legado → modelo, los contratos de API y los 33 pasos ejecutables de §8, cada uno con su tarea, su responsable y su comando de verificación | Quien va a escribir código: §0 y el encabezado de su fase, **antes** de tocar nada |
 | [`tasks_causas.md`](tasks_causas.md) | **El backlog.** 11 tareas repartidas entre las tres personas, con ramas, dependencias, olas de ejecución y archivos compartidos | Quien quiere saber qué le toca y qué está esperando a qué |
 
@@ -19,7 +20,9 @@ El **paso** (`workplan_causas.md` §8) es la unidad de trabajo; la **tarea** (`t
 * **Rama base del contexto: `feat/loss-reasons`.** Toda rama de tarea sale de ella y su PR va contra ella; `main` recibe el contexto una sola vez, al final. Detalle en `tasks_causas.md` §0.
 * **Si la realidad del repositorio contradice el plan, hay que detenerse y reportarlo** (regla 4 de §0 del plan), no improvisar ni completar por cuenta propia.
 
-El Discovery del legado (`discovery_causas.md`) y el handoff de sesión no se publican aquí: viven fuera del repositorio. `03-flujos.md` —integración, criterios de QA, cutover y rollback— está pendiente y es lo que fijará los identificadores de flujo definitivos.
+Falta el cuarto documento del flujo: **`03-flujos.md`** —integración con el monolito, criterios de aceptación de QA, cutover y rollback—, que es además lo que fijará los identificadores de flujo definitivos (hoy F1–F5 son provisionales).
+
+**Esta carpeta es la única fuente de verdad de estos documentos.** Se editan aquí y se versionan con el código; no hay copias en carpetas locales de herramientas.
 
 ## Pendiente de escribir
 

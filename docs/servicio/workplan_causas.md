@@ -11,7 +11,7 @@ updated: 2026-08-14
 
 > Generado con el prompt **v2.0** de `Services WorkFlow › Promps › Plan de trabajo para migración de microservicios .NET` y la plantilla `Services WorkFlow › Templates › Working plan`. Diez secciones, en este orden.
 >
-> Fuente funcional: `.claude/migracion-microservicios/discovery_causas.md` (Discovery del contexto, `jack@e9bbcb03f14`).
+> Fuente funcional: [`discovery_causas.md`](discovery_causas.md) (Discovery del contexto, `jack@e9bbcb03f14`).
 > Fuente técnica: `docs/plantilla/*.md` del propio repositorio + inventario real del código.
 
 ## 0. Cómo ejecutar este plan

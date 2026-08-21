@@ -556,13 +556,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Hecho cuando: los dos proyectos compilan vacíos y aparecen en la solución.
 - Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 13 proyectos, 0 advertencias**. Commit `96915cb` en `feat/loss-reasons-scaffold`.
 
-### Fase 1 — Dominio · `pending`
+### Fase 1 — Dominio · `done`
 
 > Decisiones que la afectan: **D2, D3, D4, D5, D6** — todas firmadas.
 > Estrategia de pruebas: unitarias puras sobre el agregado (xUnit + Shouldly), sin mocks. Cubrir las invariantes de `Name` en `Create` **y** en `Update` (válido, vacío, solo espacios, 50 exactos, 51), la acumulación de varios errores en una sola respuesta, y que `Reconstruct` **no** valida ni asigna auditoría.
 
 #### [F1.1] Create LossReasonErrors
-`id: F1.1 · depende_de: F0.3 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.1 · depende_de: F0.3 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: declarar el catálogo de errores del contexto; el agregado los referencia al compilar.
 - Fuente: D4 · D5 · `errores-dominio.md`
 - Archivos: `src/Contexts/LossReason/Domain/Errors/LossReasonErrors.cs`
@@ -571,7 +571,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F1.2] Create LossReasonArgs
-`id: F1.2 · depende_de: F1.1 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.2 · depende_de: F1.1 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: declarar los records de argumentos de los factories.
 - Fuente: `entidades-y-agregados.md`
 - Archivos: `src/Contexts/LossReason/Domain/Aggregates/LossReasonArgs.cs`
@@ -580,7 +580,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F1.3] Create LossReasonAggregate
-`id: F1.3 · depende_de: F1.2 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.3 · depende_de: F1.2 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: el agregado con sus invariantes y su auditoría.
 - Fuente: D3 · D4 · D5 · D6 · `entidades-y-agregados.md`
 - Archivos: `src/Contexts/LossReason/Domain/Aggregates/LossReasonAggregate.cs`
@@ -592,7 +592,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F1.4] Create LossReasonFilter
-`id: F1.4 · depende_de: F1.3 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.4 · depende_de: F1.3 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: el objeto de filtro del listado.
 - Fuente: `contextos.md` (`Domain/Queries/`)
 - Archivos: `src/Contexts/LossReason/Domain/Queries/LossReasonFilter.cs`
@@ -601,7 +601,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F1.5] Declare ILossReasonRepository
-`id: F1.5 · depende_de: F1.4 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.5 · depende_de: F1.4 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: el contrato de persistencia, en el dominio.
 - Fuente: D2 · D3 · `repositorio.md`
 - Archivos: `src/Contexts/LossReason/Domain/Repositories/ILossReasonRepository.cs`
@@ -610,13 +610,15 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F1.6] Unit tests for the domain layer
-`id: F1.6 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F1.6 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: fijar las invariantes antes de que exista infraestructura.
 - Fuente: `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Domain/LossReasonAggregateTests.cs`
 - Detalle: xUnit + Shouldly, nombres `MethodUnderTest_Scenario_ExpectedOutcome`. Casos: `Create_WithValidArgs_ReturnsAggregateWithAuditDates`, `Create_WithEmptyName_ReturnsNameRequired`, `Create_WithWhitespaceName_ReturnsNameRequired`, `Create_WithNameOf51Characters_ReturnsNameTooLong`, `Create_WithNameOf50Characters_Succeeds`, `Create_WithEmptyAndTooLongName_AccumulatesBothErrors`, `Update_WithEmptyName_ReturnsNameRequired`, `Update_WithNameOf51Characters_ReturnsNameTooLong`, `Update_WithValidArgs_SetsUpdatedAt`, `Reconstruct_WithNameLongerThan50_DoesNotValidate`, `Reconstruct_Always_DoesNotSetAuditDates`. **Assertar `IsFailure`, nunca `ShouldThrow`.**
 - Hecho cuando: los 11 tests pasan, ninguno usa `Assert.*` de xUnit, y los límites se escriben contra `LossReasonAggregate.NameMaxLength`, no contra un `50` literal.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 11 pasan** (355 en total en la suite). Commit `3500688` en `feat/loss-reasons-domain`.
+- Nota de ejecución: el caso `Create_WithEmptyAndTooLongName_AccumulatesBothErrors` se construye con **51 espacios**, que es la única forma de violar las dos invariantes a la vez. `DomainError.BuildDetails` agrupa por `Property`, así que el resultado trae **un `ErrorDetail` de `Name` con los dos mensajes**, no dos `ErrorDetail`.
+- **Archivo compartido no previsto:** `tests/UnitTests/UnitTests.csproj` necesitó la `ProjectReference` a `LossReason.Domain` para que el test compile. Lo añadió T3; **T6–T10 tendrán que añadir la de `LossReason.Application`**. Registrado en `tasks_causas.md` §3.
 
 ### Fase 2 — Persistencia · `pending`
 
@@ -660,7 +662,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.5] Declare ILossReasonUsageReader
-`id: F2.5 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: pending`
+`id: F2.5 · depende_de: F1.5 · tarea: T3 (Juan Esteban) · estado: done`
 - Objetivo: el puerto de lectura de la tabla ajena, en Application.
 - Fuente: D7 · `conceptos-reader-provider-repository.md`
 - Archivos: `src/Contexts/LossReason/Application/Ports/ILossReasonUsageReader.cs`

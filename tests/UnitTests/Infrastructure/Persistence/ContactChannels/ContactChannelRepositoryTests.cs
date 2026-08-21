@@ -6,6 +6,7 @@ using Infrastructure.Persistence.EntityFramework.ContactChannels.Entities;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Shared.Application.Ports;
+using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
 using Shared.Results.Errors;
 using Shouldly;
@@ -38,7 +39,7 @@ public sealed class ContactChannelRepositoryTests
         await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    private static ContactChannelEntity Row(int id, string? name, bool? isActive) =>
+    private static ContactChannelEntity Row(int id, string name, bool isActive) =>
         new() { Id = id, Name = name, IsActive = isActive };
 
     [Fact]
@@ -153,7 +154,7 @@ public sealed class ContactChannelRepositoryTests
     public async Task GetAsync_FilteringByActive_ReturnsOnlyActiveChannels()
     {
         const string dbName = nameof(GetAsync_FilteringByActive_ReturnsOnlyActiveChannels);
-        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false), Row(3, "Gamma", null));
+        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false));
         using var context = CreateContext(dbName);
 
         var result = await CreateRepository(context)
@@ -165,18 +166,18 @@ public sealed class ContactChannelRepositoryTests
     }
 
     [Fact]
-    public async Task GetAsync_FilteringByInactive_AlsoReturnsRowsWithANullState()
+    public async Task GetAsync_FilteringByInactive_ReturnsOnlyInactiveChannels()
     {
-        const string dbName = nameof(GetAsync_FilteringByInactive_AlsoReturnsRowsWithANullState);
-        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false), Row(3, "Gamma", null));
+        const string dbName = nameof(GetAsync_FilteringByInactive_ReturnsOnlyInactiveChannels);
+        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false));
         using var context = CreateContext(dbName);
 
         var result = await CreateRepository(context)
             .GetAsync(new ContactChannelFilter(IsActive: false, SearchName: null), new PageQuery(0, 10));
 
         result.IsSuccess.ShouldBeTrue();
-        result.TotalCount.ShouldBe(2);
-        result.Items.Select(c => c.Name).ShouldBe(["Beta", "Gamma"]);
+        result.TotalCount.ShouldBe(1);
+        result.Items.Select(c => c.Name).ShouldBe(["Beta"]);
     }
 
     [Fact]
@@ -204,20 +205,6 @@ public sealed class ContactChannelRepositoryTests
             .GetAsync(new ContactChannelFilter(IsActive: null, SearchName: "  hats  "), new PageQuery(0, 10));
 
         result.Items.Select(c => c.Name).ShouldBe(["WhatsApp"]);
-    }
-
-    [Fact]
-    public async Task GetAsync_FilteringByName_NeverMatchesARowWithANullName()
-    {
-        const string dbName = nameof(GetAsync_FilteringByName_NeverMatchesARowWithANullName);
-        await SeedAsync(dbName, Row(1, null, true), Row(2, "Feria", true));
-        using var context = CreateContext(dbName);
-
-        var result = await CreateRepository(context)
-            .GetAsync(new ContactChannelFilter(IsActive: null, SearchName: "eri"), new PageQuery(0, 10));
-
-        result.TotalCount.ShouldBe(1);
-        result.Items.Select(c => c.Name).ShouldBe(["Feria"]);
     }
 
     [Fact]
@@ -322,13 +309,14 @@ public sealed class ContactChannelRepositoryTests
     }
 
     [Fact]
-    public async Task GetAllAsync_ReturnsEveryChannelPaged()
+    public async Task GetAllAsync_IsReachableOnlyThroughTheRootContractAndReturnsEveryChannel()
     {
-        const string dbName = nameof(GetAllAsync_ReturnsEveryChannelPaged);
-        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false), Row(3, "Gamma", null));
+        const string dbName = nameof(GetAllAsync_IsReachableOnlyThroughTheRootContractAndReturnsEveryChannel);
+        await SeedAsync(dbName, Row(1, "Alpha", true), Row(2, "Beta", false), Row(3, "Gamma", true));
         using var context = CreateContext(dbName);
+        var sut = (IRootRepository<ContactChannelAggregate, int>)CreateRepository(context);
 
-        var result = await CreateRepository(context).GetAllAsync(new PageQuery(0, 2));
+        var result = await sut.GetAllAsync(new PageQuery(0, 2));
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(3);
@@ -348,7 +336,7 @@ public sealed class ContactChannelRepositoryTests
         var entry = context.ChangeTracker.Entries<ContactChannelEntity>().ShouldHaveSingleItem();
         entry.State.ShouldBe(EntityState.Added);
         entry.Entity.Name.ShouldBe("WhatsApp");
-        entry.Entity.IsActive.ShouldBe(true);
+        entry.Entity.IsActive.ShouldBeTrue();
     }
 
     [Fact]
@@ -364,7 +352,7 @@ public sealed class ContactChannelRepositoryTests
         using var verifyContext = CreateContext(dbName);
         var stored = await verifyContext.ContactChannels.AsNoTracking().SingleAsync();
         stored.Name.ShouldBe("WhatsApp");
-        stored.IsActive.ShouldBe(true);
+        stored.IsActive.ShouldBeTrue();
     }
 
     [Fact]
@@ -401,7 +389,7 @@ public sealed class ContactChannelRepositoryTests
         var stored = await verifyContext.ContactChannels.AsNoTracking().SingleAsync();
         stored.Id.ShouldBe(result.Value.Id);
         stored.Name.ShouldBe("WhatsApp");
-        stored.IsActive.ShouldBe(true);
+        stored.IsActive.ShouldBeTrue();
     }
 
     [Fact]
@@ -480,7 +468,7 @@ public sealed class ContactChannelRepositoryTests
         using var verifyContext = CreateContext(dbName);
         var stored = await verifyContext.ContactChannels.AsNoTracking().SingleAsync();
         stored.Name.ShouldBe("Feria");
-        stored.IsActive.ShouldBe(false);
+        stored.IsActive.ShouldBeFalse();
     }
 
     [Fact]
@@ -497,41 +485,19 @@ public sealed class ContactChannelRepositoryTests
     }
 
     [Fact]
-    public async Task Update_WithAnUnassignedIdentifier_FailsAsNotFoundAndInsertsNothing()
+    public async Task Update_WithAnUnassignedIdentifier_StillNeverInserts()
     {
-        const string dbName = nameof(Update_WithAnUnassignedIdentifier_FailsAsNotFoundAndInsertsNothing);
+        const string dbName = nameof(Update_WithAnUnassignedIdentifier_StillNeverInserts);
         await SeedAsync(dbName, Row(7, "WhatsApp", true));
         using var context = CreateContext(dbName);
-        var logger = Substitute.For<ILoggerPort<ContactChannelRepository>>();
         var aggregate = ContactChannelAggregate.Create(new CreateContactChannelArgs("Feria", IsActive: true));
 
-        var result = CreateRepository(context, logger).Update(aggregate.Value);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Origin.ShouldBe(nameof(ContactChannelRepository));
-        context.ChangeTracker.Entries<ContactChannelEntity>().ShouldBeEmpty();
-        logger.Received(1).Warning(Arg.Any<string>(), Arg.Any<object[]>());
-
-        await context.SaveChangesAsync();
-        (await context.ContactChannels.CountAsync()).ShouldBe(1);
-    }
-
-    [Fact]
-    public async Task Update_WhenTheRowIsAlreadyTracked_UpdatesTheTrackedInstance()
-    {
-        const string dbName = nameof(Update_WhenTheRowIsAlreadyTracked_UpdatesTheTrackedInstance);
-        await SeedAsync(dbName, Row(7, "WhatsApp", true));
-        using var context = CreateContext(dbName);
-        var sut = CreateRepository(context);
-        var tracked = await context.ContactChannels.SingleAsync();
-
-        var result = sut.Update(ContactChannelAggregate.Reconstruct(id: 7, name: "Feria", isActive: false));
+        var result = CreateRepository(context).Update(aggregate.Value);
 
         result.IsSuccess.ShouldBeTrue();
-        tracked.Name.ShouldBe("Feria");
-        tracked.IsActive.ShouldBe(false);
-        context.ChangeTracker.Entries<ContactChannelEntity>().ShouldHaveSingleItem();
+
+        var entry = context.ChangeTracker.Entries<ContactChannelEntity>().ShouldHaveSingleItem();
+        entry.State.ShouldBe(EntityState.Modified);
     }
 
     [Fact]

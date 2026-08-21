@@ -21,17 +21,9 @@ public sealed class ContactChannelRepositoryMapperTests
     }
 
     [Fact]
-    public void ToDomain_WithANullName_ReadsItAsAnEmptyName()
+    public void ToDomain_WithAnInactiveRow_KeepsTheStateFalse()
     {
-        var document = new ContactChannelEntity { Id = 7, Name = null, IsActive = true };
-
-        ContactChannelRepositoryMapper.ToDomain(document).Name.ShouldBeEmpty();
-    }
-
-    [Fact]
-    public void ToDomain_WithANullState_ReadsItAsInactive()
-    {
-        var document = new ContactChannelEntity { Id = 7, Name = "WhatsApp", IsActive = null };
+        var document = new ContactChannelEntity { Id = 7, Name = "WhatsApp", IsActive = false };
 
         ContactChannelRepositoryMapper.ToDomain(document).IsActive.ShouldBeFalse();
     }
@@ -53,31 +45,14 @@ public sealed class ContactChannelRepositoryMapperTests
 
         document.Id.ShouldBe(7);
         document.Name.ShouldBe("WhatsApp");
-        document.IsActive.ShouldBe(true);
+        document.IsActive.ShouldBeTrue();
     }
 
     [Fact]
-    public void ToNewDocument_LeavesTheIdentifierUnassigned()
+    public void ToDocument_OfANewAggregate_LeavesTheIdentifierUnassigned()
     {
-        var aggregate = ContactChannelAggregate.Reconstruct(id: 7, name: "WhatsApp", isActive: true);
+        var aggregate = ContactChannelAggregate.Create(new CreateContactChannelArgs("WhatsApp", IsActive: true));
 
-        var document = ContactChannelRepositoryMapper.ToNewDocument(aggregate);
-
-        document.Id.ShouldBe(0);
-        document.Name.ShouldBe("WhatsApp");
-        document.IsActive.ShouldBe(true);
-    }
-
-    [Fact]
-    public void CopyTo_OverwritesTheMutableColumnsAndLeavesTheKey()
-    {
-        var document = new ContactChannelEntity { Id = 7, Name = "WhatsApp", IsActive = true };
-        var aggregate = ContactChannelAggregate.Reconstruct(id: 99, name: "Feria", isActive: false);
-
-        ContactChannelRepositoryMapper.CopyTo(aggregate, document);
-
-        document.Id.ShouldBe(7);
-        document.Name.ShouldBe("Feria");
-        document.IsActive.ShouldBe(false);
+        ContactChannelRepositoryMapper.ToDocument(aggregate.Value).Id.ShouldBe(0);
     }
 }

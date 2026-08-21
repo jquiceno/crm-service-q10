@@ -52,7 +52,7 @@ public sealed class ContactChannelConfigurationTests
     }
 
     [Fact]
-    public void Configure_MapsTheNameAsNullableNonUnicodeVarchar()
+    public void Configure_MapsTheNameAsNonUnicodeVarchar()
     {
         var name = GetContactChannelEntityType().FindProperty(nameof(ContactChannelEntity.Name));
 
@@ -61,18 +61,18 @@ public sealed class ContactChannelConfigurationTests
         name.GetColumnType().ShouldBe("varchar(100)");
         name.GetMaxLength().ShouldBe(100);
         name.IsUnicode().ShouldBe(false);
-        name.IsNullable.ShouldBeTrue();
+        name.IsNullable.ShouldBeFalse();
     }
 
     [Fact]
-    public void Configure_MapsTheStateAsNullableBecauseTheLegacyColumnAllowsNull()
+    public void Configure_MapsTheStateToTheLegacyBitColumn()
     {
         var isActive = GetContactChannelEntityType().FindProperty(nameof(ContactChannelEntity.IsActive));
 
         isActive.ShouldNotBeNull();
         isActive.GetColumnName().ShouldBe("medcon_estado");
         isActive.GetColumnType().ShouldBe("bit");
-        isActive.IsNullable.ShouldBeTrue();
+        isActive.IsNullable.ShouldBeFalse();
     }
 
     [Fact]

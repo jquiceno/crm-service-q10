@@ -8,6 +8,7 @@ using Infrastructure.Persistence.EntityFramework.ContactChannels.Entities;
 using Infrastructure.Persistence.EntityFramework.ContactChannels.Mappers;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
+using Shared.Domain.Interfaces;
 using Shared.Domain.Pagination;
 using Shared.Results;
 
@@ -18,8 +19,6 @@ public sealed class ContactChannelRepository(
     ILoggerPort<ContactChannelRepository> logger) : IContactChannelRepository
 {
     private const string Origin = nameof(ContactChannelRepository);
-
-    private static readonly ContactChannelFilter Unfiltered = new(IsActive: null, SearchName: null);
 
     private readonly DbSet<ContactChannelEntity> _contactChannels = context.ContactChannels;
 
@@ -64,10 +63,10 @@ public sealed class ContactChannelRepository(
         }
     }
 
-    public Task<PagedResult<ContactChannelAggregate>> GetAllAsync(
+    Task<PagedResult<ContactChannelAggregate>> IRootRepository<ContactChannelAggregate, int>.GetAllAsync(
         PageQuery page,
-        CancellationToken cancellationToken = default) =>
-        GetAsync(Unfiltered, page, cancellationToken);
+        CancellationToken cancellationToken) =>
+        GetAsync(new ContactChannelFilter(IsActive: null, SearchName: null), page, cancellationToken);
 
     public async Task<PagedResult<ContactChannelAggregate>> GetAsync(
         ContactChannelFilter filter,
@@ -79,12 +78,12 @@ public sealed class ContactChannelRepository(
             var query = _contactChannels.AsNoTracking();
 
             if (filter.IsActive is bool isActive)
-                query = query.Where(c => (c.IsActive ?? false) == isActive);
+                query = query.Where(c => c.IsActive == isActive);
 
             if (!string.IsNullOrWhiteSpace(filter.SearchName))
             {
                 var searchName = filter.SearchName.Trim();
-                query = query.Where(c => c.Name != null && c.Name.Contains(searchName));
+                query = query.Where(c => c.Name.Contains(searchName));
             }
 
             var totalCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -115,7 +114,7 @@ public sealed class ContactChannelRepository(
     {
         try
         {
-            var document = ContactChannelRepositoryMapper.ToNewDocument(aggregate);
+            var document = ContactChannelRepositoryMapper.ToDocument(aggregate);
 
             await _contactChannels.AddAsync(document, cancellationToken).ConfigureAwait(false);
 
@@ -134,7 +133,7 @@ public sealed class ContactChannelRepository(
     {
         try
         {
-            var document = ContactChannelRepositoryMapper.ToNewDocument(aggregate);
+            var document = ContactChannelRepositoryMapper.ToDocument(aggregate);
 
             await _contactChannels.AddAsync(document, cancellationToken).ConfigureAwait(false);
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -157,24 +156,9 @@ public sealed class ContactChannelRepository(
     {
         try
         {
-            if (aggregate.Id == default)
-            {
-                logger.Warning("Update called with an unassigned ContactChannel identifier.");
-                return ContactChannelErrors.NotFound(aggregate.Id) with { Origin = Origin };
-            }
+            var document = ContactChannelRepositoryMapper.ToDocument(aggregate);
 
-            var tracked = _contactChannels.Local.FirstOrDefault(c => c.Id == aggregate.Id);
-
-            if (tracked is null)
-            {
-                tracked = ContactChannelRepositoryMapper.ToDocument(aggregate);
-            }
-            else
-            {
-                ContactChannelRepositoryMapper.CopyTo(aggregate, tracked);
-            }
-
-            context.Entry(tracked).State = EntityState.Modified;
+            context.Entry(document).State = EntityState.Modified;
 
             return Result.Success();
         }

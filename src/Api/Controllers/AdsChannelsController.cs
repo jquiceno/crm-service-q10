@@ -1,7 +1,9 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
 using AdsChannel.Application.UseCases.DeleteAdsChannel;
+using AdsChannel.Application.UseCases.GetAdsChannelById;
 using AdsChannel.Application.UseCases.UpdateAdsChannel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
 using Shared.Presentation.Responses;
@@ -15,7 +17,8 @@ namespace Api.Controllers;
 public sealed class AdsChannelsController(
     ICreateAdsChannelUseCase createAdsChannelUseCase,
     IUpdateAdsChannelUseCase updateAdsChannelUseCase,
-    IDeleteAdsChannelUseCase deleteAdsChannelUseCase) : ControllerBase
+    IDeleteAdsChannelUseCase deleteAdsChannelUseCase,
+    IGetAdsChannelByIdUseCase getAdsChannelByIdUseCase) : ControllerBase
 {
     private const string CacheTag = "ads-channels";
 
@@ -63,5 +66,18 @@ public sealed class AdsChannelsController(
         CancellationToken cancellationToken = default)
     {
         return await deleteAdsChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("{id}")]
+    [OutputCache(Duration = 120, Tags = [CacheTag], VaryByRouteValueNames = ["id"])]
+    [EndpointSummary("Get ads channel by id")]
+    [EndpointDescription("Returns a single ads channel by its identifier.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetAdsChannelByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<HttpOkResult<GetAdsChannelByIdOutputDto>> GetAdsChannelById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getAdsChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

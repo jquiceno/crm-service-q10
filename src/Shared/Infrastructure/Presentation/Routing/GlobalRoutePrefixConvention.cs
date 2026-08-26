@@ -3,21 +3,15 @@ using Microsoft.AspNetCore.Mvc.ApplicationModels;
 
 namespace Shared.Presentation.Routing;
 
-/// <summary>
-/// Prepends a fixed URL prefix to every controller route so the whole API is served under a single
-/// path segment (matching the ingress path) without <c>UsePathBase</c>. Applied at the controller
-/// level only, so action routes inherit it once and minimal-API endpoints (health, OpenAPI) are left
-/// untouched — those are prefixed explicitly where they are mapped.
-/// </summary>
+// Prepends the RoutePrefix to every controller route (minimal-API endpoints are prefixed at their map
+// calls instead). Throws on absolute routes ([Route("/x")] / [Route("~/x")]): that override pattern
+// under UsePathBase was the original 405 bug and would silently escape the prefix.
 public sealed class GlobalRoutePrefixConvention : IApplicationModelConvention
 {
     private readonly AttributeRouteModel _prefix;
 
-    public GlobalRoutePrefixConvention(string prefix)
-    {
-        var normalized = (prefix ?? string.Empty).Trim('/');
-        _prefix = new AttributeRouteModel(new RouteAttribute(normalized));
-    }
+    public GlobalRoutePrefixConvention(string prefix) =>
+        _prefix = new AttributeRouteModel(new RouteAttribute(RoutePrefixConfig.Normalize(prefix)));
 
     public void Apply(ApplicationModel application)
     {
@@ -25,10 +19,21 @@ public sealed class GlobalRoutePrefixConvention : IApplicationModelConvention
         {
             foreach (var selector in controller.Selectors)
             {
+                var template = selector.AttributeRouteModel?.Template;
+                if (IsOverridePattern(template))
+                {
+                    throw new InvalidOperationException(
+                        $"Controller '{controller.ControllerType.FullName}' declares an absolute route " +
+                        $"'{template}', which escapes the global route prefix. Use a relative route.");
+                }
+
                 selector.AttributeRouteModel = selector.AttributeRouteModel is null
                     ? _prefix
                     : AttributeRouteModel.CombineAttributeRouteModel(_prefix, selector.AttributeRouteModel);
             }
         }
     }
+
+    private static bool IsOverridePattern(string? template) =>
+        template is not null && (template.StartsWith('/') || template.StartsWith("~/", StringComparison.Ordinal));
 }

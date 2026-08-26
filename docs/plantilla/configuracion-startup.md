@@ -85,7 +85,7 @@ Además de validar **configuración**, la plantilla puede abortar el arranque si
 
 > **Config vs dependencia:** un error de **configuración** (falta un valor) es irrecuperable y siempre debe abortar. Una **dependencia de red caída** es recuperable; este gate duro es una decisión deliberada de "no levantar si no puedo resolver tenants". El orquestador reintenta reiniciando la instancia.
 
-La readiness (`/health/ready`, vía `AddUrlGroup` a `{BaseUrl}/health`) es el gate **suave y recuperable** complementario: no recibe tráfico hasta que el resolver responde 2xx, y se recupera solo sin reiniciar. La sonda de arranque es el gate **duro**; la readiness, el continuo.
+La readiness (`/{RoutePrefix}/health/ready`, vía `AddUrlGroup` a `{BaseUrl}/health`) es el gate **suave y recuperable** complementario: no recibe tráfico hasta que el resolver responde 2xx, y se recupera solo sin reiniciar. La sonda de arranque es el gate **duro**; la readiness, el continuo.
 
 
 ---

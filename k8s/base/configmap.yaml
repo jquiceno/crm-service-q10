@@ -13,6 +13,9 @@ data:
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
 
+  # URL prefix for every endpoint; must match the ingress path and probe/healthcheck paths.
+  RoutePrefix: "/service-template"
+
   # Service info
   ServiceInfo__Name: "ServiceTemplate"
   ServiceInfo__Version: "1.0.0"

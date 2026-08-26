@@ -28,6 +28,7 @@ desarrollador: en local la multitenencia arranca apagada — ver
 |----------|-------------|------------|--------------|
 | `ASPNETCORE_ENVIRONMENT` | `Development` | `Staging`  | `Production` |
 | `ASPNETCORE_URLS` | `http://+:8080` | `http://+:8080` | `http://+:8080` |
+| `RoutePrefix` (obligatoria) | `/service-template` | `/service-template` | `/service-template` |
 | `ServiceInfo__Name` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
 | `TenantResolverService__Enabled` | `true`      | `true`     | `true`       |
 | `TenantResolverService__TimeoutSeconds` | `15`        | `15`       | `15`         |

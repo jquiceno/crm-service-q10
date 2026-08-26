@@ -43,7 +43,7 @@ public sealed class TenantMiddlewareTests
         return context;
     }
 
-    private static IConfiguration BuildConfig(string prefix = "/service-template") =>
+    private static IConfiguration BuildConfig(string prefix = "/svc") =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["RoutePrefix"] = prefix })
             .Build();
@@ -63,10 +63,10 @@ public sealed class TenantMiddlewareTests
     }
 
     [Theory]
-    [InlineData("/service-template/health/ready")]
-    [InlineData("/service-template/openapi/v1.json")]
-    [InlineData("/service-template/openapi")]
-    [InlineData("/service-template/info")]
+    [InlineData("/svc/health/ready")]
+    [InlineData("/svc/openapi/v1.json")]
+    [InlineData("/svc/openapi")]
+    [InlineData("/svc/info")]
     public async Task InvokeAsync_OnExcludedPath_CallsNextAndSkipsResolution(string path)
     {
         var context = BuildContext(path: path);

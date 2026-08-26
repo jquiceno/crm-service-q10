@@ -1,5 +1,6 @@
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
+using Shared.Presentation.Routing;
 
 namespace Api.DependencyInjection;
 
@@ -54,8 +55,7 @@ public static class OpenApiExtensions
         if (!app.Environment.IsDevelopment())
             return app;
 
-        var prefix = (routePrefix ?? string.Empty).Trim('/');
-        var basePath = string.IsNullOrEmpty(prefix) ? string.Empty : $"/{prefix}";
+        var basePath = RoutePrefixConfig.BasePath(routePrefix);
         var jsonPattern = $"{basePath}/openapi/{{documentName}}.json";
 
         app.MapOpenApi(jsonPattern);

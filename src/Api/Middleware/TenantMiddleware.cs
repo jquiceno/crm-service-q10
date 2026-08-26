@@ -4,6 +4,7 @@ using Infrastructure.MasterAccess.Http.Tenants;
 using Shared.Application.Ports;
 using Shared.Presentation.Mapping;
 using Shared.Presentation.Responses;
+using Shared.Presentation.Routing;
 using Shared.Results.Errors;
 
 namespace Api.Middleware;
@@ -19,14 +20,12 @@ public sealed class TenantMiddleware(
     ILoggerPort<TenantMiddleware> logger,
     IConfiguration configuration)
 {
-    // Infrastructure endpoints that must answer without a tenant, built under the service route
-    // prefix. "/openapi" covers both the JSON document and the Scalar UI, which share that prefix.
+    // Infrastructure endpoints that answer without a tenant, under the service prefix.
     private readonly string[] _excludedPaths = BuildExcludedPaths(configuration);
 
     private static string[] BuildExcludedPaths(IConfiguration configuration)
     {
-        var prefix = (configuration["RoutePrefix"] ?? string.Empty).Trim('/');
-        var basePath = string.IsNullOrEmpty(prefix) ? string.Empty : $"/{prefix}";
+        var basePath = RoutePrefixConfig.BasePath(configuration.GetRoutePrefix());
         return [$"{basePath}/health", $"{basePath}/openapi", $"{basePath}/info"];
     }
 

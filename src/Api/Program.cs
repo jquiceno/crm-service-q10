@@ -18,9 +18,11 @@ builder.Configuration.AddTenantResolverEnvironmentAliases();
 
 var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
 
-// Single source of truth for the service URL prefix (matches the ingress path). Applied to
-// controllers via GlobalRoutePrefixConvention and to the minimal-API endpoints below.
-var routePrefix = (builder.Configuration["RoutePrefix"] ?? string.Empty).Trim('/');
+var routePrefix = builder.Configuration.GetRoutePrefix();
+if (string.IsNullOrEmpty(routePrefix))
+    throw new InvalidOperationException(
+        $"Configuration key '{RoutePrefixConfig.ConfigKey}' is required and must be non-empty " +
+        "(e.g. \"/service-template\"). It sets the URL prefix every endpoint is served under.");
 
 builder.Services
     .AddApiSettings(builder.Configuration)
@@ -34,16 +36,13 @@ builder.Services
     .AddControllers(options =>
     {
         options.Conventions.Add(new RouteTokenTransformerConvention(new KebabCaseParameterTransformer()));
-        if (!string.IsNullOrWhiteSpace(routePrefix))
-            options.Conventions.Add(new GlobalRoutePrefixConvention(routePrefix));
+        options.Conventions.Add(new GlobalRoutePrefixConvention(routePrefix));
         options.Filters.Add<ValidateRequestFilter>();
     });
 
 var app = builder.Build();
 
-// Prepends the service prefix to a root-relative path (e.g. "/health/ready"). Minimal-API endpoints
-// are not controllers, so they are prefixed here rather than by GlobalRoutePrefixConvention.
-string Prefixed(string path) => string.IsNullOrEmpty(routePrefix) ? path : $"/{routePrefix}{path}";
+string Prefixed(string path) => RoutePrefixConfig.BasePath(routePrefix) + path;
 
 app.UseExceptionHandler();
 

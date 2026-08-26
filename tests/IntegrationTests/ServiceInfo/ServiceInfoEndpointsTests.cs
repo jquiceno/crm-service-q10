@@ -16,7 +16,7 @@ public sealed class ServiceInfoEndpointsTests : IntegrationTestBase
     [Fact]
     public async Task GetInfo_Returns200_WithServiceInfo()
     {
-        var response = await Client.GetAsync("/info");
+        var response = await Client.GetAsync("/service-template/info");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 

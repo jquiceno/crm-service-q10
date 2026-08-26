@@ -168,7 +168,7 @@ Los comentarios XML (`/// <summary>`) del `record` completo siguen siendo útile
 
 ## Versionado de API y OpenAPI
 
-**Hoy la plantilla no versiona las rutas.** El `v1` que aparece en `/openapi/v1.json` es el nombre del *documento* OpenAPI por defecto, no un segmento de versión en las rutas. Los endpoints no llevan prefijo de versión: `/info` sale del `[Route("info")]` del controller y `/health/live` de un `MapHealthChecks` en `Program.cs`. Sí existe un prefijo en los ambientes desplegados —`ASPNETCORE_PATHBASE=/service-template`— pero lo consume `UsePathBase` antes de enrutar, así que no forma parte de la ruta que ve el controller.
+**Hoy la plantilla no versiona las rutas.** El `v1` que aparece en `/openapi/v1.json` es el nombre del *documento* OpenAPI por defecto, no un segmento de versión en las rutas. Lo que sí llevan todos los endpoints es el prefijo de servicio (`RoutePrefix`, ej. `/service-template`): `GlobalRoutePrefixConvention` lo antepone a los controllers (`/service-template/info`) y `Program.cs` lo antepone a los minimal-API de health y OpenAPI (`/service-template/health/live`, `/service-template/openapi/v1.json`). No se usa `UsePathBase`; el prefijo forma parte de la ruta real que ve el enrutador.
 
 Si en algún momento se necesita versionar, las opciones son un **prefijo en ruta** (`api/v1/...`) o un paquete como `Asp.Versioning.Mvc`, integrándolo en `Program.cs`. Nada de eso está cableado todavía.
 

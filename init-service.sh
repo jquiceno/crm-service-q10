@@ -13,7 +13,7 @@
 # Flags:
 #   --name          Nombre del servicio en minúsculas con guiones (restricción de ECR/k8s).
 #   --repo          Nombre exacto del repositorio en GitHub (respeta mayúsculas; se usa en OIDC trust).
-#   --path          Prefijo URL del servicio (ASPNETCORE_PATHBASE + ruta del ingress), ej: /my-service.
+#   --path          Prefijo URL del servicio (RoutePrefix en appsettings + ruta del ingress), ej: /my-service.
 #   --org           Organización de GitHub (default: Q10-Software).
 #   --set-gh-vars   Registra SERVICE_NAME e IMAGE_KEY como variables del repo via gh CLI.
 #   --dry-run       Muestra qué cambios haría sin modificar archivos.
@@ -74,7 +74,7 @@ done
 # ── Resumen de parámetros ─────────────────────────────────────────────────────
 printf "\n${BOLD}%-16s${NC}%s\n"  "  service-name"  "$SERVICE_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-repo"   "$GITHUB_REPO"
-printf "${BOLD}%-16s${NC}%s\n"    "  path-base"     "$PATHBASE"
+printf "${BOLD}%-16s${NC}%s\n"    "  route-prefix"  "$PATHBASE"
 printf "${BOLD}%-16s${NC}%s\n"    "  image-key"     "$IMAGE_KEY"
 printf "${BOLD}%-16s${NC}%s\n"    "  service-info"  "$PASCAL_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-org"    "$GITHUB_ORG"
@@ -174,7 +174,8 @@ for f in "${APP_FILES[@]}"; do
     skip "$f"
     continue
   fi
-  sub "$f" "ServiceTemplate" "$PASCAL_NAME"
+  sub "$f" "/service-template" "$PATHBASE"
+  sub "$f" "ServiceTemplate"   "$PASCAL_NAME"
   $DRY_RUN || ok "$f"
 done
 

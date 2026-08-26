@@ -18,6 +18,10 @@ builder.Configuration.AddTenantResolverEnvironmentAliases();
 
 var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
 
+// Single source of truth for the service URL prefix (matches the ingress path). Applied to
+// controllers via GlobalRoutePrefixConvention and to the minimal-API endpoints below.
+var routePrefix = (builder.Configuration["RoutePrefix"] ?? string.Empty).Trim('/');
+
 builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
@@ -30,13 +34,16 @@ builder.Services
     .AddControllers(options =>
     {
         options.Conventions.Add(new RouteTokenTransformerConvention(new KebabCaseParameterTransformer()));
+        if (!string.IsNullOrWhiteSpace(routePrefix))
+            options.Conventions.Add(new GlobalRoutePrefixConvention(routePrefix));
         options.Filters.Add<ValidateRequestFilter>();
     });
 
 var app = builder.Build();
 
-var pathBase = builder.Configuration["ASPNETCORE_PATHBASE"] ?? "";
-if (!string.IsNullOrEmpty(pathBase)) app.UsePathBase(pathBase);
+// Prepends the service prefix to a root-relative path (e.g. "/health/ready"). Minimal-API endpoints
+// are not controllers, so they are prefixed here rather than by GlobalRoutePrefixConvention.
+string Prefixed(string path) => string.IsNullOrEmpty(routePrefix) ? path : $"/{routePrefix}{path}";
 
 app.UseExceptionHandler();
 
@@ -53,14 +60,14 @@ app.UseTenantResolution(multitenancyEnabled);
 
 app.UseCacheMiddleware();
 
-app.UseOpenApiDocumentation();
+app.UseOpenApiDocumentation(routePrefix);
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions
+app.MapHealthChecks(Prefixed("/health/live"), new HealthCheckOptions
 {
     Predicate = _ => false
 });
 
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
+app.MapHealthChecks(Prefixed("/health/ready"), new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 });

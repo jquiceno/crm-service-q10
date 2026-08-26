@@ -25,7 +25,7 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
     {
         using var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/health/live");
+        var response = await client.GetAsync("/service-template/health/live");
 
         response.Headers.TryGetValues(TraceHeaders.TraceId, out var values).ShouldBeTrue();
         var traceId = values!.Single();
@@ -41,7 +41,7 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
         var incomingSpanId = ActivitySpanId.CreateRandom().ToString();
         var traceparent = $"00-{incomingTraceId}-{incomingSpanId}-01";
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/service-template/health/live");
         request.Headers.TryAddWithoutValidation("traceparent", traceparent);
 
         var response = await client.SendAsync(request);
@@ -55,8 +55,8 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
     {
         using var client = _factory.CreateClient();
 
-        var first = await client.GetAsync("/health/live");
-        var second = await client.GetAsync("/health/live");
+        var first = await client.GetAsync("/service-template/health/live");
+        var second = await client.GetAsync("/service-template/health/live");
 
         var firstTraceId = first.Headers.GetValues(TraceHeaders.TraceId).Single();
         var secondTraceId = second.Headers.GetValues(TraceHeaders.TraceId).Single();

@@ -12,7 +12,6 @@ data:
   # ASP.NET Core
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
-  ASPNETCORE_PATHBASE: "/service-template"
 
   # Service info
   ServiceInfo__Name: "ServiceTemplate"

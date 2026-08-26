@@ -2,6 +2,7 @@ using Api.Middleware;
 using Api.Session;
 using Infrastructure.MasterAccess.Http.Tenants;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Primitives;
 using NSubstitute;
 using Shared.Application.Ports;
@@ -42,6 +43,11 @@ public sealed class TenantMiddlewareTests
         return context;
     }
 
+    private static IConfiguration BuildConfig(string prefix = "/service-template") =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["RoutePrefix"] = prefix })
+            .Build();
+
     private (TenantMiddleware Sut, bool[] NextCalled) BuildSut()
     {
         var nextCalled = new[] { false };
@@ -51,15 +57,16 @@ public sealed class TenantMiddlewareTests
                 nextCalled[0] = true;
                 return Task.CompletedTask;
             },
-            _logger);
+            _logger,
+            BuildConfig());
         return (sut, nextCalled);
     }
 
     [Theory]
-    [InlineData("/health/ready")]
-    [InlineData("/openapi/v1.json")]
-    [InlineData("/openapi")]
-    [InlineData("/info")]
+    [InlineData("/service-template/health/ready")]
+    [InlineData("/service-template/openapi/v1.json")]
+    [InlineData("/service-template/openapi")]
+    [InlineData("/service-template/info")]
     public async Task InvokeAsync_OnExcludedPath_CallsNextAndSkipsResolution(string path)
     {
         var context = BuildContext(path: path);

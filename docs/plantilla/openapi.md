@@ -12,9 +12,9 @@ Este documento describe cómo está integrado OpenAPI en la plantilla, cómo act
 | **Generación del documento OpenAPI** | `Microsoft.AspNetCore.OpenApi` — documento JSON (por defecto OpenAPI 3.1) a partir de los endpoints descubiertos por el API Explorer. |
 | **Interfaz interactiva** | `Scalar.AspNetCore` — sirve la UI y consume el JSON anterior. **No** se usa Swashbuckle ni Swagger UI: no están referenciados en ningún `.csproj`. |
 
-El JSON se expone en `**/openapi/v1.json**` (documento por defecto llamado `v1`). La UI de Scalar se registra bajo el prefijo `/openapi` con el nombre de documento como segmento opcional, así que se abre en `**/openapi/v1**` (o `/openapi/`). Todo esto **solo en Development**.
+El JSON se expone en `**/{RoutePrefix}/openapi/v1.json**` (documento por defecto llamado `v1`). La UI de Scalar se registra bajo `/{RoutePrefix}/openapi` con el nombre de documento como segmento opcional, así que se abre en `**/{RoutePrefix}/openapi/v1**` (o `/{RoutePrefix}/openapi/`). Todo vive bajo el prefijo de servicio (`RoutePrefix`) — las rutas OpenAPI se prefijan explícitamente en `UseOpenApiDocumentation`. Todo esto **solo en Development**.
 
-No hay ninguna ruta `/swagger`: si buscás la UI, es `/openapi`.
+No hay ninguna ruta `/swagger`: si buscás la UI, es `/{RoutePrefix}/openapi`.
 
 
 ---
@@ -54,28 +54,33 @@ services.AddOpenApi(options =>
 ### Pipeline HTTP
 
 ```csharp
-// UseOpenApiDocumentation
-app.MapOpenApi();
-app.MapScalarApiReference("/openapi", options =>
+// UseOpenApiDocumentation(routePrefix)
+var basePath = RoutePrefixConfig.BasePath(routePrefix);       // "/service-template"
+var jsonPattern = $"{basePath}/openapi/{{documentName}}.json";
+
+app.MapOpenApi(jsonPattern);
+app.MapScalarApiReference($"{basePath}/openapi", options =>
 {
-    options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    options.OpenApiRoutePattern = jsonPattern;
 });
-app.MapGet("/openapi", () => Results.Redirect("/openapi/v1")).ExcludeFromDescription();
+app.MapGet($"{basePath}/openapi", () => Results.Redirect($"{basePath}/openapi/v1")).ExcludeFromDescription();
 ```
 
-* `**MapOpenApi()**`: publica el JSON en `**/openapi/v1.json**` (ruta por convención).
-* `**MapScalarApiReference**`: registra la UI bajo `/openapi` con el nombre de documento como segmento opcional (`/openapi/{documentName?}`), y el `OpenApiRoutePattern` le dice dónde buscar el JSON.
-* El `MapGet` final hace que `/openapi` a secas lleve a `/openapi/v1`. Convive sin conflicto con la ruta de Scalar: la literal gana sobre la del parámetro opcional, no hay ambigüedad de enrutamiento.
+Las rutas OpenAPI son minimal-API, así que no las toca `GlobalRoutePrefixConvention` (que solo prefija controllers): se prefijan a mano con `basePath`, por eso reciben el mismo `RoutePrefix`.
 
-Comprobado en Development contra la app corriendo:
+* `**MapOpenApi(jsonPattern)**`: publica el JSON en `**/{RoutePrefix}/openapi/v1.json**`.
+* `**MapScalarApiReference**`: registra la UI bajo `/{RoutePrefix}/openapi` con el nombre de documento como segmento opcional (`/{RoutePrefix}/openapi/{documentName?}`), y el `OpenApiRoutePattern` le dice dónde buscar el JSON.
+* El `MapGet` final hace que `/{RoutePrefix}/openapi` a secas lleve a `/{RoutePrefix}/openapi/v1`. Convive sin conflicto con la ruta de Scalar: la literal gana sobre la del parámetro opcional, no hay ambigüedad de enrutamiento.
+
+Comprobado en Development contra la app corriendo (con `RoutePrefix=/service-template`):
 
 | Ruta | Respuesta |
 |------|-----------|
-| `/openapi` | `302` → `/openapi/v1` |
-| `/openapi/` | `302` → `/openapi/v1` |
-| `/openapi/v1` | `200` (UI de Scalar) |
-| `/openapi/v1.json` | `200` (documento JSON) |
-| `/scalar` | `404` — no existe |
+| `/service-template/openapi` | `302` → `/service-template/openapi/v1` |
+| `/service-template/openapi/` | `302` → `/service-template/openapi/v1` |
+| `/service-template/openapi/v1` | `200` (UI de Scalar) |
+| `/service-template/openapi/v1.json` | `200` (documento JSON) |
+| `/openapi` (sin prefijo) | `404` — no está fuera del prefijo |
 
 
 ---
@@ -175,7 +180,7 @@ Si en algún momento se necesita versionar, las opciones son un **prefijo en rut
 Si coexisten varias versiones:
 
 * Alinear **nombre del documento** (`AddOpenApi("v1")`, `AddOpenApi("v2")`) con las rutas o reglas de inclusión de endpoints.
-* Registrar cada documento en Scalar para tener selector de versiones en la UI. El `OpenApiRoutePattern` que ya usa la plantilla (`/openapi/{documentName}.json`) está parametrizado por nombre de documento, así que sirve para varios sin cambios.
+* Registrar cada documento en Scalar para tener selector de versiones en la UI. El `OpenApiRoutePattern` que ya usa la plantilla (`/{RoutePrefix}/openapi/{documentName}.json`) está parametrizado por nombre de documento, así que sirve para varios sin cambios.
 
 
 ---

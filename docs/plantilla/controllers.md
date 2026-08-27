@@ -52,7 +52,7 @@ public sealed class ProductsController(
 
 Convenciones que se ven en ese encabezado:
 
-- `[Route("[controller]")]` — la ruta (relativa) sale del nombre del controller, no se escribe a mano. Solo se escribe literal cuando el recurso no coincide con el nombre de la clase (`[Route("logs")]`, o una ruta anidada). El **prefijo de servicio** (`RoutePrefix`) lo antepone `GlobalRoutePrefixConvention` — no se repite en cada `[Route]`. Cuando el recurso raíz coincide con el prefijo, el controller usa `[Route("")]` para no duplicarlo. Nunca uses una ruta absoluta (`[Route("/algo")]` o `[Route("~/algo")]`): escapa del prefijo y la convención aborta el arranque.
+- `[Route("[controller]")]` — la ruta (relativa) sale del nombre del controller, no se escribe a mano. Solo se escribe literal cuando el recurso no coincide con el nombre de la clase (`[Route("logs")]`, o una ruta anidada). El **prefijo de servicio** (`RoutePrefix`) lo antepone `GlobalRoutePrefixConvention` — no se repite en cada `[Route]`. Cuando el recurso raíz coincide con el prefijo, el controller usa `[Route("")]` para no duplicarlo. Nunca uses una ruta absoluta (empieza por `/` o `~/`), ni en el `[Route]` del controller ni en un verbo (`[HttpGet("/algo")]`): escaparía del prefijo, y la convención lo detecta en ambos niveles y aborta el arranque.
 - `[Tags("…")]` **a nivel de controller**, no repetido en cada action: todas las actions de un controller pertenecen al mismo grupo de OpenAPI.
 - El tag de caché se declara como `private const string CacheTag` y se reutiliza en `[OutputCache]` y `[OutputCacheInvalidate]`, para que lectura e invalidación no puedan desalinearse.
 - Los parámetros del constructor se nombran `{casoDeUso}UseCase`.

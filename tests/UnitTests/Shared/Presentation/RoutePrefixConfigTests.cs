@@ -11,9 +11,11 @@ public sealed class RoutePrefixConfigTests
     [InlineData("/service-template", "service-template")]
     [InlineData("service-template", "service-template")]
     [InlineData("/service-template/", "service-template")]
+    [InlineData(" /service-template/ ", "service-template")]
+    [InlineData("   ", "")]
     [InlineData("", "")]
     [InlineData(null, "")]
-    public void Normalize_TrimsSlashes(string? input, string expected) =>
+    public void Normalize_TrimsWhitespaceAndSlashes(string? input, string expected) =>
         RoutePrefixConfig.Normalize(input).ShouldBe(expected);
 
     [Theory]

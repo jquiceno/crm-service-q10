@@ -17,16 +17,15 @@ public sealed class GlobalRoutePrefixConvention : IApplicationModelConvention
     {
         foreach (var controller in application.Controllers)
         {
+            // Action-level absolute routes ([HttpGet("/x")]) override the controller route and escape
+            // the prefix just like a controller-level one, so guard both levels.
+            foreach (var action in controller.Actions)
+                foreach (var selector in action.Selectors)
+                    ThrowIfOverride(controller, selector.AttributeRouteModel?.Template);
+
             foreach (var selector in controller.Selectors)
             {
-                var template = selector.AttributeRouteModel?.Template;
-                if (IsOverridePattern(template))
-                {
-                    throw new InvalidOperationException(
-                        $"Controller '{controller.ControllerType.FullName}' declares an absolute route " +
-                        $"'{template}', which escapes the global route prefix. Use a relative route.");
-                }
-
+                ThrowIfOverride(controller, selector.AttributeRouteModel?.Template);
                 selector.AttributeRouteModel = selector.AttributeRouteModel is null
                     ? _prefix
                     : AttributeRouteModel.CombineAttributeRouteModel(_prefix, selector.AttributeRouteModel);
@@ -34,6 +33,13 @@ public sealed class GlobalRoutePrefixConvention : IApplicationModelConvention
         }
     }
 
-    private static bool IsOverridePattern(string? template) =>
-        template is not null && (template.StartsWith('/') || template.StartsWith("~/", StringComparison.Ordinal));
+    private static void ThrowIfOverride(ControllerModel controller, string? template)
+    {
+        if (template is null || !(template.StartsWith('/') || template.StartsWith("~/", StringComparison.Ordinal)))
+            return;
+
+        throw new InvalidOperationException(
+            $"Controller '{controller.ControllerType.FullName}' declares an absolute route '{template}', " +
+            "which escapes the global route prefix. Use a relative route.");
+    }
 }

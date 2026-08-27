@@ -37,6 +37,7 @@ Se usa cuando la habilitación de un componente es opcional (`Enabled: true/fals
 
 | Variable | Condición de fallo |
 |----------|--------------------|
+| `RoutePrefix` | **siempre requerida**; vacía o solo espacios (es el prefijo de URL bajo el que se sirve todo) |
 | `Sentry:Dsn` | `Sentry:Enabled = true` y el DSN está vacío |
 | `TenantResolverService:BaseUrl` | `TenantResolverService:Enabled = true` y el BaseUrl está vacío o no es una URL absoluta válida |
 
@@ -96,11 +97,12 @@ Las validaciones se ejecutan en el orden en que se registran en `Program.cs`:
 
 
 1. **Sentry DSN** — al invocar `builder.AddSentry()`
-2. **ServiceInfo (Name, Version)** — al invocar `builder.Host.AddSerilog()` y luego `AddApiSettings()`
-3. **TenantResolverService:BaseUrl** (modo multitenant) — al invocar `AddInfrastructureServices()`
-4. **Cache Settings** — al invocar `ConfigureCache()`
-5. **Validaciones de** `**ValidateOnStart()**` — al invocar `builder.Build()`
-6. **Reachability del tenant-resolver** (modo multitenant) — en `StartingAsync`, tras `builder.Build()` y antes de que Kestrel abra el puerto
+2. **RoutePrefix** — justo tras cargar la configuración (antes de `builder.Services`/`AddApiSettings`); aborta si está vacío
+3. **ServiceInfo (Name, Version)** — al invocar `builder.Host.AddSerilog()` y luego `AddApiSettings()`
+4. **TenantResolverService:BaseUrl** (modo multitenant) — al invocar `AddInfrastructureServices()`
+5. **Cache Settings** — al invocar `ConfigureCache()`
+6. **Validaciones de** `**ValidateOnStart()**` — al invocar `builder.Build()`
+7. **Reachability del tenant-resolver** (modo multitenant) — en `StartingAsync`, tras `builder.Build()` y antes de que Kestrel abra el puerto
 
 Si cualquiera de estas falla, la app se detiene y el error queda registrado antes de atender cualquier solicitud.
 
@@ -147,7 +149,8 @@ services.AddOptions<MisSettings>()
 
 | Archivo | Responsabilidad |
 |---------|-----------------|
-| `src/Api/Program.cs` | Punto de entrada; define el orden de registro y validación |
+| `src/Api/Program.cs` | Punto de entrada; define el orden de registro y validación (incluye el fail-fast de `RoutePrefix`) |
+| `src/Shared/Infrastructure/Presentation/Routing/RoutePrefixConfig.cs` | Lee y normaliza `RoutePrefix` (`GetRoutePrefix()`) |
 | `src/Api/DependencyInjection/SettingsExtensions.cs` | Registra `ServiceInfoSettings` con `ValidateOnStart()` |
 | `src/Api/DependencyInjection/InfrastructureServiceExtensions.cs` | Valida `TenantResolverService:BaseUrl` (modo multitenant) |
 | `src/Api/HostedServices/TenantResolverStartupProbe.cs` | Sonda de reachability del tenant-resolver al arranque |

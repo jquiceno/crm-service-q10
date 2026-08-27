@@ -8,7 +8,7 @@ public static class RoutePrefixConfig
 {
     public const string ConfigKey = "RoutePrefix";
 
-    public static string Normalize(string? prefix) => (prefix ?? string.Empty).Trim('/');
+    public static string Normalize(string? prefix) => (prefix ?? string.Empty).Trim().Trim('/');
 
     public static string BasePath(string? prefix)
     {

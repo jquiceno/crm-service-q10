@@ -24,7 +24,6 @@ patches:
         namespace: service-template
       data:
         ASPNETCORE_ENVIRONMENT: "Staging"
-        ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
         # Deployment tier, lowercase, same literal every service reports regardless of stack.
         # Deliberately separate from ASPNETCORE_ENVIRONMENT above: that one is a runtime mode and

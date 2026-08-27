@@ -6,7 +6,8 @@ kind: Kustomization
 #   1. namespace: below                     (service name)
 #   2. images.name / newName               (ECR image key and URI)
 #   3. All patch target `name:` values     (ConfigMap, Deployment, Ingress, etc.)
-#   4. ASPNETCORE_PATHBASE                 (URL prefix for this service)
+#   4. RoutePrefix (k8s/base/configmap.yaml = valor desplegado; appsettings.json = default) + ingress path
+#      (URL prefix — los tres deben coincidir; init-service.sh --path los sustituye)
 #   5. ExternalSecret key paths            (/platform/dev/<service>)
 #      IMPORTANT: the extract.key must match the REAL Secrets Manager secret
 #      name EXACTLY, leading slash included. Some legacy secrets were created
@@ -48,7 +49,6 @@ patches:
         namespace: service-template
       data:
         ASPNETCORE_ENVIRONMENT: "Development"
-        ASPNETCORE_PATHBASE: "/service-template"   # URL prefix — must match ingress path
         TenantResolverService__Enabled: "true"
         Sentry__Enabled: "false"
         # Deployment tier, lowercase, same literal every service reports regardless of stack.

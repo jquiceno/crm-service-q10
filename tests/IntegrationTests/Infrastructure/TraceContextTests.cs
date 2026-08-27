@@ -2,7 +2,10 @@ using System.Diagnostics;
 using Infrastructure.Observability;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Shared.Presentation.Routing;
 using Shouldly;
 using Xunit;
 
@@ -20,12 +23,15 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
 
     public TraceContextTests(TraceApiFactory factory) => _factory = factory;
 
+    private string HealthLive =>
+        $"/{_factory.Services.GetRequiredService<IConfiguration>().GetRoutePrefix()}/health/live";
+
     [Fact]
     public async Task Response_Exposes_TraceId_Header_With_32_Hex_Chars()
     {
         using var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/health/live");
+        var response = await client.GetAsync(HealthLive);
 
         response.Headers.TryGetValues(TraceHeaders.TraceId, out var values).ShouldBeTrue();
         var traceId = values!.Single();
@@ -41,7 +47,7 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
         var incomingSpanId = ActivitySpanId.CreateRandom().ToString();
         var traceparent = $"00-{incomingTraceId}-{incomingSpanId}-01";
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+        using var request = new HttpRequestMessage(HttpMethod.Get, HealthLive);
         request.Headers.TryAddWithoutValidation("traceparent", traceparent);
 
         var response = await client.SendAsync(request);
@@ -55,8 +61,8 @@ public sealed class TraceContextTests : IClassFixture<TraceContextTests.TraceApi
     {
         using var client = _factory.CreateClient();
 
-        var first = await client.GetAsync("/health/live");
-        var second = await client.GetAsync("/health/live");
+        var first = await client.GetAsync(HealthLive);
+        var second = await client.GetAsync(HealthLive);
 
         var firstTraceId = first.Headers.GetValues(TraceHeaders.TraceId).Single();
         var secondTraceId = second.Headers.GetValues(TraceHeaders.TraceId).Single();

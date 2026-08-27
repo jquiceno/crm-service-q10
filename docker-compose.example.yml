@@ -8,6 +8,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      RoutePrefix: /service-template
       ServiceInfo__Name: ServiceTemplate
       ServiceInfo__Version: 1.0.0
       Sentry__Enabled: "false"

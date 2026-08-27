@@ -1,5 +1,7 @@
 using Infrastructure.Persistence.EntityFramework;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Shared.Presentation.Routing;
 using Xunit;
 
 namespace IntegrationTests.Infrastructure;
@@ -12,6 +14,9 @@ public abstract class IntegrationTestBase : IAsyncLifetime, IAsyncDisposable
 
     protected HttpClient Client { get; }
     protected ApplicationDbContext Db => _scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+    protected IServiceProvider Services => _factory.Services;
+    protected string RoutePrefix => _factory.Services.GetRequiredService<IConfiguration>().GetRoutePrefix();
 
     protected IntegrationTestBase(SqlServerContainerFixture fixture)
     {

@@ -18,6 +18,12 @@ builder.Configuration.AddTenantResolverEnvironmentAliases();
 
 var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
 
+var routePrefix = builder.Configuration.GetRoutePrefix();
+if (string.IsNullOrEmpty(routePrefix))
+    throw new InvalidOperationException(
+        $"Configuration key '{RoutePrefixConfig.ConfigKey}' is required and must be non-empty " +
+        "(e.g. \"/service-template\"). It sets the URL prefix every endpoint is served under.");
+
 builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
@@ -30,13 +36,13 @@ builder.Services
     .AddControllers(options =>
     {
         options.Conventions.Add(new RouteTokenTransformerConvention(new KebabCaseParameterTransformer()));
+        options.Conventions.Add(new GlobalRoutePrefixConvention(routePrefix));
         options.Filters.Add<ValidateRequestFilter>();
     });
 
 var app = builder.Build();
 
-var pathBase = builder.Configuration["ASPNETCORE_PATHBASE"] ?? "";
-if (!string.IsNullOrEmpty(pathBase)) app.UsePathBase(pathBase);
+string Prefixed(string path) => RoutePrefixConfig.BasePath(routePrefix) + path;
 
 app.UseExceptionHandler();
 
@@ -53,14 +59,14 @@ app.UseTenantResolution(multitenancyEnabled);
 
 app.UseCacheMiddleware();
 
-app.UseOpenApiDocumentation();
+app.UseOpenApiDocumentation(routePrefix);
 
-app.MapHealthChecks("/health/live", new HealthCheckOptions
+app.MapHealthChecks(Prefixed("/health/live"), new HealthCheckOptions
 {
     Predicate = _ => false
 });
 
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
+app.MapHealthChecks(Prefixed("/health/ready"), new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready")
 });

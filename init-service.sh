@@ -13,7 +13,7 @@
 # Flags:
 #   --name          Nombre del servicio en minúsculas con guiones (restricción de ECR/k8s).
 #   --repo          Nombre exacto del repositorio en GitHub (respeta mayúsculas; se usa en OIDC trust).
-#   --path          Prefijo URL del servicio (ASPNETCORE_PATHBASE + ruta del ingress), ej: /my-service.
+#   --path          Prefijo URL del servicio (RoutePrefix en appsettings + ruta del ingress), ej: /my-service.
 #   --org           Organización de GitHub (default: Q10-Software).
 #   --set-gh-vars   Registra SERVICE_NAME e IMAGE_KEY como variables del repo via gh CLI.
 #   --dry-run       Muestra qué cambios haría sin modificar archivos.
@@ -33,7 +33,7 @@ title() { printf "\n${CYAN}${BOLD}▶ %s${NC}\n" "$*"; }
 # ── Arg parsing ───────────────────────────────────────────────────────────────
 SERVICE_NAME=""
 GITHUB_REPO=""
-PATHBASE=""
+ROUTE_PREFIX=""
 GITHUB_ORG="Q10-Software"
 SET_GH_VARS=false
 DRY_RUN=false
@@ -42,7 +42,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --name)        SERVICE_NAME="$2"; shift 2 ;;
     --repo)        GITHUB_REPO="$2";  shift 2 ;;
-    --path)        PATHBASE="$2";     shift 2 ;;
+    --path)        ROUTE_PREFIX="$2";     shift 2 ;;
     --org)         GITHUB_ORG="$2";   shift 2 ;;
     --set-gh-vars) SET_GH_VARS=true;  shift   ;;
     --dry-run)     DRY_RUN=true;      shift   ;;
@@ -54,12 +54,12 @@ done
 # ── Validaciones ──────────────────────────────────────────────────────────────
 [[ -n "$SERVICE_NAME" ]] || die "--name es obligatorio  (ej: my-service)"
 [[ -n "$GITHUB_REPO"  ]] || die "--repo es obligatorio  (ej: My-Service)"
-[[ -n "$PATHBASE"     ]] || die "--path es obligatorio  (ej: /my-service)"
+[[ -n "$ROUTE_PREFIX"     ]] || die "--path es obligatorio  (ej: /my-service)"
 
 [[ "$SERVICE_NAME" =~ ^[a-z][a-z0-9-]+$ ]] \
   || die "--name '${SERVICE_NAME}' debe ser kebab-case en minúsculas (^[a-z][a-z0-9-]+$)"
-[[ "$PATHBASE" =~ ^/[a-z][a-z0-9/-]*$ ]] \
-  || die "--path '${PATHBASE}' debe comenzar con / y usar solo minúsculas, dígitos y guiones"
+[[ "$ROUTE_PREFIX" =~ ^/[a-z][a-z0-9/-]*$ ]] \
+  || die "--path '${ROUTE_PREFIX}' debe comenzar con / y usar solo minúsculas, dígitos y guiones"
 
 IMAGE_KEY="q10-${SERVICE_NAME}"
 
@@ -74,7 +74,7 @@ done
 # ── Resumen de parámetros ─────────────────────────────────────────────────────
 printf "\n${BOLD}%-16s${NC}%s\n"  "  service-name"  "$SERVICE_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-repo"   "$GITHUB_REPO"
-printf "${BOLD}%-16s${NC}%s\n"    "  path-base"     "$PATHBASE"
+printf "${BOLD}%-16s${NC}%s\n"    "  route-prefix"  "$ROUTE_PREFIX"
 printf "${BOLD}%-16s${NC}%s\n"    "  image-key"     "$IMAGE_KEY"
 printf "${BOLD}%-16s${NC}%s\n"    "  service-info"  "$PASCAL_NAME"
 printf "${BOLD}%-16s${NC}%s\n"    "  github-org"    "$GITHUB_ORG"
@@ -141,8 +141,11 @@ APP_FILES=(
 # ── Sustituciones ─────────────────────────────────────────────────────────────
 # Orden: más específico primero para evitar sustituciones parciales.
 #   1. service-template-dotnet  → $GITHUB_REPO   (contiene "service-template")
-#   2. /service-template        → $PATHBASE       (prefijo de ruta)
+#   2. /service-template        → $ROUTE_PREFIX       (prefijo de ruta)
 #   3. service-template         → $SERVICE_NAME   (todos los demás usos)
+# DEUDA (preexistente): la regla 2 también toca la key de external-secret.yaml
+# (/platform/{env}/service-template). Con --name x-service --path /x queda
+# /platform/{env}/x en vez de /x-service. Revisar aparte; no se corrige aquí.
 
 title "k8s"
 for f in "${K8S_FILES[@]}"; do
@@ -151,7 +154,7 @@ for f in "${K8S_FILES[@]}"; do
     continue
   fi
   sub "$f" "service-template-dotnet" "$GITHUB_REPO"
-  sub "$f" "/service-template"       "$PATHBASE"
+  sub "$f" "/service-template"       "$ROUTE_PREFIX"
   sub "$f" "service-template"        "$SERVICE_NAME"
   $DRY_RUN || ok "$f"
 done
@@ -163,7 +166,7 @@ for f in "${TERRAFORM_FILES[@]}"; do
     continue
   fi
   sub "$f" "service-template-dotnet" "$GITHUB_REPO"
-  sub "$f" "/service-template"       "$PATHBASE"
+  sub "$f" "/service-template"       "$ROUTE_PREFIX"
   sub "$f" "service-template"        "$SERVICE_NAME"
   $DRY_RUN || ok "$f"
 done
@@ -174,7 +177,8 @@ for f in "${APP_FILES[@]}"; do
     skip "$f"
     continue
   fi
-  sub "$f" "ServiceTemplate" "$PASCAL_NAME"
+  sub "$f" "/service-template" "$ROUTE_PREFIX"
+  sub "$f" "ServiceTemplate"   "$PASCAL_NAME"
   $DRY_RUN || ok "$f"
 done
 

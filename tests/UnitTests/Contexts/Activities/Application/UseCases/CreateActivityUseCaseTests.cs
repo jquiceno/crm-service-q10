@@ -329,6 +329,10 @@ public sealed class CreateActivityUseCaseTests
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// The commit is the only write, so its failure means the activity was not recorded — the
+    /// caller can retry on it without duplicating anything.
+    /// </summary>
     [Fact]
     public async Task ExecuteAsync_WhenTheCommitFails_PropagatesTheError()
     {

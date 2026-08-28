@@ -3,7 +3,6 @@ using Activities.Domain.Errors;
 using Activities.Domain.Filters;
 using Activities.Domain.Models;
 using Activities.Domain.Repositories;
-using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Infrastructure.Persistence.EntityFramework.Activities.Mappers;
 using Infrastructure.Persistence.EntityFramework.Common;
@@ -18,8 +17,12 @@ namespace Infrastructure.Persistence.EntityFramework.Activities;
 /// <remarks>
 /// Can't inherit <see cref="RepositoryBaseEF{TAggregate, TId}"/>: it assumes the aggregate is what
 /// EF maps, but here <see cref="ActivityEntity"/> is (F2.2), translated via
-/// <see cref="ActivityRepositoryMapper"/>. <see cref="AddAsync"/> saves immediately, unlike the
-/// rest — the id is a SQL <c>IDENTITY</c> unknown until insert, with no later point to copy it back.
+/// <see cref="ActivityRepositoryMapper"/>.
+/// <para>
+/// Nothing here writes: every mutation only stages work in the change tracker, and the unit of
+/// work commits it in its own step. The generated identity still reaches the aggregate — see
+/// <see cref="StampIdOnceSaved"/>.
+/// </para>
 /// </remarks>
 public sealed class ActivityRepositoryAdapter(
     ApplicationDbContext context,
@@ -80,16 +83,9 @@ public sealed class ActivityRepositoryAdapter(
         {
             var entity = ActivityRepositoryMapper.ToEntity(aggregate);
             await DbSet.AddAsync(entity, cancellationToken).ConfigureAwait(false);
-            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
-            aggregate.AssignId(entity.Id);
+            StampIdOnceSaved(aggregate, entity);
 
             return Result.Success();
-        }
-        catch (DbUpdateException ex)
-        {
-            logger.Error(ex, "Database update error adding Activity");
-            return SqlServerErrorClassifier.Classify(ex, Origin);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -99,9 +95,54 @@ public sealed class ActivityRepositoryAdapter(
     }
 
     /// <summary>
+    /// Copies the generated identity onto the aggregate once the unit of work commits.
+    /// </summary>
+    /// <remarks>
+    /// The aggregate is not what EF tracks — <see cref="ActivityEntity"/> is — so nothing would
+    /// carry the <c>IDENTITY</c> back on its own. Hooking <see cref="DbContext.SavedChanges"/> is
+    /// what lets <see cref="AddAsync"/> stay a pure "add to the unit of work": the row is written
+    /// when whoever owns the transaction commits, and until then a failure leaves nothing behind
+    /// for the caller to duplicate on a retry.
+    /// <para>
+    /// <b>Why not the template's <c>CreateAsync</c>.</b> <c>docs/plantilla/repositorio.md</c>
+    /// answers this same problem — a use case that needs the database-generated identity — by
+    /// letting the repository save inside <c>CreateAsync</c> and dropping the unit of work
+    /// altogether. That is what this adapter did until a review caught the cost: with the write
+    /// already committed, a later failure is reported to the client as a 500 over a row that does
+    /// exist, and nothing else can ever join the same transaction. The trade was made knowingly —
+    /// atomicity over following the template here — so please don't "fix" it back without
+    /// revisiting that.
+    /// </para>
+    /// <para>
+    /// The handler ignores a save that did not include its row (the identity would still be 0) and
+    /// stays subscribed for the one that does. Once it fires it unsubscribes, and since the context
+    /// is registered with <c>AddDbContext</c> — scoped, not pooled — a commit that never happens
+    /// simply takes the subscription with it at the end of the request.
+    /// </para>
+    /// </remarks>
+    private void StampIdOnceSaved(Activity aggregate, ActivityEntity entity)
+    {
+        void OnSaved(object? sender, SavedChangesEventArgs args)
+        {
+            if (entity.Id == 0)
+                return;
+
+            context.SavedChanges -= OnSaved;
+            aggregate.AssignId(entity.Id);
+        }
+
+        context.SavedChanges += OnSaved;
+    }
+
+    /// <summary>
     /// Full-column overwrite; no update flow exists yet. A real one must copy changed columns
     /// selectively instead (DEC-6), not reuse this as-is.
     /// </summary>
+    /// <remarks>
+    /// It also expects an aggregate that already carries its identity. Calling it on one that was
+    /// only staged by <see cref="AddAsync"/> — identity still 0 — makes EF read the default key as
+    /// a second insert, not as the same row.
+    /// </remarks>
     public Result Update(Activity aggregate)
     {
         try

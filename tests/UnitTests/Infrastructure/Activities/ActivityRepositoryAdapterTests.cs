@@ -171,15 +171,34 @@ public sealed class ActivityRepositoryAdapterTests
     // ── AddAsync ──────────────────────────────────────────────────────────────
 
     [Fact]
-    public async Task AddAsync_WhenValid_PersistsAndAssignsTheGeneratedId()
+    public async Task AddAsync_WhenValid_StagesTheRowWithoutWritingIt()
     {
-        using var context = CreateContext(nameof(AddAsync_WhenValid_PersistsAndAssignsTheGeneratedId));
+        using var context = CreateContext(nameof(AddAsync_WhenValid_StagesTheRowWithoutWritingIt));
         var sut = new ActivityRepositoryAdapter(context, Logger());
         var activity = NewActivity(1200);
 
         var result = await sut.AddAsync(activity);
 
         result.IsSuccess.ShouldBeTrue();
+
+        // Nothing is written until the unit of work commits: that is what lets a failed commit
+        // leave no row behind for the caller to duplicate on a retry.
+        context.ChangeTracker.Entries<ActivityEntity>().Count().ShouldBe(1);
+        activity.Id.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task AddAsync_OnceTheUnitOfWorkCommits_AssignsTheGeneratedId()
+    {
+        using var context = CreateContext(nameof(AddAsync_OnceTheUnitOfWorkCommits_AssignsTheGeneratedId));
+        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var activity = NewActivity(1200);
+
+        await sut.AddAsync(activity);
+        activity.Id.ShouldBe(0, "the id cannot exist before the row does");
+
+        await context.SaveChangesAsync();
+
         activity.Id.ShouldBeGreaterThan(0);
         (await context.Set<ActivityEntity>().CountAsync()).ShouldBe(1);
     }
@@ -209,6 +228,7 @@ public sealed class ActivityRepositoryAdapterTests
         using (var seedContext = CreateContext(dbName))
         {
             await new ActivityRepositoryAdapter(seedContext, Logger()).AddAsync(activity);
+            await seedContext.SaveChangesAsync();
         }
 
         // A fresh context, like RepositoryBaseEFTests: Update's own tracked entity would

@@ -25,7 +25,7 @@ namespace Activities.Domain.Aggregates;
 /// column); <c>Id</c> stays 0 until save.
 /// </para>
 /// </remarks>
-public sealed class Activity : AggregateRoot<int>
+public sealed class ActivityAggregate : AggregateRoot<int>
 {
     public int DealId { get; }
     public int? OpportunityId { get; }
@@ -47,7 +47,7 @@ public sealed class Activity : AggregateRoot<int>
     public PersonCode CreatedById { get; }
     public DateTime? CompletedAt { get; }
 
-    private Activity(
+    private ActivityAggregate(
         int dealId,
         int? opportunityId,
         ActivityType type,
@@ -78,7 +78,7 @@ public sealed class Activity : AggregateRoot<int>
     /// itself so the caller never handles their <c>Result</c> (see <see cref="ScheduleActivityArgs"/>).
     /// Value object failures are accumulated; invariant failures are reported one at a time.
     /// </summary>
-    public static Result<Activity> Schedule(ScheduleActivityArgs args)
+    public static Result<ActivityAggregate> Schedule(ScheduleActivityArgs args)
     {
         var errors = new List<ValidationError>();
 
@@ -100,7 +100,7 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     /// <summary>Creates an activity planned for the future.</summary>
-    public static Result<Activity, ValidationError> Schedule(
+    public static Result<ActivityAggregate, ValidationError> Schedule(
         int dealId,
         int? opportunityId,
         ActivityType type,
@@ -122,7 +122,7 @@ public sealed class Activity : AggregateRoot<int>
         if (dueAt is null)
             return ActivityErrors.DueDateRequired;
 
-        var activity = new Activity(
+        var activity = new ActivityAggregate(
             dealId, opportunityId, type, ActivityStatus.Scheduled, description, dueAt,
             outcome: null, outcomeType: null, advisorId, createdById, completedAt: null);
         activity.Created();
@@ -135,7 +135,7 @@ public sealed class Activity : AggregateRoot<int>
     /// the catalogue of <see cref="CompleteActivityArgs.Type"/>. Value object failures are
     /// accumulated; invariant failures are reported one at a time.
     /// </summary>
-    public static Result<Activity> RegisterCompleted(CompleteActivityArgs args, DateTime now)
+    public static Result<ActivityAggregate> RegisterCompleted(CompleteActivityArgs args, DateTime now)
     {
         var errors = new List<ValidationError>();
 
@@ -165,7 +165,7 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     /// <summary>Records an activity that already happened, born completed.</summary>
-    public static Result<Activity, ValidationError> RegisterCompleted(
+    public static Result<ActivityAggregate, ValidationError> RegisterCompleted(
         int dealId,
         int? opportunityId,
         ActivityType type,
@@ -196,7 +196,7 @@ public sealed class Activity : AggregateRoot<int>
             return ActivityErrors.OutcomeTypeScopeNotSupported;
         }
 
-        var activity = new Activity(
+        var activity = new ActivityAggregate(
             dealId, opportunityId, type, ActivityStatus.Completed, description: null, dueAt,
             outcome, outcomeType, advisorId, createdById, completedAt: now);
         activity.Created();
@@ -262,7 +262,7 @@ public sealed class Activity : AggregateRoot<int>
     /// The identity is the one exception: it defines equality (<c>Entity&lt;TId&gt;</c>), so a
     /// non-positive one is a programming error, never legacy data.
     /// </summary>
-    internal static Activity Reconstruct(
+    internal static ActivityAggregate Reconstruct(
         int id,
         int dealId,
         int? opportunityId,
@@ -281,7 +281,7 @@ public sealed class Activity : AggregateRoot<int>
             throw new ArgumentOutOfRangeException(
                 nameof(id), id, "A persisted activity always has a positive identity.");
 
-        var activity = new Activity(
+        var activity = new ActivityAggregate(
             dealId, opportunityId, type, status, description, dueAt, outcome, outcomeType,
             advisorId, createdById, completedAt)
         {

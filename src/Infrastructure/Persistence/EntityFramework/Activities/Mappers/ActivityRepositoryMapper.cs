@@ -15,11 +15,11 @@ namespace Infrastructure.Persistence.EntityFramework.Activities.Mappers;
 /// </summary>
 internal static class ActivityRepositoryMapper
 {
-    public static Activity ToDomain(ActivityEntity entity)
+    public static ActivityAggregate ToDomain(Activity entity)
     {
         var type = LegacyActivityCodes.ToType(entity.Type);
 
-        return Activity.Reconstruct(
+        return ActivityAggregate.Reconstruct(
             entity.Id,
             entity.DealId,
             entity.OpportunityId,
@@ -41,11 +41,11 @@ internal static class ActivityRepositoryMapper
     /// catalogue) nor historic NULL bits, so a blanket copy would normalize legacy data that
     /// DEC-6 forbids touching — the repository (F2.4) must copy changed columns selectively.
     /// </summary>
-    public static ActivityEntity ToEntity(Activity aggregate)
+    public static Activity ToDocument(ActivityAggregate aggregate)
     {
         var (isCompleted, isCancelled) = LegacyActivityCodes.ToStatusBits(aggregate.Status);
 
-        return new ActivityEntity
+        return new Activity
         {
             DealId = aggregate.DealId,
             OpportunityId = aggregate.OpportunityId,

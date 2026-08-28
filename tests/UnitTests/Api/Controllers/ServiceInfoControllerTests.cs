@@ -17,7 +17,7 @@ namespace UnitTests.Api.Controllers;
 
 public sealed class ServiceInfoControllerTests
 {
-    private readonly IGetServiceInfoPort _getServiceInfoPort = Substitute.For<IGetServiceInfoPort>();
+    private readonly IGetServiceInfoUseCase _getServiceInfoPort = Substitute.For<IGetServiceInfoUseCase>();
 
     private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(
         HttpOkResult<GetServiceInfoOutputDto> result)

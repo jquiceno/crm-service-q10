@@ -41,7 +41,7 @@ public sealed class ActivityFromArgsTests
     {
         var before = DateTime.UtcNow;
 
-        var result = Activity.Schedule(ValidScheduleArgs);
+        var result = ActivityAggregate.Schedule(ValidScheduleArgs);
 
         var after = DateTime.UtcNow;
 
@@ -66,15 +66,15 @@ public sealed class ActivityFromArgsTests
             CreatedById = "",
         };
 
-        var result = Activity.Schedule(args);
+        var result = ActivityAggregate.Schedule(args);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.DomainError);
         result.Error.Details.Select(d => d.Property).ShouldBe(
             [
-                nameof(Activity.Description),
-                nameof(Activity.AdvisorId),
-                nameof(Activity.CreatedById),
+                nameof(ActivityAggregate.Description),
+                nameof(ActivityAggregate.AdvisorId),
+                nameof(ActivityAggregate.CreatedById),
             ],
             ignoreOrder: true);
     }
@@ -82,32 +82,32 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void Schedule_FromArgs_ReportsThePropertyOfTheCreatedByIdSeparately()
     {
-        var result = Activity.Schedule(ValidScheduleArgs with { CreatedById = null });
+        var result = ActivityAggregate.Schedule(ValidScheduleArgs with { CreatedById = null });
 
         result.IsFailure.ShouldBeTrue();
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(nameof(Activity.CreatedById));
+        detail.Property.ShouldBe(nameof(ActivityAggregate.CreatedById));
         detail.Errors!.ShouldBe(new[] { ActivityErrors.PersonCodeRequired.Message });
     }
 
     [Fact]
     public void Schedule_FromArgs_WrapsInvariantFailures()
     {
-        var result = Activity.Schedule(ValidScheduleArgs with { DealId = 0 });
+        var result = ActivityAggregate.Schedule(ValidScheduleArgs with { DealId = 0 });
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.DomainError);
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(nameof(Activity.DealId));
+        detail.Property.ShouldBe(nameof(ActivityAggregate.DealId));
         detail.Errors!.ShouldBe(new[] { ActivityErrors.DealIdRequired.Message });
     }
 
     [Fact]
     public void RegisterCompleted_FromArgs_ResolvesTheOutcomeName()
     {
-        var result = Activity.RegisterCompleted(ValidCompleteArgs, Now);
+        var result = ActivityAggregate.RegisterCompleted(ValidCompleteArgs, Now);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Status.ShouldBe(ActivityStatus.Completed);
@@ -118,12 +118,12 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void RegisterCompleted_FromArgs_WithUnknownOutcomeName_AccumulatesTheError()
     {
-        var result = Activity.RegisterCompleted(ValidCompleteArgs with { OutcomeName = "Nope" }, Now);
+        var result = ActivityAggregate.RegisterCompleted(ValidCompleteArgs with { OutcomeName = "Nope" }, Now);
 
         result.IsFailure.ShouldBeTrue();
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(nameof(Activity.OutcomeType));
+        detail.Property.ShouldBe(nameof(ActivityAggregate.OutcomeType));
         detail.Errors!.ShouldBe(new[] { ActivityErrors.UnknownOutcomeType.Message });
     }
 
@@ -134,12 +134,12 @@ public sealed class ActivityFromArgsTests
     public void RegisterCompleted_FromArgs_RejectsAnOutcomeNameForTypesWithoutOutcome(
         ActivityType type)
     {
-        var result = Activity.RegisterCompleted(ValidCompleteArgs with { Type = type }, Now);
+        var result = ActivityAggregate.RegisterCompleted(ValidCompleteArgs with { Type = type }, Now);
 
         result.IsFailure.ShouldBeTrue();
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(nameof(Activity.OutcomeType));
+        detail.Property.ShouldBe(nameof(ActivityAggregate.OutcomeType));
         detail.Errors!.ShouldBe(new[] { ActivityErrors.OutcomeTypeScopeNotSupported.Message });
     }
 
@@ -150,7 +150,7 @@ public sealed class ActivityFromArgsTests
     public void RegisterCompleted_FromArgs_SucceedsForTypesWithoutOutcomeWhenNoneIsSupplied(
         ActivityType type)
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             ValidCompleteArgs with { Type = type, OutcomeName = null }, Now);
 
         result.IsSuccess.ShouldBeTrue();
@@ -160,12 +160,12 @@ public sealed class ActivityFromArgsTests
     [Fact]
     public void RegisterCompleted_FromArgs_WithMissingOutcomeName_ReportsOutcomeTypeRequired()
     {
-        var result = Activity.RegisterCompleted(ValidCompleteArgs with { OutcomeName = null }, Now);
+        var result = ActivityAggregate.RegisterCompleted(ValidCompleteArgs with { OutcomeName = null }, Now);
 
         result.IsFailure.ShouldBeTrue();
 
         var detail = result.Error.Details.ShouldHaveSingleItem();
-        detail.Property.ShouldBe(nameof(Activity.OutcomeType));
+        detail.Property.ShouldBe(nameof(ActivityAggregate.OutcomeType));
         detail.Errors!.ShouldBe(new[] { ActivityErrors.OutcomeTypeRequired.Message });
     }
 }

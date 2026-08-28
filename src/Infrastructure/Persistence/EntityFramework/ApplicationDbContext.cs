@@ -6,7 +6,7 @@ namespace Infrastructure.Persistence.EntityFramework;
 public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : DbContext(options)
 {
-    internal DbSet<ActivityEntity> Activities => Set<ActivityEntity>();
+    internal DbSet<Activity> Activities => Set<Activity>();
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {

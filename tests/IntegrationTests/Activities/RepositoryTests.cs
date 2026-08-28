@@ -1,6 +1,6 @@
 using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
-using Activities.Domain.Filters;
+using Activities.Domain.Queries;
 using Activities.Domain.ValueObjects;
 using Infrastructure.Adapters.Persistence;
 using Infrastructure.Persistence.EntityFramework;
@@ -17,8 +17,8 @@ using Xunit;
 namespace IntegrationTests.Activities;
 
 /// <summary>
-/// F2.4/F2.6: <c>AddAsync</c> + generated id, and <c>SearchAsync</c> filter/page/order parity with
-/// the legacy SP, proven against both measured schema variants (Discovery §4.1-bis).
+/// F2.4/F2.6: <c>CreateAsync</c> + generated id, and <c>SearchAsync</c> filter/page/order parity
+/// with the legacy SP, proven against both measured schema variants (Discovery §4.1-bis).
 /// </summary>
 [Collection(IntegrationTestCollection.Name)]
 public sealed class RepositoryTests : IAsyncLifetime
@@ -45,36 +45,30 @@ public sealed class RepositoryTests : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private static ActivityRepositoryAdapter Sut(ApplicationDbContext context) =>
-        new(context, Substitute.For<ILoggerPort<ActivityRepositoryAdapter>>());
+    private static ActivityRepository Sut(ApplicationDbContext context) =>
+        new(context, Substitute.For<ILoggerPort<ActivityRepository>>());
 
-    // --- AddAsync --------------------------------------------------------------------------
+    // --- CreateAsync -------------------------------------------------------------------------
 
     [Theory]
     [MemberData(nameof(Variants))]
-    public async Task AddAsync_PersistsTheRowAndAssignsTheGeneratedId(string variant)
+    public async Task CreateAsync_PersistsTheRowAndReturnsTheGeneratedId(string variant)
     {
         using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         var sut = Sut(context);
         var dueAt = DateTime.UtcNow.AddDays(1);
-        var activity = Activity.Schedule(
+        var activity = ActivityAggregate.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call back").Value, dueAt,
             Advisor, Creator).Value;
 
-        (await sut.AddAsync(activity).ConfigureAwait(true)).IsSuccess.ShouldBeTrue();
+        var created = await sut.CreateAsync(activity).ConfigureAwait(true);
 
-        // AddAsync only stages the row; the unit of work owns the write, and the IDENTITY the
-        // database generates lands on the aggregate as part of that commit. The commit goes
-        // through the real UnitOfWorkAdapter on purpose: it is the piece that writes in
-        // production, so the whole chain that fills the response's id is under test.
-        activity.Id.ShouldBe(0, "nothing is written before the commit");
+        // The consecutive is a SQL IDENTITY: it only exists once the insert is confirmed, which is
+        // why this member commits its own write instead of queueing it.
+        created.IsSuccess.ShouldBeTrue();
+        created.Value.Id.ShouldBeGreaterThan(0);
 
-        var unitOfWork = new UnitOfWorkAdapter(context, Substitute.For<ILoggerPort<UnitOfWorkAdapter>>());
-        (await unitOfWork.CommitAsync().ConfigureAwait(true)).IsSuccess.ShouldBeTrue();
-
-        activity.Id.ShouldBeGreaterThan(0);
-
-        var fetched = await sut.GetByIdAsync(activity.Id).ConfigureAwait(true);
+        var fetched = await sut.GetByIdAsync(created.Value.Id).ConfigureAwait(true);
         fetched.IsSuccess.ShouldBeTrue();
         fetched.Value.DealId.ShouldBe(1200);
         fetched.Value.Description!.Value.ShouldBe("call back");
@@ -82,16 +76,16 @@ public sealed class RepositoryTests : IAsyncLifetime
 
     [Theory]
     [MemberData(nameof(Variants))]
-    public async Task AddAsync_WhenTheCommitNeverHappens_LeavesNoRowBehind(string variant)
+    public async Task AddAsync_WithoutACommit_LeavesNoRowBehind(string variant)
     {
         using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
-        var activity = Activity.Schedule(
+        var activity = ActivityAggregate.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call back").Value,
             DateTime.UtcNow.AddDays(1), Advisor, Creator).Value;
 
+        // AddAsync is the member for a write that joins a larger transaction: it only queues.
         await Sut(context).AddAsync(activity).ConfigureAwait(true);
 
-        // A caller that fails between the add and the commit can retry without duplicating.
         using var reader = ActivitySchemaVariants.CreateContext(_fixture, variant);
         var all = await Sut(reader).GetAllAsync(new PageQuery(0, 10)).ConfigureAwait(true);
         all.TotalCount.ShouldBe(0);
@@ -298,7 +292,7 @@ public sealed class RepositoryTests : IAsyncLifetime
     private static async Task<int> SeedActivityAsync(
         ApplicationDbContext context, int dealId, int? opportunityId = null, string? advisorId = null)
     {
-        var entity = new ActivityEntity
+        var entity = new Activity
         {
             DealId = dealId,
             OpportunityId = opportunityId,

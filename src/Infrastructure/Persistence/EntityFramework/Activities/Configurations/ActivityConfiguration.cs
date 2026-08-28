@@ -21,9 +21,9 @@ namespace Infrastructure.Persistence.EntityFramework.Activities.Configurations;
 /// <see cref="LegacyActivityCodes"/> (DEC-15). No EF migrations ever run against the legacy
 /// databases — this is mapping, not schema.
 /// </remarks>
-internal sealed class ActivityConfiguration : IEntityTypeConfiguration<ActivityEntity>
+internal sealed class ActivityConfiguration : IEntityTypeConfiguration<Activity>
 {
-    public void Configure(EntityTypeBuilder<ActivityEntity> builder)
+    public void Configure(EntityTypeBuilder<Activity> builder)
     {
         builder.ToTable("tbl_opo_negocios_actividades");
 

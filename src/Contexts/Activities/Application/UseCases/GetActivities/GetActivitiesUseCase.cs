@@ -1,4 +1,4 @@
-using Activities.Domain.Filters;
+using Activities.Domain.Queries;
 using Activities.Domain.Repositories;
 using Shared.Domain.Pagination;
 using Shared.Results;

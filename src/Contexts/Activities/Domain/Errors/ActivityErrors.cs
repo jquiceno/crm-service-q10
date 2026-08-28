@@ -23,62 +23,62 @@ public static class ActivityErrors
     public static readonly ValidationError DealIdRequired =
         new("Deal id is required and must be greater than zero.", ErrorType.Validation)
         {
-            Property = nameof(Activity.DealId),
+            Property = nameof(ActivityAggregate.DealId),
         };
 
     public static readonly ValidationError InvalidActivityType =
         new("Activity type is not a known value.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Type),
+            Property = nameof(ActivityAggregate.Type),
         };
 
     public static readonly ValidationError TypeNotWritable =
         new("Activity type cannot be created by this service.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Type),
+            Property = nameof(ActivityAggregate.Type),
         };
 
     public static readonly ValidationError NoteCannotBeScheduled =
         new("A note cannot be scheduled.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Type),
+            Property = nameof(ActivityAggregate.Type),
         };
 
     public static readonly ValidationError DescriptionRequired =
         new("Description is required for a scheduled activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Description),
+            Property = nameof(ActivityAggregate.Description),
         };
 
     public static readonly ValidationError DescriptionTooLong =
         new($"Description cannot exceed {ActivityLimits.DescriptionMaxLength} characters.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Description),
+            Property = nameof(ActivityAggregate.Description),
             Attributes = new Dictionary<string, object?> { ["maxLength"] = ActivityLimits.DescriptionMaxLength },
         };
 
     public static readonly ValidationError DueDateRequired =
         new("Due date is required for a scheduled activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.DueAt),
+            Property = nameof(ActivityAggregate.DueAt),
         };
 
     public static readonly ValidationError OutcomeRequired =
         new("Outcome is required for a completed activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Outcome),
+            Property = nameof(ActivityAggregate.Outcome),
         };
 
     public static readonly ValidationError OutcomeTypeRequired =
         new("Outcome type is required for a completed call or meeting.", ErrorType.Validation)
         {
-            Property = nameof(Activity.OutcomeType),
+            Property = nameof(ActivityAggregate.OutcomeType),
         };
 
     public static readonly ValidationError OutcomeTypeScopeMismatch =
         new("Outcome type does not belong to the activity type's catalogue.", ErrorType.Validation)
         {
-            Property = nameof(Activity.OutcomeType),
+            Property = nameof(ActivityAggregate.OutcomeType),
         };
 
     // Property defaults to the advisor field, the primary use; the args-based factories override
@@ -87,13 +87,13 @@ public static class ActivityErrors
     public static readonly ValidationError PersonCodeRequired =
         new("Person code is required.", ErrorType.Validation)
         {
-            Property = nameof(Activity.AdvisorId),
+            Property = nameof(ActivityAggregate.AdvisorId),
         };
 
     public static readonly ValidationError PersonCodeTooLong =
         new($"Person code cannot exceed {ActivityLimits.PersonCodeMaxLength} characters.", ErrorType.Validation)
         {
-            Property = nameof(Activity.AdvisorId),
+            Property = nameof(ActivityAggregate.AdvisorId),
             Attributes = new Dictionary<string, object?> { ["maxLength"] = ActivityLimits.PersonCodeMaxLength },
         };
 
@@ -102,13 +102,13 @@ public static class ActivityErrors
     public static readonly ValidationError UnknownOutcomeType =
         new("Outcome type is not a known value for the activity type.", ErrorType.Validation)
         {
-            Property = nameof(Activity.OutcomeType),
+            Property = nameof(ActivityAggregate.OutcomeType),
         };
 
     public static readonly ValidationError OutcomeTypeScopeNotSupported =
         new("Only calls and meetings have an outcome type.", ErrorType.Validation)
         {
-            Property = nameof(Activity.OutcomeType),
+            Property = nameof(ActivityAggregate.OutcomeType),
         };
 
     // --- Raised by the request validator at the API edge ---------------------------------
@@ -119,19 +119,19 @@ public static class ActivityErrors
     public static readonly ValidationError OutcomeNotAllowedWhenScheduled =
         new("Outcome is not allowed for a scheduled activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Outcome),
+            Property = nameof(ActivityAggregate.Outcome),
         };
 
     public static readonly ValidationError OutcomeTypeNotAllowedWhenScheduled =
         new("Outcome type is not allowed for a scheduled activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.OutcomeType),
+            Property = nameof(ActivityAggregate.OutcomeType),
         };
 
     public static readonly ValidationError DescriptionNotAllowedWhenCompleted =
         new("Description is not allowed for a completed activity.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Description),
+            Property = nameof(ActivityAggregate.Description),
         };
 
     // --- Raised by the use cases when resolving the request against the institution ----------
@@ -139,7 +139,7 @@ public static class ActivityErrors
     public static readonly ValidationError InvalidActivityStatus =
         new("Activity status is not a known value.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Status),
+            Property = nameof(ActivityAggregate.Status),
         };
 
     /// <summary>
@@ -149,7 +149,7 @@ public static class ActivityErrors
     public static readonly ValidationError StatusNotCreatable =
         new("Only 'scheduled' and 'completed' activities can be created.", ErrorType.Validation)
         {
-            Property = nameof(Activity.Status),
+            Property = nameof(ActivityAggregate.Status),
         };
 
     /// <summary>
@@ -159,7 +159,7 @@ public static class ActivityErrors
     public static readonly ValidationError OpportunityArchived =
         new("The deal's opportunity is archived.", ErrorType.Validation)
         {
-            Property = nameof(Activity.DealId),
+            Property = nameof(ActivityAggregate.DealId),
         };
 
     public static NotFoundError DealNotFound(int dealId) =>

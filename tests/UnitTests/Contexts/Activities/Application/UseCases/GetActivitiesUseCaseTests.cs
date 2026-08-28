@@ -1,7 +1,7 @@
 using Activities.Application.UseCases.GetActivities;
 using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
-using Activities.Domain.Filters;
+using Activities.Domain.Queries;
 using Activities.Domain.Models;
 using Activities.Domain.Repositories;
 using Activities.Domain.ValueObjects;
@@ -53,7 +53,7 @@ public sealed class GetActivitiesUseCaseTests
     [Fact]
     public async Task ExecuteAsync_MapsACompletedCallToTheContractShape()
     {
-        var activity = Activity.RegisterCompleted(
+        var activity = ActivityAggregate.RegisterCompleted(
             new CompleteActivityArgs(
                 1200, 845, ActivityType.Call, "Se contactó al cliente", nameof(CallOutcome.Contacted),
                 DueAt: null, "advisor-01", "advisor-01"),
@@ -88,7 +88,7 @@ public sealed class GetActivitiesUseCaseTests
     public async Task ExecuteAsync_MapsAScheduledActivityWithoutInventingAnOutcome()
     {
         var dueAt = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
-        var activity = Activity.Schedule(
+        var activity = ActivityAggregate.Schedule(
             1200, 845, ActivityType.Meeting, Description.Create("Visitar al cliente").Value, dueAt,
             PersonCode.Create("advisor-01").Value, PersonCode.Create("advisor-01").Value).Value;
 

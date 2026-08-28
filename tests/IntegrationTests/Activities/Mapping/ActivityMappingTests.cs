@@ -74,7 +74,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     {
         var dueAt = Now.AddDays(1);
         var before = DateTime.UtcNow.AddSeconds(-1);
-        var scheduled = Activity.Schedule(
+        var scheduled = ActivityAggregate.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call the applicant").Value, dueAt,
             Advisor, Creator).Value;
 
@@ -105,7 +105,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     [MemberData(nameof(Variants))]
     public async Task ACompletedCall_RoundTrips_AndWritesTheLegacyChars(string variant)
     {
-        var completed = Activity.RegisterCompleted(
+        var completed = ActivityAggregate.RegisterCompleted(
             1200, 845, ActivityType.Call, Outcome.Create("the applicant answered").Value,
             OutcomeType.ForCall(CallOutcome.Contacted).Value, dueAt: null, Advisor, Creator, Now).Value;
 
@@ -277,14 +277,14 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         var messages = string.Empty;
         for (var current = exception; current is not null; current = current.InnerException)
             messages += current.Message + " ";
-        messages.ShouldContain(nameof(ActivityEntity.DealId));
+        messages.ShouldContain(nameof(ActivityAggregate.DealId));
     }
 
     [Fact]
     public async Task ThePerTenantColumn_IsNeverTouched()
     {
         // The insert itself proves EF sends no value for ConsecutivoActMiG; this pins it.
-        var completed = Activity.RegisterCompleted(
+        var completed = ActivityAggregate.RegisterCompleted(
             1200, 845, ActivityType.Note, Outcome.Create("noted").Value, outcomeType: null,
             dueAt: null, Advisor, Creator, Now).Value;
 
@@ -308,9 +308,9 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     // --- Plumbing ----------------------------------------------------------------------------
 
-    private async Task<int> SaveAsync(string variant, Activity activity)
+    private async Task<int> SaveAsync(string variant, ActivityAggregate activity)
     {
-        var entity = ActivityRepositoryMapper.ToEntity(activity);
+        var entity = ActivityRepositoryMapper.ToDocument(activity);
 
         var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await using (context.ConfigureAwait(false))
@@ -321,13 +321,13 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         }
     }
 
-    private async Task<Activity> ReadAsync(string variant, int id)
+    private async Task<ActivityAggregate> ReadAsync(string variant, int id)
     {
         var entity = await ReadEntityAsync(variant, id).ConfigureAwait(false);
         return ActivityRepositoryMapper.ToDomain(entity);
     }
 
-    private async Task<ActivityEntity> ReadEntityAsync(string variant, int id)
+    private async Task<Activity> ReadEntityAsync(string variant, int id)
     {
         var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await using (context.ConfigureAwait(false))

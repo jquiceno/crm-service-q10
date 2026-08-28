@@ -30,7 +30,7 @@ public sealed class ActivityTests
     [InlineData(-1)]
     public void Schedule_WithNonPositiveDealId_ReturnsDealIdRequired(int dealId)
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             dealId, AnyOpportunityId, ActivityType.Call, AnyDescription, Now.AddDays(1),
             AnyAdvisor, AnyAdvisor);
 
@@ -41,7 +41,7 @@ public sealed class ActivityTests
     [Fact]
     public void Schedule_WithUndefinedType_ReturnsInvalidActivityType()
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, (ActivityType)99, AnyDescription, Now.AddDays(1),
             AnyAdvisor, AnyAdvisor);
 
@@ -54,7 +54,7 @@ public sealed class ActivityTests
     [InlineData(ActivityType.LegacyMeeting)]
     public void Schedule_WithAReadOnlyType_ReturnsTypeNotWritable(ActivityType type)
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, type, AnyDescription, Now.AddDays(1),
             AnyAdvisor, AnyAdvisor);
 
@@ -65,7 +65,7 @@ public sealed class ActivityTests
     [Fact]
     public void Schedule_WithNote_ReturnsNoteCannotBeScheduled()
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Note, AnyDescription, Now.AddDays(1),
             AnyAdvisor, AnyAdvisor);
 
@@ -76,7 +76,7 @@ public sealed class ActivityTests
     [Fact]
     public void Schedule_WithoutDescription_ReturnsDescriptionRequired()
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, description: null, Now.AddDays(1),
             AnyAdvisor, AnyAdvisor);
 
@@ -87,7 +87,7 @@ public sealed class ActivityTests
     [Fact]
     public void Schedule_WithoutDueDate_ReturnsDueDateRequired()
     {
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyDescription, dueAt: null,
             AnyAdvisor, AnyAdvisor);
 
@@ -101,7 +101,7 @@ public sealed class ActivityTests
         var dueAt = Now.AddDays(1);
         var before = DateTime.UtcNow;
 
-        var result = Activity.Schedule(
+        var result = ActivityAggregate.Schedule(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyDescription, dueAt,
             AnyAdvisor, AnyAdvisor);
 
@@ -128,7 +128,7 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithNonPositiveDealId_ReturnsDealIdRequired()
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             0, AnyOpportunityId, ActivityType.Call, AnyOutcome, AnyCallOutcome, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -139,7 +139,7 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithVirtualMeeting_ReturnsTypeNotWritable()
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.VirtualMeeting, AnyOutcome, outcomeType: null,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
 
@@ -150,7 +150,7 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithoutOutcome_ReturnsOutcomeRequired()
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, outcome: null, AnyCallOutcome,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
 
@@ -164,7 +164,7 @@ public sealed class ActivityTests
     public void RegisterCompleted_WithoutOutcomeTypeWhereItIsRequired_ReturnsOutcomeTypeRequired(
         ActivityType type)
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, type, AnyOutcome, outcomeType: null, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -175,7 +175,7 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithAnOutcomeTypeFromAnotherScope_ReturnsScopeMismatch()
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyOutcome, AnyMeetingOutcome,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
 
@@ -190,7 +190,7 @@ public sealed class ActivityTests
     public void RegisterCompleted_ForATypeWithoutOutcomeType_ReturnsScopeNotSupported(
         ActivityType type)
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, type, AnyOutcome, AnyCallOutcome, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -205,7 +205,7 @@ public sealed class ActivityTests
     public void RegisterCompleted_ForATypeWithoutOutcomeType_SucceedsWhenNoneIsSupplied(
         ActivityType type)
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, type, AnyOutcome, outcomeType: null, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -218,7 +218,7 @@ public sealed class ActivityTests
     {
         var before = DateTime.UtcNow;
 
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyOutcome, AnyCallOutcome,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
 
@@ -242,7 +242,7 @@ public sealed class ActivityTests
         // DEC-7: the reserved value of the legacy is a normal, writable outcome here.
         var dealClosed = OutcomeType.ForCall(CallOutcome.DealClosed).Value;
 
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyOutcome, dealClosed, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -256,7 +256,7 @@ public sealed class ActivityTests
         // The legacy API filled the due date from the request even on completed activities.
         var dueAt = Now.AddHours(-2);
 
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, ActivityType.Call, AnyOutcome, AnyCallOutcome, dueAt,
             AnyAdvisor, AnyAdvisor, Now);
 
@@ -267,7 +267,7 @@ public sealed class ActivityTests
     [Fact]
     public void RegisterCompleted_WithoutADeal_IsStillRejected()
     {
-        var result = Activity.RegisterCompleted(
+        var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, opportunityId: null, ActivityType.Note, AnyOutcome, outcomeType: null,
             dueAt: null, AnyAdvisor, AnyAdvisor, Now);
 
@@ -286,7 +286,7 @@ public sealed class ActivityTests
     [InlineData(ActivityType.VirtualMeeting, false)]
     public void AdmitsOutcomeType_OnlyForCallsAndMeetings(ActivityType type, bool expected)
     {
-        Activity.AdmitsOutcomeType(type).ShouldBe(expected);
+        ActivityAggregate.AdmitsOutcomeType(type).ShouldBe(expected);
     }
 
     [Theory]
@@ -299,6 +299,6 @@ public sealed class ActivityTests
     [InlineData(ActivityType.LegacyMeeting, false)]
     public void IsWritable_ExcludesTheReadOnlyTypes(ActivityType type, bool expected)
     {
-        Activity.IsWritable(type).ShouldBe(expected);
+        ActivityAggregate.IsWritable(type).ShouldBe(expected);
     }
 }

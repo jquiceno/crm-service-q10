@@ -36,5 +36,5 @@ public static class CreateActivityMapping
             advisorCode,
             advisorCode);
 
-    public static CreateActivityOutputDto ToOutputDto(this Activity aggregate) => new(aggregate.Id);
+    public static CreateActivityOutputDto ToOutputDto(this ActivityAggregate aggregate) => new(aggregate.Id);
 }

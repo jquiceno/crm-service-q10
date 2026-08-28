@@ -304,9 +304,30 @@ public sealed class ActivityRepositoryAdapterTests
         var byDealState = await sut.SearchAsync(new ActivityFilter(null, null, 3), new PageQuery(0, 10));
 
         byDeal.TotalCount.ShouldBe(1);
-        byDeal.Items.ShouldHaveSingleItem().Id.ShouldBe(1);
-        byOpportunity.Items.ShouldHaveSingleItem().Id.ShouldBe(1);
-        byDealState.Items.ShouldHaveSingleItem().Id.ShouldBe(1);
+        byDeal.Items.ShouldHaveSingleItem().Activity.Id.ShouldBe(1);
+        byOpportunity.Items.ShouldHaveSingleItem().Activity.Id.ShouldBe(1);
+        byDealState.Items.ShouldHaveSingleItem().Activity.Id.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task SearchAsync_CarriesTheDealAndOpportunityNamesOfEachRow()
+    {
+        using var context = CreateContext(nameof(SearchAsync_CarriesTheDealAndOpportunityNamesOfEachRow));
+        context.Set<Opportunity>().Add(new Opportunity { Id = 845, Name = "Oportunidad", IsArchived = false });
+        context.Set<Deal>().Add(new Deal { Id = 1200, OpportunityId = 845, DealStateId = 3, Name = "Negocio" });
+        context.Set<ActivityEntity>().Add(NewEntity(1, dealId: 1200, opportunityId: 845));
+        await context.SaveChangesAsync();
+        var sut = new ActivityRepositoryAdapter(context, Logger());
+
+        var result = await sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
+
+        var item = result.Items.ShouldHaveSingleItem();
+        item.DealName.ShouldBe("Negocio");
+        item.OpportunityName.ShouldBe("Oportunidad");
+
+        // The advisor is left-joined: a row without one is still returned, unnamed.
+        item.AdvisorName.ShouldBeNull();
+        item.AdvisorIdentification.ShouldBeNull();
     }
 
     [Fact]

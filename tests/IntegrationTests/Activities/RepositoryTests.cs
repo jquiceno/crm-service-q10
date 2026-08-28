@@ -70,7 +70,7 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(1);
-        result.Items.ShouldHaveSingleItem().DealId.ShouldBe(1200);
+        result.Items.ShouldHaveSingleItem().Activity.DealId.ShouldBe(1200);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
             new ActivityFilter(null, OpportunityId: 846, null), new PageQuery(0, 10));
 
         result.TotalCount.ShouldBe(1);
-        result.Items.ShouldHaveSingleItem().DealId.ShouldBe(1300);
+        result.Items.ShouldHaveSingleItem().Activity.DealId.ShouldBe(1300);
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
         var result = await Sut.SearchAsync(new ActivityFilter(null, null, DealStateId: 9), new PageQuery(0, 10));
 
         result.TotalCount.ShouldBe(1);
-        result.Items.ShouldHaveSingleItem().DealId.ShouldBe(1300);
+        result.Items.ShouldHaveSingleItem().Activity.DealId.ShouldBe(1300);
     }
 
     [Fact]
@@ -141,8 +141,39 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
             new ActivityFilter(1200, null, null), new PageQuery(pageIndex: 1, pageSize: 2));
 
         firstPage.TotalCount.ShouldBe(3);
-        firstPage.Items.Select(activity => activity.Id).ShouldBe(ids.Take(2));
-        secondPage.Items.Select(activity => activity.Id).ShouldBe(ids.Skip(2).Take(2));
+        firstPage.Items.Select(item => item.Activity.Id).ShouldBe(ids.Take(2));
+        secondPage.Items.Select(item => item.Activity.Id).ShouldBe(ids.Skip(2).Take(2));
+    }
+
+    [Fact]
+    public async Task SearchAsync_ResolvesTheDealOpportunityAndAdvisorNames()
+    {
+        await SeedDealAsync(dealId: 1200, opportunityId: 845, dealStateId: 3);
+        await SeedPersonAsync(code: "advisor-01", identification: "1017123456", fullName: "Ana Pérez");
+        await SeedActivityAsync(dealId: 1200, opportunityId: 845, advisorId: "advisor-01");
+
+        var result = await Sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
+
+        var item = result.Items.ShouldHaveSingleItem();
+        item.DealName.ShouldBe("Negocio de prueba");
+        item.OpportunityName.ShouldBe("Oportunidad de prueba");
+        item.AdvisorName.ShouldBe("Ana Pérez");
+        item.AdvisorIdentification.ShouldBe("1017123456");
+    }
+
+    [Fact]
+    public async Task SearchAsync_WithoutAnAdvisor_StillReturnsTheRow()
+    {
+        await SeedDealAsync(dealId: 1200, opportunityId: 845, dealStateId: 3);
+        await SeedActivityAsync(dealId: 1200);
+
+        var result = await Sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
+
+        var item = result.Items.ShouldHaveSingleItem();
+        item.Activity.AdvisorId.ShouldBeNull();
+        item.AdvisorName.ShouldBeNull();
+        item.AdvisorIdentification.ShouldBeNull();
+        item.DealName.ShouldBe("Negocio de prueba");
     }
 
     // --- Seeding -------------------------------------------------------------------------
@@ -167,7 +198,19 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
         await Db.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    private async Task<int> SeedActivityAsync(int dealId, int? opportunityId = null)
+    private async Task SeedPersonAsync(string code, string identification, string fullName)
+    {
+        Db.Set<Person>().Add(new Person
+        {
+            Code = code,
+            Identification = identification,
+            FullName = fullName,
+        });
+
+        await Db.SaveChangesAsync().ConfigureAwait(false);
+    }
+
+    private async Task<int> SeedActivityAsync(int dealId, int? opportunityId = null, string? advisorId = null)
     {
         var entity = new ActivityEntity
         {
@@ -176,6 +219,7 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
             Type = "1",
             CreatedAt = DateTime.UtcNow,
             CreatedById = "creator-01",
+            AdvisorId = advisorId,
         };
 
         Db.Activities.Add(entity);

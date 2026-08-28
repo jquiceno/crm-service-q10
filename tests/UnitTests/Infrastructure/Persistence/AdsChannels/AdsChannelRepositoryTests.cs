@@ -116,20 +116,20 @@ public sealed class AdsChannelRepositoryTests
 
     // ── GetAllAsync ───────────────────────────────────────────────────────────
 
-    // This context has no unfiltered listing use case: GetAllAsync is stubbed to fail loudly
-    // rather than silently returning an unfiltered page (see AdsChannelRepository.GetAllAsync).
     [Fact]
-    public async Task GetAllAsync_IsNotSupported_ReturnsFailureAndLogsWarning()
+    public async Task GetAllAsync_DelegatesToGetAsyncWithAnEmptyFilter()
     {
-        using var context = CreateContext(nameof(GetAllAsync_IsNotSupported_ReturnsFailureAndLogsWarning));
-        var logger = Substitute.For<ILoggerPort<AdsChannelRepository>>();
-        var sut = new AdsChannelRepository(context, logger);
+        using var context = CreateContext(nameof(GetAllAsync_DelegatesToGetAsyncWithAnEmptyFilter));
+        context.AdsChannels.AddRange(
+            Document(1, "Google Ads", isActive: true),
+            Document(2, "Meta Ads", isActive: false));
+        await context.SaveChangesAsync();
+        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
 
         var result = await sut.GetAllAsync(new PageQuery(0, 10));
 
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.Internal);
-        logger.Received(1).Warning(Arg.Any<string>());
+        result.IsSuccess.ShouldBeTrue();
+        result.TotalCount.ShouldBe(2);
     }
 
     // ── ExistsByNameAsync ─────────────────────────────────────────────────────

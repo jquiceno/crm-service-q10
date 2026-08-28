@@ -59,15 +59,8 @@ public sealed class AdsChannelRepository(
     }
 
     public Task<PagedResult<AdsChannelAggregate>> GetAllAsync(
-        PageQuery page, CancellationToken cancellationToken = default)
-    {
-        // Use cases only ever call GetAsync(filter, page) below, which covers every listing need this
-        // context has (see AdsChannelFilter). Documented per repositorio.md's guidance for a method a
-        // context cannot serve meaningfully, instead of half-implementing an unfiltered listing nobody calls.
-        logger.Warning(
-            "GetAllAsync was called on AdsChannelRepository; use GetAsync(filter, page) instead.");
-        return Task.FromResult<PagedResult<AdsChannelAggregate>>(PersistenceErrors.Failure(Origin));
-    }
+        PageQuery page, CancellationToken cancellationToken = default) =>
+        GetAsync(new AdsChannelFilter(null, null), page, cancellationToken);
 
     public async Task<Result<bool>> ExistsByNameAsync(
         string name, int? excludingId = null, CancellationToken cancellationToken = default)

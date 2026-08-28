@@ -5,6 +5,8 @@ using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
+using ContactChannel.Application.UseCases.UpdateContactChannel;
+using ContactChannel.Domain.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Mvc.Abstractions;
@@ -32,6 +34,9 @@ public sealed class ContactChannelsControllerTests
 
     private readonly ICreateContactChannelUseCase _createContactChannelUseCase =
         Substitute.For<ICreateContactChannelUseCase>();
+
+    private readonly IUpdateContactChannelUseCase _updateContactChannelUseCase =
+        Substitute.For<IUpdateContactChannelUseCase>();
 
     private readonly IDeleteContactChannelUseCase _deleteContactChannelUseCase =
         Substitute.For<IDeleteContactChannelUseCase>();
@@ -74,6 +79,7 @@ public sealed class ContactChannelsControllerTests
             _getContactChannelsUseCase,
             _getContactChannelByIdUseCase,
             _createContactChannelUseCase,
+            _updateContactChannelUseCase,
             _deleteContactChannelUseCase);
 
     private void Returns(PagedResult<GetContactChannelsOutputDto> result) =>
@@ -395,5 +401,78 @@ public sealed class ContactChannelsControllerTests
         attribute.Tag.ShouldBe(
             GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels)).Tags!.Single(),
             "a creation must evict the very tag the listing is cached under");
+    }
+
+    private Task<HttpOkResult<UpdateContactChannelOutputDto>> InvokeUpdateAsync(
+        int id = 7,
+        UpdateContactChannelInputDto? input = null) =>
+        CreateController().UpdateContactChannel(
+            id,
+            input ?? new UpdateContactChannelInputDto("WhatsApp", IsActive: true),
+            CancellationToken.None);
+
+    private void ReturnsUpdated(Result<UpdateContactChannelOutputDto> result) =>
+        _updateContactChannelUseCase
+            .ExecuteAsync(Arg.Any<int>(), Arg.Any<UpdateContactChannelInputDto>(), Arg.Any<CancellationToken>())
+            .Returns(result);
+
+    [Fact]
+    public async Task UpdateContactChannel_WhenTheUseCaseSucceeds_ReturnsTheIdentifier()
+    {
+        ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Success(
+            new UpdateContactChannelOutputDto(7)));
+
+        var (statusCode, body) = await ExecuteAsync(await InvokeUpdateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        body.RootElement.GetProperty("data").GetProperty("id").GetInt32().ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task UpdateContactChannel_ForwardsTheIdentifierAndTheInput()
+    {
+        ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Success(
+            new UpdateContactChannelOutputDto(9)));
+
+        await InvokeUpdateAsync(9, new UpdateContactChannelInputDto("  Feria  ", IsActive: true));
+
+        await _updateContactChannelUseCase.Received(1).ExecuteAsync(
+            9,
+            Arg.Is<UpdateContactChannelInputDto>(i => i.Name == "  Feria  " && i.IsActive == true),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateContactChannel_WithAnUnknownId_ReturnsNotFound()
+    {
+        ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Failure(ContactChannelErrors.NotFound(7)));
+
+        var (statusCode, _) = await ExecuteAsync(await InvokeUpdateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateContactChannel_WhenTheNameIsRejected_ReturnsTheMappedErrorStatus()
+    {
+        ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Failure(
+            new DomainError("Domain validation failed.", ErrorType.DomainError)));
+
+        var (statusCode, _) = await ExecuteAsync(await InvokeUpdateAsync());
+
+        statusCode.ShouldBe(StatusCodes.Status400BadRequest);
+    }
+
+    [Fact]
+    public void UpdateContactChannel_InvalidatesTheCacheOfTheListing()
+    {
+        var attribute = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.UpdateContactChannel))!
+            .GetCustomAttribute<OutputCacheInvalidateAttribute>();
+
+        attribute.ShouldNotBeNull();
+        attribute.Tag.ShouldBe(
+            GetOutputCacheAttribute(nameof(ContactChannelsController.GetContactChannels)).Tags!.Single(),
+            "an update must evict the very tag the listing is cached under");
     }
 }

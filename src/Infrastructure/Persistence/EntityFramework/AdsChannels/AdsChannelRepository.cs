@@ -93,7 +93,7 @@ public sealed class AdsChannelRepository(
     {
         try
         {
-            var query = _adsChannels.AsNoTracking().AsQueryable();
+            var query = _adsChannels.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(filter.NameContains))
                 query = query.Where(x => x.Name != null && x.Name.Contains(filter.NameContains));

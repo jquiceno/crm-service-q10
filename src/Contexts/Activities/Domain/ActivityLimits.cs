@@ -15,4 +15,11 @@ public static class ActivityLimits
 
     /// <summary>Persisted to <c>negact_asesor</c> / <c>negact_per_codigo varchar(20)</c>.</summary>
     public const int PersonCodeMaxLength = 20;
+
+    /// <summary>
+    /// What the caller sends to look an advisor up, persisted to
+    /// <c>per_numero_identificacion varchar(20)</c>. Not the same column as
+    /// <see cref="PersonCodeMaxLength"/>: the two share a value today by coincidence, not by rule.
+    /// </summary>
+    public const int AdvisorIdentificationMaxLength = 20;
 }

@@ -131,10 +131,27 @@ public sealed class ActivityFromArgsTests
     [InlineData(ActivityType.Email)]
     [InlineData(ActivityType.Note)]
     [InlineData(ActivityType.WhatsApp)]
-    public void RegisterCompleted_FromArgs_DiscardsTheOutcomeNameForTypesWithoutOutcome(
+    public void RegisterCompleted_FromArgs_RejectsAnOutcomeNameForTypesWithoutOutcome(
         ActivityType type)
     {
         var result = Activity.RegisterCompleted(ValidCompleteArgs with { Type = type }, Now);
+
+        result.IsFailure.ShouldBeTrue();
+
+        var detail = result.Error.Details.ShouldHaveSingleItem();
+        detail.Property.ShouldBe(nameof(Activity.OutcomeType));
+        detail.Errors!.ShouldBe(new[] { ActivityErrors.OutcomeTypeScopeNotSupported.Message });
+    }
+
+    [Theory]
+    [InlineData(ActivityType.Email)]
+    [InlineData(ActivityType.Note)]
+    [InlineData(ActivityType.WhatsApp)]
+    public void RegisterCompleted_FromArgs_SucceedsForTypesWithoutOutcomeWhenNoneIsSupplied(
+        ActivityType type)
+    {
+        var result = Activity.RegisterCompleted(
+            ValidCompleteArgs with { Type = type, OutcomeName = null }, Now);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.OutcomeType.ShouldBeNull();

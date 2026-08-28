@@ -4,7 +4,7 @@ using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Infrastructure.Persistence.EntityFramework.Activities;
+namespace Infrastructure.Persistence.EntityFramework.Activities.Configurations;
 
 /// <summary>
 /// Drift-safe mapping of the legacy <c>tbl_opo_negocios_actividades</c> (F2.2) over the

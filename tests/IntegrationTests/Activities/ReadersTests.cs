@@ -1,3 +1,4 @@
+using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Activities;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using IntegrationTests.Infrastructure;
@@ -7,20 +8,11 @@ using Xunit;
 namespace IntegrationTests.Activities;
 
 /// <summary>
-/// Readers of the Activities context against the legacy foreign tables.
+/// F2.6: readers of the Activities context, proven against both measured schema variants
+/// (Discovery §4.1-bis), not just the EF-model shape.
 /// </summary>
-/// <remarks>
-/// The container schema comes from the EF model (<c>EnsureCreated</c>), so these tests prove the
-/// reader logic and the mapping as configured. They do <b>not</b> prove the mapping matches the
-/// real institutions — that is the multi-variant drift verification of a later task.
-/// <para>
-/// Seeding goes through the ORM, like the mapping tests of the sibling task: a renamed property or
-/// a changed column mapping then breaks the compilation instead of failing at runtime with a stale
-/// SQL string.
-/// </para>
-/// </remarks>
 [Collection(IntegrationTestCollection.Name)]
-public sealed class ReadersTests(SqlServerContainerFixture fixture) : IntegrationTestBase(fixture)
+public sealed class ReadersTests : IAsyncLifetime
 {
     private const int DealId = 1200;
     private const int OpportunityId = 845;
@@ -28,109 +20,146 @@ public sealed class ReadersTests(SqlServerContainerFixture fixture) : Integratio
     private const string PersonCode = "339968541842";
     private const string Identification = "1017123456";
 
+    public static TheoryData<string> Variants => ActivitySchemaVariants.Variants;
+
+    private readonly SqlServerContainerFixture _fixture;
+
+    public ReadersTests(SqlServerContainerFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    public async Task InitializeAsync()
+    {
+        await ActivitySchemaVariants.EnsureCreatedAsync(_fixture, ActivitySchemaVariants.Universal15)
+            .ConfigureAwait(false);
+        await ActivitySchemaVariants.EnsureCreatedAsync(_fixture, ActivitySchemaVariants.Extended16)
+            .ConfigureAwait(false);
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
     // --- IDealReader ---------------------------------------------------------------------
 
-    [Fact]
-    public async Task GetDealContextAsync_WithAnExistingDeal_ReturnsItsOpportunity()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task GetDealContextAsync_WithAnExistingDeal_ReturnsItsOpportunity(string variant)
     {
-        await SeedDealAsync(archived: false);
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedDealAsync(context, archived: false).ConfigureAwait(true);
 
-        var context = await new DealReader(Db).GetDealContextAsync(DealId);
+        var result = await new DealReader(context).GetDealContextAsync(DealId).ConfigureAwait(true);
 
-        context.Exists.ShouldBeTrue();
-        context.OpportunityId.ShouldBe(OpportunityId);
-        context.OpportunityArchived.ShouldBeFalse();
+        result.Exists.ShouldBeTrue();
+        result.OpportunityId.ShouldBe(OpportunityId);
+        result.OpportunityArchived.ShouldBeFalse();
     }
 
-    [Fact]
-    public async Task GetDealContextAsync_WithAnArchivedOpportunity_ReportsItArchived()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task GetDealContextAsync_WithAnArchivedOpportunity_ReportsItArchived(string variant)
     {
-        await SeedDealAsync(archived: true);
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedDealAsync(context, archived: true).ConfigureAwait(true);
 
-        var context = await new DealReader(Db).GetDealContextAsync(DealId);
+        var result = await new DealReader(context).GetDealContextAsync(DealId).ConfigureAwait(true);
 
-        context.Exists.ShouldBeTrue();
-        context.OpportunityArchived.ShouldBeTrue();
+        result.Exists.ShouldBeTrue();
+        result.OpportunityArchived.ShouldBeTrue();
     }
 
-    [Fact]
-    public async Task GetDealContextAsync_WhenTheArchivedFlagIsNull_ReportsItNotArchived()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task GetDealContextAsync_WhenTheArchivedFlagIsNull_ReportsItNotArchived(string variant)
     {
         // The column is bit NULL and every legacy procedure reads it as ISNULL(opo_estado, 0).
-        await SeedDealAsync(archived: null);
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedDealAsync(context, archived: null).ConfigureAwait(true);
 
-        var context = await new DealReader(Db).GetDealContextAsync(DealId);
+        var result = await new DealReader(context).GetDealContextAsync(DealId).ConfigureAwait(true);
 
-        context.Exists.ShouldBeTrue();
-        context.OpportunityArchived.ShouldBeFalse();
+        result.Exists.ShouldBeTrue();
+        result.OpportunityArchived.ShouldBeFalse();
     }
 
-    [Fact]
-    public async Task GetDealContextAsync_WithAnUnknownDeal_ReturnsNotFound()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task GetDealContextAsync_WithAnUnknownDeal_ReturnsNotFound(string variant)
     {
-        await SeedDealAsync(archived: false);
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedDealAsync(context, archived: false).ConfigureAwait(true);
 
-        var context = await new DealReader(Db).GetDealContextAsync(dealId: 999999);
+        var result = await new DealReader(context).GetDealContextAsync(dealId: 999999).ConfigureAwait(true);
 
-        context.Exists.ShouldBeFalse();
-        context.OpportunityId.ShouldBeNull();
+        result.Exists.ShouldBeFalse();
+        result.OpportunityId.ShouldBeNull();
     }
 
     // --- IAdvisorReader ------------------------------------------------------------------
 
-    [Fact]
-    public async Task ResolveByIdentificationAsync_WithAnExistingIdentification_ReturnsThePersonCode()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task ResolveByIdentificationAsync_WithAnExistingIdentification_ReturnsThePersonCode(string variant)
     {
-        await SeedPersonAsync();
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedPersonAsync(context).ConfigureAwait(true);
 
-        var code = await new AdvisorReader(Db).ResolveByIdentificationAsync(Identification);
+        var code = await new AdvisorReader(context)
+            .ResolveByIdentificationAsync(Identification).ConfigureAwait(true);
 
         code.ShouldBe(PersonCode);
     }
 
-    [Fact]
-    public async Task ResolveByIdentificationAsync_TrimsTheInput()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task ResolveByIdentificationAsync_TrimsTheInput(string variant)
     {
-        await SeedPersonAsync();
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedPersonAsync(context).ConfigureAwait(true);
 
-        var code = await new AdvisorReader(Db).ResolveByIdentificationAsync($"  {Identification}  ");
+        var code = await new AdvisorReader(context)
+            .ResolveByIdentificationAsync($"  {Identification}  ").ConfigureAwait(true);
 
         code.ShouldBe(PersonCode);
     }
 
-    [Fact]
-    public async Task ResolveByIdentificationAsync_WithAnUnknownIdentification_ReturnsNull()
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task ResolveByIdentificationAsync_WithAnUnknownIdentification_ReturnsNull(string variant)
     {
-        await SeedPersonAsync();
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        await SeedPersonAsync(context).ConfigureAwait(true);
 
-        var code = await new AdvisorReader(Db).ResolveByIdentificationAsync("0000000000");
+        var code = await new AdvisorReader(context)
+            .ResolveByIdentificationAsync("0000000000").ConfigureAwait(true);
 
         code.ShouldBeNull("a reader finding nothing is a valid outcome, not a failure");
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public async Task ResolveByIdentificationAsync_WithBlankInput_ReturnsNull(string? identification)
+    [MemberData(nameof(Variants))]
+    public async Task ResolveByIdentificationAsync_WithBlankInput_ReturnsNull(string variant)
     {
-        var code = await new AdvisorReader(Db).ResolveByIdentificationAsync(identification);
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        var reader = new AdvisorReader(context);
 
-        code.ShouldBeNull();
+        (await reader.ResolveByIdentificationAsync(null).ConfigureAwait(true)).ShouldBeNull();
+        (await reader.ResolveByIdentificationAsync("").ConfigureAwait(true)).ShouldBeNull();
+        (await reader.ResolveByIdentificationAsync("   ").ConfigureAwait(true)).ShouldBeNull();
     }
 
     // --- Seeding -------------------------------------------------------------------------
 
-    private async Task SeedDealAsync(bool? archived)
+    private static async Task SeedDealAsync(ApplicationDbContext context, bool? archived)
     {
-        Db.Set<Opportunity>().Add(new Opportunity
+        context.Set<Opportunity>().Add(new Opportunity
         {
             Id = OpportunityId,
             Name = "Oportunidad de prueba",
             IsArchived = archived,
         });
 
-        Db.Set<Deal>().Add(new Deal
+        context.Set<Deal>().Add(new Deal
         {
             Id = DealId,
             OpportunityId = OpportunityId,
@@ -138,18 +167,18 @@ public sealed class ReadersTests(SqlServerContainerFixture fixture) : Integratio
             Name = "Negocio de prueba",
         });
 
-        await Db.SaveChangesAsync().ConfigureAwait(false);
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    private async Task SeedPersonAsync()
+    private static async Task SeedPersonAsync(ApplicationDbContext context)
     {
-        Db.Set<Person>().Add(new Person
+        context.Set<Person>().Add(new Person
         {
             Code = PersonCode,
             Identification = Identification,
             FullName = "Ana Gómez",
         });
 
-        await Db.SaveChangesAsync().ConfigureAwait(false);
+        await context.SaveChangesAsync().ConfigureAwait(false);
     }
 }

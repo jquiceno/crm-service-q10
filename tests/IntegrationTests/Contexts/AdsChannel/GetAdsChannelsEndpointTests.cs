@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AdsChannel.Application.UseCases.GetAdsChannels;
 using IntegrationTests.Infrastructure;
+using Shared.Presentation.Responses;
 using Shouldly;
 using Xunit;
 
@@ -72,6 +73,18 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
             JsonSerializerOptions.Web);
         body!.Data.TotalCount.ShouldBe(2);
         body.Data.Items.ShouldAllBe(x => !x.IsActive);
+    }
+
+    [Fact]
+    public async Task GetAdsChannels_WithPageSizeOutOfRange_Returns400()
+    {
+        var response = await Client.GetAsync("/ads-channels?pageSize=101");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("VALIDATION");
+        body.StatusCode.ShouldBe(400);
     }
 
     private async Task SeedAsync()

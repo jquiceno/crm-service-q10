@@ -3,13 +3,13 @@ using Shared.Application.Ports;
 namespace Api.Session;
 
 /// <summary>
-/// Scoped holder for the resolved tenant's database connection string. A single instance per request
-/// satisfies both the write side (<see cref="ITenantConnectionInitializer"/>, filled by the tenant
-/// middleware) and the read side (<see cref="IDbConnectionProvider"/>, read by the per-tenant
-/// <c>DbContext</c>). It is never registered or injected as the concrete type — only bound once behind
-/// its interfaces in the composition root.
+/// Scoped holder for what the tenant middleware resolved for the current request. A single instance
+/// serves the write side (<see cref="ITenantConnectionInitializer"/>) and the two read sides —
+/// <see cref="IDbConnectionProvider"/> for the per-tenant <c>DbContext</c> and
+/// <see cref="ITenantCodeProvider"/> for the tenant-partitioned cache keys. It is never registered
+/// or injected as the concrete type — only bound behind its interfaces in the composition root.
 /// </summary>
-public sealed class TenantContext : IDbConnectionProvider, ITenantConnectionInitializer
+public sealed class TenantContext : IDbConnectionProvider, ITenantCodeProvider, ITenantConnectionInitializer
 {
     private string? _connectionString;
 
@@ -24,5 +24,16 @@ public sealed class TenantContext : IDbConnectionProvider, ITenantConnectionInit
             "The tenant has not been resolved for this request, so no connection string is available. "
             + "Ensure the request carries a tenant code and is not on a tenant-excluded path.");
 
-    public void Initialize(string connectionString) => _connectionString = connectionString;
+    /// <summary>
+    /// The resolved tenant code, or <c>null</c> before resolution. Unlike
+    /// <see cref="ConnectionString"/> it does not throw: a caller that only wants to partition a
+    /// cache key must be able to ask and get "no tenant" as an answer.
+    /// </summary>
+    public string? Current { get; private set; }
+
+    public void Initialize(string connectionString, string entityCode)
+    {
+        _connectionString = connectionString;
+        Current = entityCode;
+    }
 }

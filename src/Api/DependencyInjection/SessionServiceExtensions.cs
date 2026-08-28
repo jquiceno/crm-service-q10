@@ -20,7 +20,12 @@ public static class SessionServiceExtensions
         bool multitenancyEnabled)
     {
         if (!multitenancyEnabled)
+        {
+            // Single database, no tenant to partition by. The port is still registered so every
+            // consumer resolves and simply skips its tenant-partitioned cache.
+            services.AddSingleton<ITenantCodeProvider, NoTenantCodeProvider>();
             return services;
+        }
 
         services.AddMasterAccess(configuration);
 
@@ -31,6 +36,8 @@ public static class SessionServiceExtensions
         services.AddScoped<ITenantConnectionInitializer, TenantContext>();
         services.AddScoped<IDbConnectionProvider>(sp =>
             (IDbConnectionProvider)sp.GetRequiredService<ITenantConnectionInitializer>());
+        services.AddScoped<ITenantCodeProvider>(sp =>
+            (ITenantCodeProvider)sp.GetRequiredService<ITenantConnectionInitializer>());
 
         return services;
     }

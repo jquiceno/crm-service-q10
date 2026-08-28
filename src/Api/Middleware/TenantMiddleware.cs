@@ -60,7 +60,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMid
         logger.Debug("Resolved tenant {EntityCode} to database {DbName}",
             result.Value.EntityCode, result.Value.DbName);
 
-        session.Initialize(result.Value.ConnectionString);
+        session.Initialize(result.Value.ConnectionString, result.Value.EntityCode);
 
         await next(context).ConfigureAwait(false);
     }

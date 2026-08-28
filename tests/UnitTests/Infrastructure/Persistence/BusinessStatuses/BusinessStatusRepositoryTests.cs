@@ -27,6 +27,17 @@ public sealed class BusinessStatusRepositoryTests
     private readonly ILoggerPort<BusinessStatusRepository> _logger =
         Substitute.For<ILoggerPort<BusinessStatusRepository>>();
 
+    private readonly ICacheStore _cacheStore = Substitute.For<ICacheStore>();
+
+    /// <summary>
+    /// No tenant resolved, so the listing skips the L2 cache entirely and every assertion here is
+    /// about the query itself. The cache-aside behaviour has its own suite.
+    /// </summary>
+    private readonly ITenantCodeProvider _tenantCodeProvider = Substitute.For<ITenantCodeProvider>();
+
+    private BusinessStatusRepository NewRepository(ApplicationDbContext context) =>
+        new(context, _logger, _cacheStore, _tenantCodeProvider);
+
     private static readonly PageQuery FirstPage = new(pageIndex: 0, pageSize: 20);
 
     private static BusinessStatusFilter NoFilter =>
@@ -94,7 +105,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7, name: "Negotiation", percentage: 50m, color: "49ff7c"));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetByIdAsync(7);
+        var result = await NewRepository(context).GetByIdAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(7);
@@ -111,7 +122,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetByIdAsync(999);
+        var result = await NewRepository(context).GetByIdAsync(999);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
@@ -123,7 +134,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task GetByIdAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(GetByIdAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.GetByIdAsync(7);
@@ -143,7 +154,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).ExistsAsync(id);
+        var result = await NewRepository(context).ExistsAsync(id);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(expected);
@@ -153,7 +164,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task ExistsAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(ExistsAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.ExistsAsync(7);
@@ -175,7 +186,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, percentage: 50m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetAsync(NoFilter, FirstPage);
+        var result = await NewRepository(context).GetAsync(NoFilter, FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(3);
@@ -193,7 +204,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(24, percentage: 50m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetAsync(NoFilter, FirstPage);
+        var result = await NewRepository(context).GetAsync(NoFilter, FirstPage);
 
         result.Items.Select(x => x.Id).ShouldBe([12, 24, 31]);
     }
@@ -211,7 +222,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(5, percentage: 60m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(NoFilter, new PageQuery(pageIndex: 1, pageSize: 2));
 
         result.TotalCount.ShouldBe(5, "the total counts every match, not just the page");
@@ -222,7 +233,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task GetAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(GetAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.GetAsync(NoFilter, FirstPage);
@@ -244,7 +255,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, name: null, percentage: 30m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(new BusinessStatusFilter("gotia", IsActive: null, BusinessStatusKind.All), FirstPage);
 
         result.Items.Select(x => x.Id).ShouldBe([1]);
@@ -258,7 +269,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(1, percentage: 10m), Row(2, percentage: 20m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(new BusinessStatusFilter("   ", IsActive: null, BusinessStatusKind.All), FirstPage);
 
         result.TotalCount.ShouldBe(2);
@@ -277,7 +288,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, isActive: null, percentage: 30m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(new BusinessStatusFilter(Name: null, isActive, BusinessStatusKind.All), FirstPage);
 
         result.Items.Select(x => x.Id).ShouldBe([expectedId]);
@@ -294,7 +305,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, isActive: null, percentage: 30m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetAsync(NoFilter, FirstPage);
+        var result = await NewRepository(context).GetAsync(NoFilter, FirstPage);
 
         result.TotalCount.ShouldBe(3, "an omitted filter is no filter, the semantics of the legacy procedure");
     }
@@ -311,7 +322,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(4, percentage: null));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(new BusinessStatusFilter(Name: null, IsActive: null, BusinessStatusKind.Intermediate), FirstPage);
 
         result.Items.Select(x => x.Id).ShouldBe([3, 4], ignoreOrder: true);
@@ -329,7 +340,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(4, percentage: null));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetAsync(new BusinessStatusFilter(Name: null, IsActive: null, BusinessStatusKind.Terminal), FirstPage);
 
         result.Items.Select(x => x.Id).ShouldBe([1, 2]);
@@ -349,7 +360,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, percentage: 50m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).GetAllAsync(FirstPage);
+        var result = await NewRepository(context).GetAllAsync(FirstPage);
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(3);
@@ -371,7 +382,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(40, isActive: true, percentage: 0m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetActiveTerminalsAsync(TerminalKind.Won);
 
         result.IsSuccess.ShouldBeTrue();
@@ -389,7 +400,7 @@ public sealed class BusinessStatusRepositoryTests
             Row(3, isActive: null, percentage: 0m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetActiveTerminalsAsync(TerminalKind.Lost);
 
         result.Value.Select(x => x.Id).ShouldBe([1]);
@@ -403,7 +414,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(1, percentage: 50m));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .GetActiveTerminalsAsync(TerminalKind.Won);
 
         result.IsSuccess.ShouldBeTrue();
@@ -414,7 +425,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task GetActiveTerminalsAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(GetActiveTerminalsAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.GetActiveTerminalsAsync(TerminalKind.Won);
@@ -431,7 +442,7 @@ public sealed class BusinessStatusRepositoryTests
         var database = nameof(CreateAsync_CommitsAndReturnsTheAggregateWithTheGeneratedIdentity);
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .CreateAsync(Aggregate(name: "Negotiation", percentage: 50, color: "49ff7c"));
 
         result.IsSuccess.ShouldBeTrue();
@@ -454,7 +465,7 @@ public sealed class BusinessStatusRepositoryTests
             .Create(new CreateBusinessStatusArgs("Negotiation", 50m, "49ff7c", IsActive: true))
             .Value;
 
-        var result = await new BusinessStatusRepository(context, _logger).CreateAsync(aggregate);
+        var result = await NewRepository(context).CreateAsync(aggregate);
 
         result.Value.ShouldBeSameAs(aggregate);
         result.Value.Id.ShouldBeGreaterThan(0);
@@ -468,7 +479,7 @@ public sealed class BusinessStatusRepositoryTests
         var database = nameof(CreateAsync_WithoutColor_PersistsNullAndNeverTheLegacyDefault);
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger)
+        var result = await NewRepository(context)
             .CreateAsync(Aggregate(color: null));
 
         result.IsSuccess.ShouldBeTrue();
@@ -485,7 +496,7 @@ public sealed class BusinessStatusRepositoryTests
             nameof(CreateAsync_WhenTheCommitFailsOnTheDatabase_ReturnsTheClassifiedError),
             new ThrowingSaveInterceptor(new DbUpdateException("insert failed", new InvalidOperationException())));
 
-        var result = await new BusinessStatusRepository(context, _logger).CreateAsync(Aggregate());
+        var result = await NewRepository(context).CreateAsync(Aggregate());
 
         result.IsFailure.ShouldBeTrue();
         ShouldBeAPersistenceFailure(result.Error);
@@ -498,7 +509,7 @@ public sealed class BusinessStatusRepositoryTests
             nameof(CreateAsync_WhenTheCommitFailsUnexpectedly_ReturnsAPersistenceFailure),
             new ThrowingSaveInterceptor(new TimeoutException("the socket gave up")));
 
-        var result = await new BusinessStatusRepository(context, _logger).CreateAsync(Aggregate());
+        var result = await NewRepository(context).CreateAsync(Aggregate());
 
         result.IsFailure.ShouldBeTrue();
         ShouldBeAPersistenceFailure(result.Error);
@@ -512,7 +523,7 @@ public sealed class BusinessStatusRepositoryTests
         var database = nameof(AddAsync_QueuesTheInsertWithoutCommittingIt);
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).AddAsync(Aggregate());
+        var result = await NewRepository(context).AddAsync(Aggregate());
 
         result.IsSuccess.ShouldBeTrue();
         context.ChangeTracker.Entries<Entities.BusinessStatus>()
@@ -527,7 +538,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task AddAsync_WhenTheContextIsUnusable_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(AddAsync_WhenTheContextIsUnusable_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.AddAsync(Aggregate());
@@ -545,7 +556,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7, name: "Negotiation", isActive: true, percentage: 50m, color: "49ff7c"));
         using var context = CreateContext(database);
 
-        var result = new BusinessStatusRepository(context, _logger)
+        var result = NewRepository(context)
             .Update(Aggregate(id: 7, name: "Renegotiation", percentage: 60, color: null, isActive: false));
 
         result.IsSuccess.ShouldBeTrue();
@@ -563,7 +574,7 @@ public sealed class BusinessStatusRepositoryTests
     public void Update_WhenTheContextIsUnusable_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(Update_WhenTheContextIsUnusable_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         context.Dispose();
 
         var result = repository.Update(Aggregate(id: 7));
@@ -581,7 +592,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).RemoveAsync(7);
+        var result = await NewRepository(context).RemoveAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
         context.ChangeTracker.Entries<Entities.BusinessStatus>()
@@ -600,7 +611,7 @@ public sealed class BusinessStatusRepositoryTests
         await SeedAsync(database, Row(7));
         using var context = CreateContext(database);
 
-        var result = await new BusinessStatusRepository(context, _logger).RemoveAsync(999);
+        var result = await NewRepository(context).RemoveAsync(999);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
@@ -613,7 +624,7 @@ public sealed class BusinessStatusRepositoryTests
     public async Task RemoveAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing()
     {
         var context = CreateContext(nameof(RemoveAsync_WhenTheQueryFails_ReturnsAPersistenceFailureWithoutThrowing));
-        var repository = new BusinessStatusRepository(context, _logger);
+        var repository = NewRepository(context);
         await context.DisposeAsync();
 
         var result = await repository.RemoveAsync(7);

@@ -14,29 +14,81 @@ namespace UnitTests.Contexts.LossReason.Application;
 public sealed class CreateLossReasonUseCaseTests
 {
     private const string ValidName = "Precio";
+    private const int AssignedId = 7;
 
     private readonly ILossReasonRepository _repository = Substitute.For<ILossReasonRepository>();
 
+    /// <summary>Aggregate the use case handed to the repository, captured by <see cref="StubSuccessfulCreate"/>.</summary>
+    private LossReasonAggregate? _persisted;
+
     private CreateLossReasonUseCase CreateSut() => new(_repository);
 
-    [Fact]
-    public async Task ExecuteAsync_WithValidInput_PersistsOnceAndReturnsTheAssignedId()
-    {
-        // The repository rebuilds the aggregate from the inserted row, which is where the IDENTITY lands.
+    // The repository rebuilds the aggregate from the inserted row, which is where the IDENTITY
+    // lands. The stub echoes back what it received instead of fixed values: that way the output
+    // assertions still fail if the mapping drops or swaps a field on the way in.
+    private void StubSuccessfulCreate() =>
         _repository
-            .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>())
-            .Returns(LossReasonAggregate.Reconstruct(7, ValidName, isActive: true));
+            .CreateAsync(Arg.Do<LossReasonAggregate>(a => _persisted = a), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var incoming = call.Arg<LossReasonAggregate>();
+                return LossReasonAggregate.Reconstruct(AssignedId, incoming.Name, incoming.IsActive);
+            });
 
-        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName));
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExecuteAsync_WithValidInput_PersistsAnAggregateBuiltFromTheInput(bool isActive)
+    {
+        StubSuccessfulCreate();
+        var input = new CreateLossReasonInputDto(ValidName, isActive);
+
+        var result = await CreateSut().ExecuteAsync(input);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.Id.ShouldBe(7);
-        result.Value.Name.ShouldBe(ValidName);
-        result.Value.IsActive.ShouldBeTrue();
 
         await _repository.Received(1)
             .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>());
 
+        _persisted.ShouldNotBeNull();
+        _persisted.Name.ShouldBe(input.Name);
+        _persisted.IsActive.ShouldBe(input.IsActive);
+        _persisted.Id.ShouldBe(0, "the id is the IDENTITY, so it is only assigned by the insert");
+        _persisted.CreatedAt.ShouldNotBeNull("Create() stamps the aggregate before it is persisted");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenIsActiveIsOmitted_PersistsItAsActive()
+    {
+        StubSuccessfulCreate();
+
+        // IsActive is the only optional parameter of the input: its default has to reach the aggregate.
+        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName));
+
+        result.IsSuccess.ShouldBeTrue();
+        _persisted.ShouldNotBeNull();
+        _persisted.IsActive.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ExecuteAsync_WithValidInput_ReturnsThePersistedRowWithItsAssignedId(bool isActive)
+    {
+        StubSuccessfulCreate();
+        var input = new CreateLossReasonInputDto(ValidName, isActive);
+
+        var result = await CreateSut().ExecuteAsync(input);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Id.ShouldBe(AssignedId);
+        result.Value.Name.ShouldBe(input.Name);
+        result.Value.IsActive.ShouldBe(input.IsActive);
+    }
+
+    [Fact]
+    public void TheUseCase_DoesNotDependOnTheUnitOfWork()
+    {
         // D3: creation commits inside the repository, never through the unit of work. That
         // guarantee is structural -- the use case does not take the port at all -- so the assert
         // reads the constructors. A DidNotReceive() on a substitute nothing injects cannot fail.

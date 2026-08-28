@@ -70,9 +70,11 @@ public sealed class BusinessStatusRepositoryMapperTests
     [Theory]
     [InlineData(0.4)]
     [InlineData(50.5)]
-    [InlineData(99.99999)]
-    public void ToDomain_WithADirtyNonIntegerPercentage_ReadsItAsAbsent(double dirty)
+    [InlineData(99.9)]
+    public void ToDomain_WithADirtyIntermediatePercentage_ReadsItAsAbsent(double dirty)
     {
+        // A residue that is not near a reserved terminal is an unknown percentage: D5 never invents a
+        // value in the middle, so 99.9 stays absent rather than being snapped up to 100.
         var aggregate = BusinessStatusRepositoryMapper.ToDomain(Row(percentage: (decimal)dirty));
 
         aggregate.Percentage.ShouldBeNull();
@@ -90,6 +92,35 @@ public sealed class BusinessStatusRepositoryMapperTests
 
         aggregate.Percentage.ShouldBe(terminal);
         aggregate.IsTerminal.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(100.00001, 100)]
+    [InlineData(99.9995, 100)]
+    [InlineData(0.00001, 0)]
+    [InlineData(0.0005, 0)]
+    public void ToDomain_WithATerminalCarryingATinyResidue_ReadsItAsTheTerminal(double dirty, int expected)
+    {
+        // INV-2/INV-3 must keep protecting a legacy terminal that drifted by a hair: reading it as the
+        // reserved value keeps IsTerminal true, so it stays undeletable and its percentage immutable.
+        var aggregate = BusinessStatusRepositoryMapper.ToDomain(Row(percentage: (decimal)dirty));
+
+        aggregate.Percentage.ShouldBe(expected);
+        aggregate.IsTerminal.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(150)]
+    [InlineData(-5)]
+    [InlineData(3000000000)]
+    public void ToDomain_WithAPercentageOutOfRange_ReadsItAsAbsentAndNeverThrows(decimal outOfRange)
+    {
+        // Out of the reserved range is not a percentage this service recognizes; refusing it here also
+        // guards the decimal-to-int cast from an OverflowException on a number beyond int (R-9).
+        var aggregate = BusinessStatusRepositoryMapper.ToDomain(Row(percentage: outOfRange));
+
+        aggregate.Percentage.ShouldBeNull();
+        aggregate.IsTerminal.ShouldBeFalse();
     }
 
     // ── ToDocument ────────────────────────────────────────────────────────────

@@ -80,6 +80,27 @@ public sealed class LossReasonAggregateTests
     }
 
     [Fact]
+    public void Create_WithNullIsActive_ReturnsIsActiveRequired()
+    {
+        var result = LossReasonAggregate.Create(new CreateLossReasonArgs(ValidName, IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        MessagesOf(result.Error).ShouldBe([LossReasonErrors.IsActiveRequired.Message]);
+    }
+
+    [Fact]
+    public void Create_WithNullIsActiveAndInvalidName_AccumulatesBothErrors()
+    {
+        var result = LossReasonAggregate.Create(new CreateLossReasonArgs(string.Empty, IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        var messages = MessagesOf(result.Error);
+        messages.Count.ShouldBe(2);
+        messages.ShouldContain(LossReasonErrors.NameRequired.Message);
+        messages.ShouldContain(LossReasonErrors.IsActiveRequired.Message);
+    }
+
+    [Fact]
     public void Update_WithEmptyName_ReturnsNameRequired()
     {
         var aggregate = LossReasonAggregate.Reconstruct(7, ValidName, isActive: true);

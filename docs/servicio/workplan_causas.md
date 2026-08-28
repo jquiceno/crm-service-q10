@@ -754,13 +754,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F3.3] Create CreateLossReason use case
-`id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: pending`
+`id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: done`
 - Objetivo: la creación, con el PK que devuelve la BD.
 - Fuente: D3 · D5 · `repositorio.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/CreateLossReason/{…}.cs` (5 archivos)
 - Detalle: `input.ToAggregate()` → `LossReasonAggregate.Create(args)`; si falla, `return error with { Context = LossReasonErrors.Context, Origin = Origin };`. Persiste con `repository.CreateAsync(...)` y devuelve `aggregate.ToOutputDto()` con el `Id` asignado. **No inyecta `IUnitOfWorkPort` ni llama `CommitAsync`** (D3). `CreateLossReasonInputDto(string? Name, bool IsActive = true)` con `Name` anulable a propósito.
 - Hecho cuando: el use case no tiene ninguna referencia a `IUnitOfWorkPort` y el DTO de salida incluye el `Id`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F3.4] Create UpdateLossReason use case
 `id: F3.4 · depende_de: F2.7 · tarea: T9 (Brayan) · estado: pending`
@@ -802,13 +802,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet test tests/UnitTests -c Release`
 
 #### [F3.8] Unit tests for CreateLossReason
-`id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: pending`
+`id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: done`
 - Objetivo: cubrir la creación y su contrato de persistencia.
 - Fuente: D3 · D4 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/CreateLossReasonUseCaseTests.cs`
-- Detalle: casos: input válido → `CreateAsync` recibido una vez y el DTO de salida trae el `Id`; **nombre inválido → el use case falla en el agregado y `CreateAsync` no se llama nunca** (D4); fallo del repositorio → `Origin` propagado. **Assertar explícitamente que `IUnitOfWorkPort.CommitAsync` no se invoca** (D3).
+- Detalle: casos: input válido → `CreateAsync` recibido una vez y el DTO de salida trae el `Id`; **nombre inválido → el use case falla en el agregado y `CreateAsync` no se llama nunca** (D4); fallo del repositorio → `Origin` propagado. **Assertar explícitamente que `IUnitOfWorkPort.CommitAsync` no se invoca** (D3) — **enmendado el 2026-08-21:** el assert lee los parámetros del constructor en vez de un sustituto sin inyectar, que no podía fallar. Ver §9.3.
 - Hecho cuando: los 3 casos pasan y existe el assert de que no hay commit.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 3 pasan** (384 en total en la suite)
 
 #### [F3.9] Unit tests for UpdateLossReason
 `id: F3.9 · depende_de: F3.4 · tarea: T9 (Brayan) · estado: pending`
@@ -964,6 +964,7 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-21 | **El repositorio se prueba también con unitarios (EF InMemory); se agrega el paso F2.9.** La puerta de cobertura de CI mide solo unit tests, así que los 77 renglones de `LossReasonRepository` dejaron el pipeline de T4 en **89,6 %**, bajo el piso de 90 — y F5.1 no lo puede arreglar porque los tests de integración no cuentan para el porcentaje. La estrategia de la Fase 2 decía que el repositorio se probaba solo en la Fase 5; se enmienda para admitir unitarios sobre `ApplicationDbContext` + InMemory, con el precedente de `RepositoryBaseEFTests`. **Es una desviación de `testing.md` («No usar EF InMemory») y queda pendiente de la firma del tech lead.** Todo lo que depende de constraints sigue en F5.1. Cobertura resultante: **97,1 %** | — | **F2.9 nuevo** · encabezado de estrategia de la Fase 2 | ninguna |
 | 2026-08-21 | **`Infrastructure.csproj` se declara archivo compartido del contexto.** `F2.3` no podía compilar: el proyecto de infraestructura no referenciaba `LossReason`. Se añadió la `ProjectReference` a `LossReason.Application` (arrastra `Domain`), reportado como GAP y autorizado antes de aplicarlo. No cambia ninguna decisión ni dependencia; la referencia cubre a T4 y a T5, así que `F2.6` no toca ese archivo | — | `F2.3`, `F2.4` (lista de `Archivos:`) · `F2.6` no lo necesita | ninguna |
 | 2026-08-21 | **`cau_nombre` y `cau_estado` son `NOT NULL`: D6 se invierte.** La verificación contra la BD contradice a `discovery_causas.md` §4.1, que las daba como NULLABLE con un `[verificado en BD]`. La entidad EF pasa de `string?`/`bool?` a `string`/`bool`, `LossReasonConfiguration` declara `.IsRequired()` sobre `Name`, el mapper pierde los `?? string.Empty` / `?? false` y el filtro de `GetAsync` pierde la guarda `x.Name != null`, que quedó como código muerto. Se borran los dos tests de NULL del mapper (`ToDomain_WithNullName_MapsToEmptyString`, `ToDomain_WithNullState_MapsToInactive`) y `GetByIdAsync_WithNullColumns_NormalizesThroughTheMapper` del repositorio, más las filas NULL que sembraban los tests de filtro; entra `ToDomain_WithInactiveRow_MapsTheState` para no perder el caso `false`. **La discrepancia con el Discovery queda abierta** y se corrige en su propia revisión: este plan no lo reescribe | **D6 (invertida)** | `F2.1`, `F2.2`, `F2.3`, `F2.8`, `F2.9` · §4 · encabezado de estrategia de la Fase 2 | ninguna — T4 se corrige en su propia rama |
+| 2026-08-21 | **El assert de "no hay commit" de F3.8 pasa a leer el constructor, no un sustituto.** Tal como el paso lo pedía —`DidNotReceive()` sobre un `IUnitOfWorkPort`— el assert **no podía fallar nunca**: el use case no recibe el puerto, así que el sustituto quedaba sin inyectar y el test seguiría verde aunque alguien agregara el `CommitAsync`. Cumplía la letra de F3.8 y no su intención. Se reemplaza por una aserción de reflexión sobre los parámetros del constructor, que **sí falla** ante la regresión: verificado simulándola (agregar el puerto y llamar `CommitAsync` deja el test en rojo; sin usarlo ni siquiera compila, `CS9113`). **Es una desviación de la letra del paso F3.8** y se declara como tal. La mitad conductual de D3 —que el insert se confirma dentro del repositorio— ya la cubre `F2.9`. El caso equivalente de T9 no tiene el problema: allí el puerto sí se inyecta | — | `F3.8` (detalle) | ninguna — T8 se corrige en su propia rama |
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
 

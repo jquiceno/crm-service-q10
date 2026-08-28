@@ -21,6 +21,12 @@ public static class LossReasonErrors
             Attributes = new Dictionary<string, object?> { ["max"] = LossReasonAggregate.NameMaxLength }
         };
 
+    public static readonly ValidationError IsActiveRequired =
+        new("Loss reason active flag is required.", ErrorType.Validation)
+        {
+            Property = nameof(LossReasonAggregate.IsActive)
+        };
+
     public static DomainError NotFound(int id) =>
         new($"Loss reason with id '{id}' was not found.", ErrorType.NotFound);
 

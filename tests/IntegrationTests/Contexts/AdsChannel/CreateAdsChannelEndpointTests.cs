@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AdsChannel.Application.UseCases.CreateAdsChannel;
 using IntegrationTests.Infrastructure;
+using Shared.Presentation.Responses;
 using Shouldly;
 using Xunit;
 
@@ -44,6 +45,10 @@ public sealed class CreateAdsChannelEndpointTests : IntegrationTestBase
         var response = await Client.PostAsJsonAsync("/ads-channels", input);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("CONFLICT");
+        body.Error.Code.ShouldBe("HTTP.CONFLICT");
     }
 
     [Fact]
@@ -54,5 +59,9 @@ public sealed class CreateAdsChannelEndpointTests : IntegrationTestBase
         var response = await Client.PostAsJsonAsync("/ads-channels", input);
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("VALIDATION");
+        body.Error.Code.ShouldBe("HTTP.VALIDATION");
     }
 }

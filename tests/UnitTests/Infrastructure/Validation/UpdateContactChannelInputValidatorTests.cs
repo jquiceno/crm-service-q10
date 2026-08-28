@@ -8,9 +8,9 @@ using Xunit;
 
 namespace UnitTests.Infrastructure.Validation;
 
-public sealed class UpdateContactChannelValidatorTests
+public sealed class UpdateContactChannelInputValidatorTests
 {
-    private readonly UpdateContactChannelValidator _sut = new();
+    private readonly UpdateContactChannelInputValidator _sut = new();
 
     private static UpdateContactChannelInputDto WithName(string? name) => new(name, IsActive: true);
 

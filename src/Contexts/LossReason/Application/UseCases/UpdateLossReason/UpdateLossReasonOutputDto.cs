@@ -3,9 +3,9 @@ using System.ComponentModel;
 namespace LossReason.Application.UseCases.UpdateLossReason;
 
 public sealed record UpdateLossReasonOutputDto(
-    [property: Description("Identificador de la causa de pérdida.")]
+    [property: Description("Loss reason identifier.")]
     int Id,
-    [property: Description("Nombre vigente de la causa de pérdida.")]
+    [property: Description("Loss reason name.")]
     string Name,
-    [property: Description("Si la causa queda visible en el catálogo.")]
+    [property: Description("Whether the loss reason is active.")]
     bool IsActive);

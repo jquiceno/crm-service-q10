@@ -14,7 +14,7 @@ namespace UnitTests.Contexts.LossReason.Application;
 public sealed class UpdateLossReasonUseCaseTests
 {
     private const int ExistingId = 7;
-    private const string ValidName = "Precio";
+    private const string ValidName = "Price";
     private const string RepositoryOrigin = "LossReasonRepository";
     private const string UnitOfWorkOrigin = "UnitOfWorkAdapter";
 
@@ -26,7 +26,7 @@ public sealed class UpdateLossReasonUseCaseTests
     private void GivenTheRowExists() =>
         _repository
             .GetByIdAsync(ExistingId, Arg.Any<CancellationToken>())
-            .Returns(LossReasonAggregate.Reconstruct(ExistingId, "Competencia", isActive: true));
+            .Returns(LossReasonAggregate.Reconstruct(ExistingId, "Competition", isActive: true));
 
     [Fact]
     public async Task ExecuteAsync_WithValidInput_UpdatesTheAggregateAndCommitsOnce()

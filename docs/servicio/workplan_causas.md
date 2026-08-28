@@ -773,13 +773,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F3.5] Create DeleteLossReason use case
-`id: F3.5 · depende_de: F2.7, F2.6 · tarea: T10 (Juan Camilo) · estado: pending`
+`id: F3.5 · depende_de: F2.7, F2.6 · tarea: T10 (Juan Camilo) · estado: done`
 - Objetivo: el borrado con el 409 por uso.
 - Fuente: D7 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/DeleteLossReason/{IDeleteLossReasonUseCase,DeleteLossReasonUseCase}.cs`
 - Detalle: `Task<Result> ExecuteAsync(int id, CancellationToken)`. Orden obligatorio: `repository.ExistsAsync(id)` → si no existe, `LossReasonErrors.NotFound(id)`; luego `usageReader.IsUsedAsync(id)` → si está en uso, `LossReasonErrors.InUse(id)`; luego `RemoveAsync` + `CommitAsync`. **Primero la existencia, después el Reader**: así un 404 no paga el scan de 300.000 filas. Sin DTOs (204 sin cuerpo).
 - Hecho cuando: borrar una causa en uso devuelve `ErrorType.Conflict` sin llegar a `RemoveAsync`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: exit code 0, 0 errores**
+- Nota de ejecución: **sí declara `Origin`**, a diferencia de `F3.2`, porque este caso de uso **sí origina errores propios** (`NotFound` cuando no existe, `InUse` cuando está asignada) y los sella con `with { Origin = Origin }`. Los ajenos —del repositorio y del Reader— los propaga sin tocar. **No sella `Context`**: en todo el servicio, `Context` solo se pone sobre errores de validación del agregado (`F3.3`), mientras que cada `NotFound` se sella únicamente con `Origin`, igual que en `LossReasonRepository`.
 
 > Los cinco pasos de test que siguen son deliberadamente uno por caso de uso: agrupados en un solo paso hacían que la tarea de escrituras superara el techo de R2 y no pudiera moverse de estado por partes.
 
@@ -822,13 +823,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet test tests/UnitTests -c Release`
 
 #### [F3.10] Unit tests for DeleteLossReason
-`id: F3.10 · depende_de: F3.5 · tarea: T10 (Juan Camilo) · estado: pending`
+`id: F3.10 · depende_de: F3.5 · tarea: T10 (Juan Camilo) · estado: done`
 - Objetivo: cubrir el borrado y el 409 por uso.
 - Fuente: D7 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/DeleteLossReasonUseCaseTests.cs`
 - Detalle: NSubstitute para repositorio, `ILossReasonUsageReader` e `IUnitOfWorkPort`. **Del Reader hay que cubrir las tres ramas: en uso, libre, y el Reader falla.** Además: id inexistente → `NotFound` **sin llamar al Reader** (es lo que evita el scan de 300.000 filas en un 404, D7); en uso → `Conflict` sin llamar a `RemoveAsync`.
 - Hecho cuando: los 5 casos pasan y existe el assert de que un 404 no consulta el Reader.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-28: 6/6 del caso de uso y 417/417 en la suite**
+- Nota de ejecución: **son 6 tests, no 5.** Con los cinco del paso, la rama de `RemoveAsync` fallando quedaba sin cubrir (93,3 % de líneas), así que se añade `ExecuteAsync_WhenRemoveFails_DoesNotCommit`, que además fija la regla de que un borrado que falló **no llega al commit**. Con él, el caso de uso queda en **100 % de líneas y de ramas**. Los errores del repositorio y del Reader se arman con `DomainError` de `Shared`, no con `PersistenceErrors` de Infrastructure: es un test de la capa de aplicación, igual que en `F3.6` y `F3.7`.
 
 ### Fase 4 — API · `pending`
 

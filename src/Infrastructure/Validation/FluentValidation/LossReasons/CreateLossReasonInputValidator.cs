@@ -1,18 +1,32 @@
 using FluentValidation;
 using LossReason.Application.UseCases.CreateLossReason;
+using LossReason.Domain.Aggregates;
+using LossReason.Domain.Errors;
 
 namespace Infrastructure.Validation.FluentValidation.LossReasons;
 
 public sealed class CreateLossReasonInputValidator
     : AbstractValidator<CreateLossReasonInputDto>, IStructuralValidator<CreateLossReasonInputDto>
 {
+    // Messages and state come from the domain error catalog so the HTTP layer answers with the
+    // exact same text, ErrorType and Attributes the aggregate would produce. WithState is what
+    // FluentRequestValidationAdapter reads to rebuild the ValidationError: without it the
+    // "max" attribute of NameTooLong is lost and the client has to parse the message.
     public CreateLossReasonInputValidator()
     {
-        // Only IsActive: Name is left to the aggregate, which already reports NameRequired and
-        // NameTooLong on its own Property. Duplicating it here would answer the same payload
-        // with two different error shapes depending on which layer ran first.
+        RuleFor(x => x.Name)
+            .NotEmpty()
+            .WithMessage(LossReasonErrors.NameRequired.Message)
+            .WithState(_ => LossReasonErrors.NameRequired);
+
+        RuleFor(x => x.Name)
+            .MaximumLength(LossReasonAggregate.NameMaxLength)
+            .WithMessage(LossReasonErrors.NameTooLong.Message)
+            .WithState(_ => LossReasonErrors.NameTooLong);
+
         RuleFor(x => x.IsActive)
             .NotNull()
-            .WithMessage("Whether the loss reason is active is required.");
+            .WithMessage(LossReasonErrors.IsActiveRequired.Message)
+            .WithState(_ => LossReasonErrors.IsActiveRequired);
     }
 }

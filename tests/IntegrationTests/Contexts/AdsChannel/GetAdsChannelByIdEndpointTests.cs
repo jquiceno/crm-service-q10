@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AdsChannel.Application.UseCases.GetAdsChannelById;
 using IntegrationTests.Infrastructure;
+using Shared.Presentation.Responses;
 using Shouldly;
 using Xunit;
 
@@ -41,6 +42,10 @@ public sealed class GetAdsChannelByIdEndpointTests : IntegrationTestBase
         var response = await Client.GetAsync("/ads-channels/999999");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("NOT_FOUND");
+        body.StatusCode.ShouldBe(404);
     }
 
     [Fact]

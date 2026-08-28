@@ -8,5 +8,5 @@ public static class UpdateContactChannelMapping
         new(input.Name, input.IsActive);
 
     public static UpdateContactChannelOutputDto ToOutputDto(this ContactChannelAggregate aggregate) =>
-        new(aggregate.Id, aggregate.Name, aggregate.IsActive);
+        new(aggregate.Id);
 }

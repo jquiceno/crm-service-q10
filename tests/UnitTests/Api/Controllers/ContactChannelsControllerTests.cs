@@ -338,25 +338,22 @@ public sealed class ContactChannelsControllerTests
             .Returns(result);
 
     [Fact]
-    public async Task UpdateContactChannel_WhenTheUseCaseSucceeds_ReturnsTheUpdatedChannel()
+    public async Task UpdateContactChannel_WhenTheUseCaseSucceeds_ReturnsTheIdentifier()
     {
         ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Success(
-            new UpdateContactChannelOutputDto(7, "Feria", false)));
+            new UpdateContactChannelOutputDto(7)));
 
         var (statusCode, body) = await ExecuteAsync(await InvokeUpdateAsync());
 
         statusCode.ShouldBe(StatusCodes.Status200OK);
-        var data = body.RootElement.GetProperty("data");
-        data.GetProperty("id").GetInt32().ShouldBe(7);
-        data.GetProperty("name").GetString().ShouldBe("Feria");
-        data.GetProperty("isActive").GetBoolean().ShouldBeFalse();
+        body.RootElement.GetProperty("data").GetProperty("id").GetInt32().ShouldBe(7);
     }
 
     [Fact]
     public async Task UpdateContactChannel_ForwardsTheIdentifierAndTheInput()
     {
         ReturnsUpdated(Result<UpdateContactChannelOutputDto>.Success(
-            new UpdateContactChannelOutputDto(9, "Feria", true)));
+            new UpdateContactChannelOutputDto(9)));
 
         await InvokeUpdateAsync(9, new UpdateContactChannelInputDto("  Feria  ", IsActive: true));
 

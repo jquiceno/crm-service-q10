@@ -32,16 +32,16 @@ public sealed class UpdateContactChannelUseCaseTests
         new(name, isActive);
 
     [Fact]
-    public async Task ExecuteAsync_WithValidInput_ReturnsTheUpdatedChannel()
+    public async Task ExecuteAsync_WithValidInput_ReturnsTheIdentifierAndAppliesTheChanges()
     {
-        Existing();
+        var channel = Existing();
 
         var result = await CreateUseCase().ExecuteAsync(7, Input());
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(7);
-        result.Value.Name.ShouldBe("Feria");
-        result.Value.IsActive.ShouldBeFalse();
+        channel.Name.ShouldBe("Feria");
+        channel.IsActive.ShouldBeFalse();
     }
 
     [Fact]

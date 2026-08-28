@@ -17,13 +17,16 @@ public sealed class CreateAdsChannelUseCase(IAdsChannelRepository repository) : 
             return aggregateResult.Error with { Context = AdsChannelErrors.Context, Origin = Origin };
 
         // 2. Business rule that requires a DB query — only reached once the body is well-formed.
+        //    Checked against the normalized name (Create() trims it), so a whitespace-only variant
+        //    of an existing name can't slip past this check and later collide with what's persisted.
+        var normalizedName = aggregateResult.Value.Name;
         var existsResult = await repository
-            .ExistsByNameAsync(input.Name!, cancellationToken: cancellationToken)
+            .ExistsByNameAsync(normalizedName, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (existsResult.IsFailure)
             return existsResult.Error;
         if (existsResult.Value)
-            return AdsChannelErrors.NameAlreadyExists(input.Name!) with
+            return AdsChannelErrors.NameAlreadyExists(normalizedName) with
             {
                 Context = AdsChannelErrors.Context,
                 Origin = Origin

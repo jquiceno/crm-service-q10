@@ -42,7 +42,7 @@ public sealed class AdsChannelsController(
         return await createAdsChannelUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
     }
 
-    [HttpPut("{id}")]
+    [HttpPut("{id:int}")]
     [ValidateRequest]
     [OutputCacheInvalidate(CacheTag)]
     [EndpointSummary("Update ads channel")]
@@ -60,7 +60,7 @@ public sealed class AdsChannelsController(
         return await updateAdsChannelUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
     }
 
-    [HttpDelete("{id}")]
+    [HttpDelete("{id:int}")]
     [OutputCacheInvalidate(CacheTag)]
     [EndpointSummary("Delete ads channel")]
     [EndpointDescription("Deletes an existing ads channel.")]
@@ -75,7 +75,7 @@ public sealed class AdsChannelsController(
         return await deleteAdsChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     [OutputCache(Duration = 120, Tags = [CacheTag], VaryByRouteValueNames = ["id"])]
     [EndpointSummary("Get ads channel by id")]
     [EndpointDescription("Returns a single ads channel by its identifier.")]

@@ -17,6 +17,27 @@ namespace Infrastructure.Persistence.EntityFramework.Activities;
 /// </remarks>
 internal static class LegacyActivityCodes
 {
+    /// <summary>
+    /// Collapses the legacy bit pair (<c>negact_completada</c>, <c>negact_anulada</c>) into one
+    /// status, reading NULL as false — the permanent read convention of DEC-6. A cancelled bit
+    /// wins over a completed one.
+    /// </summary>
+    internal static ActivityStatus ToStatus(bool? isCompleted, bool? isCancelled) =>
+        isCancelled == true ? ActivityStatus.Cancelled
+        : isCompleted == true ? ActivityStatus.Completed
+        : ActivityStatus.Scheduled;
+
+    /// <summary>
+    /// Decomposes a status into the legacy bit pair. Always real booleans, never NULL: the NULL
+    /// pattern belongs to migrated history (0 rows in the 605 real databases) and new writes
+    /// must match what production data looks like. Annulling sets BOTH bits — the monolith
+    /// writes <c>completada = 1</c> when it annuls and classifies pending/completed exclusively
+    /// by that bit, so a cancelled row with <c>(0,1)</c> would show up as "Programada" in Jack.
+    /// </summary>
+    internal static (bool IsCompleted, bool IsCancelled) ToStatusBits(ActivityStatus status) =>
+        (status is ActivityStatus.Completed or ActivityStatus.Cancelled,
+            status == ActivityStatus.Cancelled);
+
     internal static string ToTypeCode(ActivityType type) => type switch
     {
         ActivityType.Call => "1",
@@ -72,16 +93,6 @@ internal static class LegacyActivityCodes
             _ => null,
         };
     }
-
-    /// <summary>
-    /// True for the types whose <c>negact_resultado</c> this service interprets — exactly the
-    /// set <see cref="ToOutcomeType"/> resolves. The save-side sync must leave the column alone
-    /// for every other type: reads discard those stray codes, so writing the discarded null
-    /// back would silently destroy legacy data.
-    /// </summary>
-    internal static bool OwnsOutcomeCode(ActivityType type) =>
-        type is ActivityType.Call or ActivityType.Meeting
-            or ActivityType.LegacyMeeting or ActivityType.VirtualMeeting;
 
     private static string ToCallOutcomeCode(string name) => name switch
     {

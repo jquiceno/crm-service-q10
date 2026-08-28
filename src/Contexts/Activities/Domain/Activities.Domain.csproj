@@ -3,9 +3,9 @@
     <ProjectReference Include="..\..\..\Shared\Domain\Shared.Domain.csproj" />
   </ItemGroup>
 
-  <!-- Persistence rehydration only: the EF materialization interceptor needs the internal
-       Activity.RestoreOutcomeType hook (the legacy outcome char depends on the activity type,
-       so a value converter cannot rebuild it — see ActivityConfiguration). -->
+  <!-- Persistence rehydration only: the repository mapper rebuilds aggregates through the
+       internal Activity.Reconstruct and the value objects' internal Reconstruct (stored legacy
+       values are valid data even where today's creation rules would reject them — DEC-6). -->
   <ItemGroup>
     <InternalsVisibleTo Include="Infrastructure" />
   </ItemGroup>

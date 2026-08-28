@@ -9,6 +9,34 @@ namespace UnitTests.Infrastructure.Activities;
 public sealed class LegacyActivityCodesTests
 {
     [Theory]
+    [InlineData(null, null, ActivityStatus.Scheduled)]
+    [InlineData(false, null, ActivityStatus.Scheduled)]
+    [InlineData(null, false, ActivityStatus.Scheduled)]
+    [InlineData(false, false, ActivityStatus.Scheduled)]
+    [InlineData(true, null, ActivityStatus.Completed)]
+    [InlineData(true, false, ActivityStatus.Completed)]
+    [InlineData(null, true, ActivityStatus.Cancelled)]
+    [InlineData(false, true, ActivityStatus.Cancelled)]
+    [InlineData(true, true, ActivityStatus.Cancelled)]
+    public void ToStatus_CollapsesTheBitPair_WithNullAsFalse(
+        bool? isCompleted, bool? isCancelled, ActivityStatus expected)
+    {
+        LegacyActivityCodes.ToStatus(isCompleted, isCancelled).ShouldBe(expected);
+    }
+
+    [Theory]
+    [InlineData(ActivityStatus.Scheduled, false, false)]
+    [InlineData(ActivityStatus.Completed, true, false)]
+    // Annulling sets BOTH bits: the monolith writes completada=1 when it annuls and classifies
+    // pending/completed exclusively by that bit.
+    [InlineData(ActivityStatus.Cancelled, true, true)]
+    public void ToStatusBits_AlwaysWritesRealBooleans(
+        ActivityStatus status, bool isCompleted, bool isCancelled)
+    {
+        LegacyActivityCodes.ToStatusBits(status).ShouldBe((isCompleted, isCancelled));
+    }
+
+    [Theory]
     [InlineData(ActivityType.Call, "1")]
     [InlineData(ActivityType.Email, "2")]
     [InlineData(ActivityType.LegacyMeeting, "3")]
@@ -79,8 +107,6 @@ public sealed class LegacyActivityCodesTests
     public void StrayOutcomeCodes_OnTypesWithoutACatalogue_AreDiscardedOnRead(ActivityType type)
     {
         LegacyActivityCodes.ToOutcomeType(type, "1").ShouldBeNull();
-        LegacyActivityCodes.OwnsOutcomeCode(type).ShouldBeFalse(
-            "the save side must never overwrite a column reads discard");
     }
 
     [Fact]

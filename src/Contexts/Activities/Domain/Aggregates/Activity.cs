@@ -23,9 +23,9 @@ namespace Activities.Domain.Aggregates;
 /// <c>CreatedAt</c> is stamped in UTC by <see cref="Created"/> itself, the same as every other
 /// aggregate in this service. <c>CompletedAt</c> is different: it is business data (when the
 /// activity was completed), not an audit field, so it comes from the caller through
-/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because the
-/// legacy table has no updated column, and <c>Id</c> stays 0 until the database generates the
-/// identity on save.
+/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because
+/// the legacy table has no updated column, and <c>Id</c> stays 0 until the database generates
+/// the identity on save.
 /// </para>
 /// </remarks>
 public sealed class Activity : AggregateRoot<int>
@@ -34,20 +34,12 @@ public sealed class Activity : AggregateRoot<int>
     public int? OpportunityId { get; }
     public ActivityType Type { get; }
 
-    /// <summary>
-    /// Collapses the legacy pair (<c>negact_completada</c>, <c>negact_anulada</c>) — read with
-    /// NULL ⇒ false, the permanent read convention of DEC-6 — into a status that makes the
-    /// invalid combinations unrepresentable.
-    /// </summary>
-    public ActivityStatus Status =>
-        _isCancelled == true ? ActivityStatus.Cancelled
-        : _isCompleted == true ? ActivityStatus.Completed
-        : ActivityStatus.Scheduled;
+    public ActivityStatus Status { get; }
 
     public Description? Description { get; }
     public DateTime? DueAt { get; }
     public Outcome? Outcome { get; }
-    public OutcomeType? OutcomeType { get; private set; }
+    public OutcomeType? OutcomeType { get; }
 
     /// <summary>
     /// Null only on migrated historic rows read from the legacy database (§4.1); every factory
@@ -55,18 +47,8 @@ public sealed class Activity : AggregateRoot<int>
     /// </summary>
     public PersonCode? AdvisorId { get; }
 
-    // negact_per_codigo is NOT NULL in every measured schema variant (0 nulls in data); the
-    // null! covers only the parameterless EF materialization constructor.
-    public PersonCode CreatedById { get; } = null!;
+    public PersonCode CreatedById { get; }
     public DateTime? CompletedAt { get; }
-
-    // Legacy bit pair behind Status. bool? mirrors the nullable columns so historic NULL rows
-    // survive round-trips untouched (DEC-6); the factories always write real booleans.
-    private bool? _isCompleted;
-    private bool? _isCancelled;
-
-    // EF Core materialization only.
-    private Activity() { }
 
     private Activity(
         int dealId,
@@ -77,15 +59,14 @@ public sealed class Activity : AggregateRoot<int>
         DateTime? dueAt,
         Outcome? outcome,
         OutcomeType? outcomeType,
-        PersonCode advisorId,
+        PersonCode? advisorId,
         PersonCode createdById,
         DateTime? completedAt)
     {
         DealId = dealId;
         OpportunityId = opportunityId;
         Type = type;
-        _isCompleted = status == ActivityStatus.Completed;
-        _isCancelled = status == ActivityStatus.Cancelled;
+        Status = status;
         Description = description;
         DueAt = dueAt;
         Outcome = outcome;
@@ -276,15 +257,44 @@ public sealed class Activity : AggregateRoot<int>
     }
 
     /// <summary>
-    /// Persistence-only rehydration. <c>negact_resultado</c> is a char whose meaning depends on
-    /// <see cref="Type"/> ('3' is a wrong number for a call but a closed deal for a meeting), so
-    /// a value converter — which sees a single column — cannot rebuild the value object. The EF
-    /// materialization interceptor resolves it and hands it back through this hook, keeping the
-    /// char mapping in Infrastructure (DEC-15). Note: the restored <see cref="OutcomeType.Scope"/>
-    /// names the catalogue, so legacy/virtual meeting rows carry Scope = Meeting while Type keeps
-    /// their real value — Scope == Type is an invariant of the factories only, not of reads.
+    /// Rebuilds the aggregate from persistence without validation or audit stamping (the
+    /// template's reconstruction factory): a legacy row is valid data even where today's
+    /// creation invariants would reject it — missing advisor, read-only types, rows carrying
+    /// both <see cref="Description"/> and <see cref="Outcome"/> at once, or an
+    /// <see cref="OutcomeType"/> whose <see cref="OutcomeType.Scope"/> names the catalogue
+    /// (Meeting) while <see cref="Type"/> keeps the real legacy/virtual value. Only the
+    /// persistence mapper calls it; Scope == Type is an invariant of the factories, not of reads.
+    /// The identity is the one exception: it defines equality (<c>Entity&lt;TId&gt;</c>), so a
+    /// non-positive one is a programming error, never legacy data.
     /// </summary>
-    internal void RestoreOutcomeType(OutcomeType? outcomeType) => OutcomeType = outcomeType;
+    internal static Activity Reconstruct(
+        int id,
+        int dealId,
+        int? opportunityId,
+        ActivityType type,
+        ActivityStatus status,
+        Description? description,
+        DateTime? dueAt,
+        Outcome? outcome,
+        OutcomeType? outcomeType,
+        PersonCode? advisorId,
+        PersonCode createdById,
+        DateTime createdAt,
+        DateTime? completedAt)
+    {
+        if (id <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(id), id, "A persisted activity always has a positive identity.");
+
+        var activity = new Activity(
+            dealId, opportunityId, type, status, description, dueAt, outcome, outcomeType,
+            advisorId, createdById, completedAt)
+        {
+            Id = id,
+        };
+        activity.SetCreatedAt(createdAt);
+        return activity;
+    }
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.
     protected override void Created() => SetCreatedAt(DateTime.UtcNow);

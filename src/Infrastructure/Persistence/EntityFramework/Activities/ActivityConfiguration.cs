@@ -1,12 +1,15 @@
 using Activities.Domain.Aggregates;
 using Activities.Domain.ValueObjects;
+using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Infrastructure.Persistence.EntityFramework.Activities;
 
 /// <summary>
-/// Drift-safe mapping of the legacy <c>tbl_opo_negocios_actividades</c> (F2.2).
+/// Drift-safe mapping of the legacy <c>tbl_opo_negocios_actividades</c> (F2.2) over the
+/// persistence entity — the aggregate never touches EF; the repository mapper translates in
+/// both directions.
 /// </summary>
 /// <remarks>
 /// Only the columns present in all 378 institutions are mapped (DEC-3): the per-tenant
@@ -18,102 +21,69 @@ namespace Infrastructure.Persistence.EntityFramework.Activities;
 /// <see cref="LegacyActivityCodes"/> (DEC-15). No EF migrations ever run against the legacy
 /// databases — this is mapping, not schema.
 /// </remarks>
-public sealed class ActivityConfiguration : IEntityTypeConfiguration<Activity>
+internal sealed class ActivityConfiguration : IEntityTypeConfiguration<ActivityEntity>
 {
-    /// <summary>
-    /// Shadow property holding the raw <c>negact_resultado</c> char. It cannot be a value
-    /// converter on <see cref="Activity.OutcomeType"/> because the char's meaning depends on
-    /// <c>negact_tipo</c> and a converter sees a single column;
-    /// <see cref="ActivityLegacyCodeInterceptor"/> fills it on save and resolves it on read.
-    /// </summary>
-    internal const string OutcomeTypeCodeProperty = "OutcomeTypeCode";
-
-    public void Configure(EntityTypeBuilder<Activity> builder)
+    public void Configure(EntityTypeBuilder<ActivityEntity> builder)
     {
         builder.ToTable("tbl_opo_negocios_actividades");
 
-        builder.HasKey(a => a.Id);
-        builder.Property(a => a.Id)
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id)
             .HasColumnName("negact_consecutivoP")
             .ValueGeneratedOnAdd();
 
         // Nullable in the legacy DB but 0 NULLs across 605 real databases; NOT NULL in the
         // domain (DEC-1) — a NULL here is invalid data and must fail loudly, not default to 0.
-        builder.Property(a => a.DealId)
+        builder.Property(e => e.DealId)
             .HasColumnName("negact_neg_consecutivo");
 
-        builder.Property(a => a.OpportunityId)
+        builder.Property(e => e.OpportunityId)
             .HasColumnName("negact_opo_consecutivo");
 
-        builder.Property(a => a.Type)
+        builder.Property(e => e.Type)
             .HasColumnName("negact_tipo")
-            .HasColumnType("char(1)")
-            .HasConversion(
-                type => LegacyActivityCodes.ToTypeCode(type),
-                code => LegacyActivityCodes.ToType(code));
+            .HasColumnType("char(1)");
 
         // The UI calls this column "Descripción" — the inverted semantics are deliberate (§4).
-        builder.Property(a => a.Description)
+        builder.Property(e => e.Title)
             .HasColumnName("negact_titulo")
-            .HasColumnType("varchar(500)")
-            .HasConversion(
-                description => description!.Value,
-                value => Description.Reconstruct(value));
+            .HasColumnType("varchar(500)");
 
         // The UI calls this column "Resultado". The logical contract is MAX (DEC-3); the tenants
         // still on varchar(2000) are protected by the phase-1 API edge cap, not by this mapping.
-        builder.Property(a => a.Outcome)
+        builder.Property(e => e.OutcomeText)
             .HasColumnName("negact_descripcion")
-            .HasColumnType("varchar(max)")
-            .HasConversion(
-                outcome => outcome!.Value,
-                value => Outcome.Reconstruct(value));
+            .HasColumnType("varchar(max)");
 
-        builder.Ignore(a => a.OutcomeType);
-        builder.Property<string>(OutcomeTypeCodeProperty)
+        builder.Property(e => e.OutcomeCode)
             .HasColumnName("negact_resultado")
-            .HasColumnType("char(1)")
-            .IsRequired(false);
+            .HasColumnType("char(1)");
 
-        builder.Property(a => a.CreatedAt)
+        builder.Property(e => e.CreatedAt)
             .HasColumnName("negact_fecha")
-            .HasColumnType("datetime")
-            .IsRequired();
+            .HasColumnType("datetime");
 
-        builder.Property(a => a.DueAt)
+        builder.Property(e => e.DueAt)
             .HasColumnName("negact_fecha_vencimiento")
             .HasColumnType("datetime");
 
-        builder.Property(a => a.CompletedAt)
+        builder.Property(e => e.IsCompleted)
+            .HasColumnName("negact_completada");
+
+        builder.Property(e => e.IsCancelled)
+            .HasColumnName("negact_anulada");
+
+        builder.Property(e => e.CompletedAt)
             .HasColumnName("negact_fecha_resuelto")
             .HasColumnType("datetime");
 
-        // The legacy bit pair collapses into Activity.Status (NULL ⇒ Scheduled — DEC-6); the
-        // domain keeps the bits as nullable fields so historic NULL rows round-trip untouched.
-        // Because Status is computed (ignored), SQL cannot filter/order by it: queries must use
-        // EF.Property<bool?>(a, "_isCompleted") / "_isCancelled" — the list query (F2.4) will.
-        builder.Ignore(a => a.Status);
-        builder.Property<bool?>("_isCompleted").HasColumnName("negact_completada");
-        builder.Property<bool?>("_isCancelled").HasColumnName("negact_anulada");
-
-        // Optional in legacy data: migrated history exists without an advisor (§4.1). The
-        // creation invariant still requires it — optionality here is read-side drift tolerance.
-        builder.Property(a => a.AdvisorId)
+        // Nullable: migrated history exists without an advisor (§4.1).
+        builder.Property(e => e.AdvisorId)
             .HasColumnName("negact_asesor")
-            .HasColumnType("varchar(20)")
-            .HasConversion(
-                advisor => advisor!.Value,
-                value => PersonCode.Reconstruct(value))
-            .IsRequired(false);
+            .HasColumnType("varchar(20)");
 
-        builder.Property(a => a.CreatedById)
+        builder.Property(e => e.CreatedById)
             .HasColumnName("negact_per_codigo")
-            .HasColumnType("varchar(20)")
-            .HasConversion(
-                creator => creator.Value,
-                value => PersonCode.Reconstruct(value));
-
-        // The legacy table has no updated column (and no domain flow updates an activity yet).
-        builder.Ignore(a => a.UpdatedAt);
+            .HasColumnType("varchar(20)");
     }
 }

@@ -2,6 +2,8 @@ using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
 using Activities.Domain.ValueObjects;
 using Infrastructure.Persistence.EntityFramework;
+using Infrastructure.Persistence.EntityFramework.Activities.Entities;
+using Infrastructure.Persistence.EntityFramework.Activities.Mappers;
 using IntegrationTests.Infrastructure;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +17,8 @@ namespace IntegrationTests.Activities.Mapping;
 /// variants of <c>tbl_opo_negocios_actividades</c> (Discovery §4.1-bis) — the universal 15
 /// columns with <c>varchar(MAX)</c>, and the extended 16 columns with <c>varchar(2000)</c> plus
 /// <c>ConsecutivoActMiG</c> — including a deliberately different physical column order, which is
-/// also part of the real drift.
+/// also part of the real drift. Reads and writes go through <see cref="ActivityRepositoryMapper"/>,
+/// the same boundary the repository (F2.4) will use.
 /// </summary>
 [Collection(IntegrationTestCollection.Name)]
 public sealed class ActivityMappingTests : IAsyncLifetime
@@ -96,8 +99,9 @@ public sealed class ActivityMappingTests : IAsyncLifetime
              @completed, @cancelled, NULL, @advisor, @creator);
         """;
 
-    private const string SelectRawCharsSql =
-        "SELECT negact_tipo, negact_resultado FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
+    private const string SelectRawRowSql =
+        "SELECT negact_tipo, negact_resultado, negact_completada, negact_anulada " +
+        "FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
 
     private const string SelectPerTenantColumnSql =
         "SELECT ConsecutivoActMiG FROM dbo.tbl_opo_negocios_actividades WHERE negact_consecutivoP = @id;";
@@ -126,13 +130,14 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    // --- Round-trips through the aggregate --------------------------------------------------
+    // --- Round-trips through the mapper ------------------------------------------------------
 
     [Theory]
     [MemberData(nameof(Variants))]
     public async Task AScheduledActivity_RoundTripsOnBothVariants(string variant)
     {
         var dueAt = Now.AddDays(1);
+        var before = DateTime.UtcNow.AddSeconds(-1);
         var scheduled = Activity.Schedule(
             1200, 845, ActivityType.Call, Description.Create("call the applicant").Value, dueAt,
             Advisor, Creator).Value;
@@ -142,16 +147,17 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
         var activity = await ReadAsync(variant, id).ConfigureAwait(true);
 
+        activity.Id.ShouldBe(id);
         activity.Status.ShouldBe(ActivityStatus.Scheduled);
         activity.DealId.ShouldBe(1200);
         activity.OpportunityId.ShouldBe(845);
         activity.Type.ShouldBe(ActivityType.Call);
         activity.Description!.Value.ShouldBe("call the applicant");
         activity.DueAt.ShouldBe(dueAt);
-        // Created() stamps CreatedAt with DateTime.UtcNow, so the round-trip asserts fidelity
-        // against the in-memory aggregate instead of a fixed instant, with tolerance for the
-        // precision of the legacy datetime column.
-        activity.CreatedAt!.Value.ShouldBe(scheduled.CreatedAt!.Value, TimeSpan.FromSeconds(1));
+        // CreatedAt is stamped by Created() with the real UTC clock; the ±1s margin absorbs the
+        // legacy datetime column rounding (1/300s).
+        activity.CreatedAt.ShouldNotBeNull();
+        activity.CreatedAt!.Value.ShouldBeInRange(before, DateTime.UtcNow.AddSeconds(1));
         activity.Outcome.ShouldBeNull();
         activity.OutcomeType.ShouldBeNull();
         activity.CompletedAt.ShouldBeNull();
@@ -177,30 +183,14 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         activity.CompletedAt.ShouldBe(Now);
         activity.Description.ShouldBeNull();
 
-        // The chars on disk are the legacy ones, not the domain enum values (DEC-15).
-        var (typeChar, outcomeChar) = await ReadRawCharsAsync(variant, id).ConfigureAwait(true);
+        // The chars on disk are the legacy ones, not the domain enum values (DEC-15), and new
+        // rows carry real booleans, never NULL bits (production parity: 0 NULLs in real data).
+        var (typeChar, outcomeChar, isCompleted, isCancelled) =
+            await ReadRawRowAsync(variant, id).ConfigureAwait(true);
         typeChar.ShouldBe("1");
         outcomeChar.ShouldBe("6");
-    }
-
-    [Theory]
-    [MemberData(nameof(Variants))]
-    public async Task TheOutcomeType_MaterializesOnNoTrackingQueriesToo(string variant)
-    {
-        var completed = Activity.RegisterCompleted(
-            1200, 845, ActivityType.Meeting, Outcome.Create("met the applicant").Value,
-            OutcomeType.ForMeeting(MeetingOutcome.Held).Value, dueAt: null, Advisor, Creator, Now).Value;
-
-        var id = await SaveAsync(variant, completed).ConfigureAwait(true);
-
-        var context = CreateContext(variant);
-        await using (context.ConfigureAwait(true))
-        {
-            var activity = await context.Activities.AsNoTracking()
-                .SingleAsync(a => a.Id == id).ConfigureAwait(true);
-
-            activity.OutcomeType!.Name.ShouldBe(nameof(MeetingOutcome.Held));
-        }
+        isCompleted.ShouldBe(true);
+        isCancelled.ShouldBe(false);
     }
 
     // --- Legacy rows written by the monolith ------------------------------------------------
@@ -219,6 +209,35 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
         call.OutcomeType!.Name.ShouldBe(nameof(CallOutcome.WrongNumber));
         meeting.OutcomeType!.Name.ShouldBe(nameof(MeetingOutcome.DealClosed));
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task AVirtualMeetingRow_KeepsItsMeetingOutcome(string variant)
+    {
+        // The monolith writes and reads outcome codes on virtual meetings with the meeting
+        // catalogue; the service must not lose them on read.
+        var id = await InsertRawAsync(variant, type: "6", outcomeType: "1", completed: true)
+            .ConfigureAwait(true);
+
+        var activity = await ReadAsync(variant, id).ConfigureAwait(true);
+
+        activity.Type.ShouldBe(ActivityType.VirtualMeeting);
+        activity.OutcomeType!.Name.ShouldBe(nameof(MeetingOutcome.Held));
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task AStrayOutcomeCode_OnATypeWithoutACatalogue_IsDiscardedOnRead(string variant)
+    {
+        // An email row with a stray code: noise the legacy never interpreted (GAP-8 evidence).
+        var id = await InsertRawAsync(variant, type: "2", outcomeType: "6", completed: true)
+            .ConfigureAwait(true);
+
+        var activity = await ReadAsync(variant, id).ConfigureAwait(true);
+
+        activity.Type.ShouldBe(ActivityType.Email);
+        activity.OutcomeType.ShouldBeNull();
     }
 
     [Theory]
@@ -244,44 +263,6 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     [Theory]
     [MemberData(nameof(Variants))]
-    public async Task AVirtualMeetingRow_KeepsItsMeetingOutcome(string variant)
-    {
-        // The monolith writes and reads outcome codes on virtual meetings with the meeting
-        // catalogue; the service must not lose them on read.
-        var id = await InsertRawAsync(variant, type: "6", outcomeType: "1", completed: true)
-            .ConfigureAwait(true);
-
-        var activity = await ReadAsync(variant, id).ConfigureAwait(true);
-
-        activity.Type.ShouldBe(ActivityType.VirtualMeeting);
-        activity.OutcomeType!.Name.ShouldBe(nameof(MeetingOutcome.Held));
-    }
-
-    [Theory]
-    [MemberData(nameof(Variants))]
-    public async Task AStrayOutcomeCode_SurvivesAnUpdateUntouched(string variant)
-    {
-        // An email row with a stray code: reads discard it, so a later update of the row (what
-        // RepositoryBaseEF.Update does) must not sync the discarded null back into the column.
-        var id = await InsertRawAsync(variant, type: "2", outcomeType: "6", completed: true)
-            .ConfigureAwait(true);
-
-        var context = CreateContext(variant);
-        await using (context.ConfigureAwait(true))
-        {
-            var activity = await context.Activities.SingleAsync(a => a.Id == id).ConfigureAwait(true);
-            activity.OutcomeType.ShouldBeNull("reads discard codes on types without a catalogue");
-
-            context.Activities.Update(activity);
-            await context.SaveChangesAsync().ConfigureAwait(true);
-        }
-
-        var (_, outcomeChar) = await ReadRawCharsAsync(variant, id).ConfigureAwait(true);
-        outcomeChar.ShouldBe("6", "the service must never destroy codes it does not interpret");
-    }
-
-    [Theory]
-    [MemberData(nameof(Variants))]
     public async Task ACancelledRow_ReadsAsCancelled(string variant)
     {
         var id = await InsertRawAsync(variant, type: "6", outcomeType: null, completed: false, cancelled: true)
@@ -293,6 +274,20 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         activity.Type.ShouldBe(ActivityType.VirtualMeeting);
     }
 
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task AMonolithAnnulledRow_ReadsAsCancelled(string variant)
+    {
+        // The monolith annuls with completada=1 AND anulada=1: the cancelled bit must win.
+        var id = await InsertRawAsync(variant, type: "5", outcomeType: "2", completed: true, cancelled: true)
+            .ConfigureAwait(true);
+
+        var activity = await ReadAsync(variant, id).ConfigureAwait(true);
+
+        activity.Status.ShouldBe(ActivityStatus.Cancelled);
+        activity.OutcomeType!.Name.ShouldBe(nameof(MeetingOutcome.Cancelled));
+    }
+
     // --- Drift and unknown codes fail loudly ------------------------------------------------
 
     [Theory]
@@ -302,15 +297,14 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         var id = await InsertRawAsync(variant, type: "9", outcomeType: null, completed: null)
             .ConfigureAwait(true);
 
-        var context = CreateContext(variant);
-        await using (context.ConfigureAwait(true))
-        {
-            var exception = await Record
-                .ExceptionAsync(() => context.Activities.SingleAsync(a => a.Id == id))
-                .ConfigureAwait(true);
+        // The raw row materializes fine as an entity; the explicit failure (D20) happens at the
+        // mapper boundary, where the service refuses to guess what it does not recognize.
+        var entity = await ReadEntityAsync(variant, id).ConfigureAwait(true);
+        var exception = Should.Throw<InvalidOperationException>(
+            () => ActivityRepositoryMapper.ToDomain(entity));
 
-            ShouldFailExplicitly(exception, "negact_tipo");
-        }
+        exception.Message.ShouldContain("negact_tipo");
+        exception.Message.ShouldContain("'9'");
     }
 
     [Theory]
@@ -321,15 +315,32 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         var id = await InsertRawAsync(variant, type: "1", outcomeType: "4", completed: true)
             .ConfigureAwait(true);
 
-        var context = CreateContext(variant);
-        await using (context.ConfigureAwait(true))
-        {
-            var exception = await Record
-                .ExceptionAsync(() => context.Activities.SingleAsync(a => a.Id == id))
-                .ConfigureAwait(true);
+        var entity = await ReadEntityAsync(variant, id).ConfigureAwait(true);
+        var exception = Should.Throw<InvalidOperationException>(
+            () => ActivityRepositoryMapper.ToDomain(entity));
 
-            ShouldFailExplicitly(exception, "negact_resultado");
-        }
+        exception.Message.ShouldContain("negact_resultado");
+        exception.Message.ShouldContain("'4'");
+    }
+
+    [Fact]
+    public async Task ANullDealId_FailsExplicitly_NamingTheProperty()
+    {
+        // Pins EnableDetailedErrors: negact_neg_consecutivo is nullable in the legacy DB but
+        // NOT NULL in the domain (DEC-1); a NULL must fail naming the property, not with a bare
+        // "Data is Null".
+        var id = await InsertRawAsync(
+                Universal15, type: "1", outcomeType: null, completed: null, dealId: null)
+            .ConfigureAwait(true);
+
+        var exception = await Record.ExceptionAsync(() => ReadEntityAsync(Universal15, id))
+            .ConfigureAwait(true);
+
+        exception.ShouldNotBeNull();
+        var messages = string.Empty;
+        for (var current = exception; current is not null; current = current.InnerException)
+            messages += current.Message + " ";
+        messages.ShouldContain(nameof(ActivityEntity.DealId));
     }
 
     [Fact]
@@ -359,41 +370,37 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     // --- Plumbing ----------------------------------------------------------------------------
 
-    private static void ShouldFailExplicitly(Exception? exception, string expectedColumn)
-    {
-        exception.ShouldNotBeNull();
-
-        var messages = string.Empty;
-        for (var current = exception; current is not null; current = current.InnerException)
-        {
-            current.ShouldNotBeOfType<KeyNotFoundException>("D20: never a KeyNotFoundException");
-            messages += current.Message + " ";
-        }
-
-        messages.ShouldContain(expectedColumn);
-    }
-
     private async Task<int> SaveAsync(string variant, Activity activity)
     {
+        var entity = ActivityRepositoryMapper.ToEntity(activity);
+
         var context = CreateContext(variant);
         await using (context.ConfigureAwait(false))
         {
-            context.Activities.Add(activity);
+            context.Activities.Add(entity);
             await context.SaveChangesAsync().ConfigureAwait(false);
-            return activity.Id;
+            return entity.Id;
         }
     }
 
     private async Task<Activity> ReadAsync(string variant, int id)
     {
+        var entity = await ReadEntityAsync(variant, id).ConfigureAwait(false);
+        return ActivityRepositoryMapper.ToDomain(entity);
+    }
+
+    private async Task<ActivityEntity> ReadEntityAsync(string variant, int id)
+    {
         var context = CreateContext(variant);
         await using (context.ConfigureAwait(false))
         {
-            return await context.Activities.SingleAsync(a => a.Id == id).ConfigureAwait(false);
+            return await context.Activities.AsNoTracking()
+                .SingleAsync(e => e.Id == id).ConfigureAwait(false);
         }
     }
 
-    private async Task<(string TypeChar, string? OutcomeChar)> ReadRawCharsAsync(string variant, int id)
+    private async Task<(string TypeChar, string? OutcomeChar, bool? IsCompleted, bool? IsCancelled)>
+        ReadRawRowAsync(string variant, int id)
     {
         var connection = new SqlConnection(VariantConnectionString(variant));
         await using (connection.ConfigureAwait(false))
@@ -402,7 +409,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
             var command = connection.CreateCommand();
             await using (command.ConfigureAwait(false))
             {
-                command.CommandText = SelectRawCharsSql;
+                command.CommandText = SelectRawRowSql;
                 command.Parameters.AddWithValue("@id", id);
 
                 var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
@@ -413,7 +420,13 @@ public sealed class ActivityMappingTests : IAsyncLifetime
                     var outcomeChar = await reader.IsDBNullAsync(1).ConfigureAwait(false)
                         ? null
                         : reader.GetString(1);
-                    return (typeChar, outcomeChar);
+                    bool? isCompleted = await reader.IsDBNullAsync(2).ConfigureAwait(false)
+                        ? null
+                        : reader.GetBoolean(2);
+                    bool? isCancelled = await reader.IsDBNullAsync(3).ConfigureAwait(false)
+                        ? null
+                        : reader.GetBoolean(3);
+                    return (typeChar, outcomeChar, isCompleted, isCancelled);
                 }
             }
         }
@@ -426,7 +439,8 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         bool? completed,
         bool? cancelled = false,
         string? title = "a legacy title",
-        string? advisor = "advisor-01")
+        string? advisor = "advisor-01",
+        int? dealId = 1200)
     {
         var connection = new SqlConnection(VariantConnectionString(variant));
         await using (connection.ConfigureAwait(false))
@@ -436,7 +450,8 @@ public sealed class ActivityMappingTests : IAsyncLifetime
             await using (command.ConfigureAwait(false))
             {
                 command.CommandText = InsertRawRowSql;
-                command.Parameters.AddWithValue("@deal", 1200);
+                command.Parameters.AddWithValue(
+                    "@deal", dealId.HasValue ? dealId.Value : DBNull.Value);
                 command.Parameters.AddWithValue("@opportunity", 845);
                 command.Parameters.AddWithValue("@type", type);
                 command.Parameters.AddWithValue("@title", (object?)title ?? DBNull.Value);

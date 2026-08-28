@@ -10,3 +10,7 @@ Al inicializar un servicio nuevo a partir de esta plantilla, reemplaza este arch
 - **Notas de revisiones de PR relevantes** (carpeta `revisiones-pr/`, opcional).
 
 Ver `Announcements-service` (`Q10-Software/service-template-dotnet` fork) como ejemplo de esta carpeta ya completa.
+
+## Documentos de este servicio
+
+- [working-plan-actividades.md](working-plan-actividades.md) — plan de trabajo del contexto `Activities` (decisiones DEC-1…DEC-10, mapeo legado→modelo, contratos, fases F0–F3, riesgos y GAPs). Guía de ejecución para el frente API-first del strangler.

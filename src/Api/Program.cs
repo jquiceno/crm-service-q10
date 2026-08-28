@@ -40,9 +40,13 @@ if (!string.IsNullOrEmpty(pathBase)) app.UsePathBase(pathBase);
 
 app.UseExceptionHandler();
 
+// Only a JSON body ever needs a second, raw read (ValidateRequestFilter's JSON error scan) — no
+// point buffering a bodyless GET or a non-JSON request.
 app.Use(async (context, next) =>
 {
-    context.Request.EnableBuffering();
+    if (context.Request.HasJsonContentType())
+        context.Request.EnableBuffering();
+
     await next().ConfigureAwait(false);
 });
 

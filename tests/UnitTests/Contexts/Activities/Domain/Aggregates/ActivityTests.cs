@@ -187,12 +187,26 @@ public sealed class ActivityTests
     [InlineData(ActivityType.Email)]
     [InlineData(ActivityType.Note)]
     [InlineData(ActivityType.WhatsApp)]
-    public void RegisterCompleted_ForATypeWithoutOutcomeType_DiscardsItSilently(ActivityType type)
+    public void RegisterCompleted_ForATypeWithoutOutcomeType_ReturnsScopeNotSupported(
+        ActivityType type)
     {
-        // Legacy parity: the monolith ignores the outcome type for these types instead of
-        // rejecting the request.
         var result = ActivityAggregate.RegisterCompleted(
             AnyDealId, AnyOpportunityId, type, AnyOutcome, AnyCallOutcome, dueAt: null,
+            AnyAdvisor, AnyAdvisor, Now);
+
+        result.IsFailure.ShouldBeTrue();
+        result.TypedError.ShouldBe(ActivityErrors.OutcomeTypeScopeNotSupported);
+    }
+
+    [Theory]
+    [InlineData(ActivityType.Email)]
+    [InlineData(ActivityType.Note)]
+    [InlineData(ActivityType.WhatsApp)]
+    public void RegisterCompleted_ForATypeWithoutOutcomeType_SucceedsWhenNoneIsSupplied(
+        ActivityType type)
+    {
+        var result = ActivityAggregate.RegisterCompleted(
+            AnyDealId, AnyOpportunityId, type, AnyOutcome, outcomeType: null, dueAt: null,
             AnyAdvisor, AnyAdvisor, Now);
 
         result.IsSuccess.ShouldBeTrue();

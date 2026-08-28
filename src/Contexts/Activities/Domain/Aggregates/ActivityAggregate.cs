@@ -144,11 +144,11 @@ public sealed class ActivityAggregate : AggregateRoot<int>
         var createdById = Collect(
             PersonCode.Create(args.CreatedById), errors, args.CreatedById, nameof(CreatedById));
 
-        // Only resolve the name for types that carry a coded outcome: for the rest it is
-        // discarded silently (legacy parity), and a missing name is the core factory's
-        // OutcomeTypeRequired, not a resolution failure.
+        // A missing name for a type that admits an outcome is the core factory's
+        // OutcomeTypeRequired, not a resolution failure here. A name for a type that doesn't
+        // admit one is rejected by OutcomeType.Create's own scope check (DEC-13).
         OutcomeType? outcomeType = null;
-        if (AdmitsOutcomeType(args.Type) && !string.IsNullOrWhiteSpace(args.OutcomeName))
+        if (!string.IsNullOrWhiteSpace(args.OutcomeName))
             outcomeType = Collect(
                 OutcomeType.Create(args.Type, args.OutcomeName), errors, args.OutcomeName);
 
@@ -191,11 +191,9 @@ public sealed class ActivityAggregate : AggregateRoot<int>
             if (outcomeType.Scope != type)
                 return ActivityErrors.OutcomeTypeScopeMismatch;
         }
-        else
+        else if (outcomeType is not null)
         {
-            // Legacy parity: the monolith ignores the outcome type for these types instead of
-            // rejecting the request.
-            outcomeType = null;
+            return ActivityErrors.OutcomeTypeScopeNotSupported;
         }
 
         var activity = new ActivityAggregate(

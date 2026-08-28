@@ -30,20 +30,13 @@
   </ItemGroup>
 
   <!-- SqlServerErrorClassifier and the Activities persistence entity/mapper stay internal (the
-       legacy chars must not be reachable from Api/Application — DEC-15) but are tested directly. -->
+       legacy chars must not be reachable from Api/Application — DEC-15) but are tested directly
+       by UnitTests. IntegrationTests also needs visibility: it seeds the read-only persistence
+       entities of the Activities context through the ORM instead of raw SQL. -->
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>UnitTests</_Parameter1>
     </AssemblyAttribute>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
-      <_Parameter1>IntegrationTests</_Parameter1>
-    </AssemblyAttribute>
-  </ItemGroup>
-
-  <!-- The read-only persistence entities of the Activities context stay internal — nothing outside
-       this assembly should reference them — but the integration tests seed them through the ORM
-       instead of raw SQL, so they need visibility. -->
-  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>IntegrationTests</_Parameter1>
     </AssemblyAttribute>

@@ -47,7 +47,6 @@ public static class OutputCacheExtensions
             options.AddBasePolicy(policy => policy
                 .SetVaryByHeader("X-Entity-Code", "Accept-Language")
                 .SetVaryByQuery("EntityCode"));
-            options.AddPolicy("Global", p => { });
         });
 
         return services;

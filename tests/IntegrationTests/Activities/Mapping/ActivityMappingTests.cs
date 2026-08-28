@@ -277,7 +277,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         var messages = string.Empty;
         for (var current = exception; current is not null; current = current.InnerException)
             messages += current.Message + " ";
-        messages.ShouldContain(nameof(Activity.DealId));
+        messages.ShouldContain(nameof(ActivityAggregate.DealId));
     }
 
     [Fact]

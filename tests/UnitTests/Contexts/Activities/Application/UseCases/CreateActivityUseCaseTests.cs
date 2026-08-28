@@ -111,10 +111,20 @@ public sealed class CreateActivityUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_CompletingATypeWithoutACatalogue_DropsTheOutcomeTypeLikeTheLegacy()
+    public async Task ExecuteAsync_CompletingATypeWithoutACatalogue_WithAnOutcomeType_IsRejected()
+    {
+        var result = await Sut.ExecuteAsync(
+            Completed(outcomeType: "contacted") with { Type = "whatsapp" });
+
+        await ShouldFailWithoutTouchingTheDatabase(
+            result, ActivityErrors.OutcomeTypeScopeNotSupported.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CompletingATypeWithoutACatalogue_WithoutAnOutcomeType_Succeeds()
     {
         var persisted = await CapturePersistedAsync(
-            Completed(outcomeType: "contacted") with { Type = "whatsapp" });
+            Completed(outcomeType: null) with { Type = "whatsapp" });
 
         persisted.OutcomeType.ShouldBeNull();
     }

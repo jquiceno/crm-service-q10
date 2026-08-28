@@ -2,6 +2,7 @@ using AdsChannel.Application.UseCases.GetAdsChannelById;
 using AdsChannel.Domain.Aggregates;
 using AdsChannel.Domain.Errors;
 using AdsChannel.Domain.Repositories;
+using Infrastructure.Persistence.EntityFramework.Common;
 using NSubstitute;
 using Shouldly;
 using Xunit;
@@ -44,6 +45,19 @@ public sealed class GetAdsChannelByIdUseCaseTests
             .Returns(AdsChannelErrors.NotFound(nonexistentId) with { Origin = RepositoryOrigin });
 
         var result = await _sut.ExecuteAsync(nonexistentId, CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Origin.ShouldBe(
+            RepositoryOrigin, "the use case does not replace the origin of the failure");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRepositoryFailsForAReasonOtherThanNotFound_PropagatesTheRepositoryOrigin()
+    {
+        _repository.GetByIdAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(PersistenceErrors.Failure(RepositoryOrigin));
+
+        var result = await _sut.ExecuteAsync(Id, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Origin.ShouldBe(

@@ -1,6 +1,7 @@
 using Api.DependencyInjection;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.GetBusinessStatusById;
+using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,7 @@ public sealed class BusinessStatusServiceExtensionsTests
     [InlineData(typeof(IBusinessStatusRepository), typeof(BusinessStatusRepository))]
     [InlineData(typeof(ICreateBusinessStatusUseCase), typeof(CreateBusinessStatusUseCase))]
     [InlineData(typeof(IGetBusinessStatusByIdUseCase), typeof(GetBusinessStatusByIdUseCase))]
+    [InlineData(typeof(IUpdateBusinessStatusUseCase), typeof(UpdateBusinessStatusUseCase))]
     public void AddBusinessStatusServices_RegistersTheContextScoped(Type service, Type implementation)
     {
         var descriptor = Registrations.Where(d => d.ServiceType == service).ShouldHaveSingleItem();

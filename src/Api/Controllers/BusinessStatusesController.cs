@@ -1,5 +1,6 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.GetBusinessStatusById;
+using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Shared.Presentation.Attributes;
@@ -19,7 +20,8 @@ namespace Api.Controllers;
 [Tags("business-statuses")]
 public sealed class BusinessStatusesController(
     ICreateBusinessStatusUseCase createBusinessStatusUseCase,
-    IGetBusinessStatusByIdUseCase getBusinessStatusByIdUseCase) : ControllerBase
+    IGetBusinessStatusByIdUseCase getBusinessStatusByIdUseCase,
+    IUpdateBusinessStatusUseCase updateBusinessStatusUseCase) : ControllerBase
 {
     private const string CacheTag = "business-statuses";
 
@@ -52,5 +54,25 @@ public sealed class BusinessStatusesController(
         CancellationToken cancellationToken = default)
     {
         return await getBusinessStatusByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpPut("{id:int}")]
+    [ValidateRequest]
+    [EndpointSummary("Update business status")]
+    [EndpointDescription(
+        "Replaces every field of an existing business status and returns it as it stands afterwards. "
+        + "A percentage of 0 or 100 is rejected because those values are reserved for the terminal "
+        + "statuses, and the percentage of a status that already is terminal cannot be changed.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<UpdateBusinessStatusOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpOkResult<UpdateBusinessStatusOutputDto>> UpdateBusinessStatus(
+        [FromRoute] int id,
+        [FromBody] UpdateBusinessStatusInputDto input,
+        CancellationToken cancellationToken = default)
+    {
+        return await updateBusinessStatusUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -27,6 +27,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(typeof(ApiSuccessResponse<CreateAdsChannelOutputDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpCreatedResult<CreateAdsChannelOutputDto>> CreateAdsChannel(
         [FromBody] CreateAdsChannelInputDto input,
         CancellationToken cancellationToken = default)
@@ -43,6 +44,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpOkResult<UpdateAdsChannelOutputDto>> UpdateAdsChannel(
         [FromRoute] int id,
         [FromBody] UpdateAdsChannelInputDto input,
@@ -58,6 +60,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpNoContentResult> DeleteAdsChannel(
         [FromRoute] int id,
         CancellationToken cancellationToken = default)

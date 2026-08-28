@@ -74,12 +74,13 @@ public sealed class BusinessStatusRepository(
     public async Task<PagedResult<BusinessStatusAggregate>> GetAsync(
         BusinessStatusFilter filter, PageQuery page, CancellationToken cancellationToken = default)
     {
-        // Null when no tenant is resolved: there is nothing to partition by, so nothing is cached
-        // rather than sharing one key between tenants.
-        var cacheKey = ListCacheKey(filter, page);
-
         try
         {
+            // Null when there is no tenant to partition by, in which case nothing is cached rather
+            // than one key being shared between tenants. Built inside the try so that any surprise
+            // building it is handled like the rest, never as an unhandled failure of the listing.
+            var cacheKey = ListCacheKey(filter, page);
+
             if (cacheKey is not null)
             {
                 var cached = await cacheStore
@@ -245,13 +246,29 @@ public sealed class BusinessStatusRepository(
         }
     }
 
+    /// <summary>
+    /// The key of a page of the catalogue, or <c>null</c> when there is nothing to partition by.
+    /// <c>CacheKey</c> refuses a segment that is empty or contains <c>':'</c>, and a tenant code it
+    /// cannot represent is not a reason to fail the listing: the cache is skipped exactly as when no
+    /// tenant is resolved, so the endpoint degrades instead of answering 500.
+    /// </summary>
     private string? ListCacheKey(BusinessStatusFilter filter, PageQuery page)
     {
         var tenantCode = tenantCodeProvider.Current;
 
-        return string.IsNullOrWhiteSpace(tenantCode)
-            ? null
-            : CacheKey.For(CacheContext).Tenant(tenantCode).Resource(ListResource, FilterDigest(filter, page));
+        if (string.IsNullOrWhiteSpace(tenantCode))
+            return null;
+
+        if (tenantCode.Contains(':', StringComparison.Ordinal))
+        {
+            logger.Warning(
+                "Tenant code {TenantCode} cannot be a cache key segment; the catalogue is served without L2 cache.",
+                tenantCode);
+
+            return null;
+        }
+
+        return CacheKey.For(CacheContext).Tenant(tenantCode).Resource(ListResource, FilterDigest(filter, page));
     }
 
     /// <summary>

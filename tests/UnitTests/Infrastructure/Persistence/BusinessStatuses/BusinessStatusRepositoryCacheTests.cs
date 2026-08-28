@@ -155,6 +155,23 @@ public sealed class BusinessStatusRepositoryCacheTests
     }
 
     [Fact]
+    public async Task GetAsync_WithATenantCodeThatCannotBeAKeySegment_DegradesToNoCache()
+    {
+        // CacheKey refuses a segment containing ':'. That must cost the cache, never the listing.
+        var database = nameof(GetAsync_WithATenantCodeThatCannotBeAKeySegment_DegradesToNoCache);
+        _tenantCodeProvider.Current.Returns("bad:code");
+        await SeedAsync(database, Row(7));
+        using var context = CreateContext(database);
+
+        var result = await NewRepository(context).GetAsync(NoFilter, FirstPage);
+
+        result.IsSuccess.ShouldBeTrue("a key that cannot be built is not a reason to fail the query");
+        result.Items.ShouldHaveSingleItem();
+        _cacheStore.Keys.ShouldBeEmpty();
+        _logger.ReceivedWithAnyArgs(1).Warning(string.Empty);
+    }
+
+    [Fact]
     public async Task GetAsync_PartitionsTheEntryByTenant()
     {
         var database = nameof(GetAsync_PartitionsTheEntryByTenant);

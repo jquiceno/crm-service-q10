@@ -5,7 +5,7 @@ namespace Activities.Domain.Enums;
 /// </summary>
 /// <remarks>
 /// The legacy enum has a hole at char <c>'4'</c> (commented out years ago); the mapping in the
-/// persistence converter must never reuse it. <see cref="DealClosed"/> is a normal, writable
+/// persistence mapper must never reuse it. <see cref="DealClosed"/> is a normal, writable
 /// value in every institution (DEC-7).
 /// </remarks>
 public enum CallOutcome

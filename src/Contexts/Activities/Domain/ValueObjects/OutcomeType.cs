@@ -15,10 +15,9 @@ namespace Activities.Domain.ValueObjects;
 /// cannot live in one field, so this value object carries the scope together with the value and
 /// is the only type the aggregate stores.
 /// <para>
-/// It holds no legacy char: the persistence converter maps the pair
+/// It holds no legacy char: the persistence mapper maps the pair
 /// (<see cref="Scope"/>, <see cref="Name"/>) to the column and back, which keeps the char out of
-/// the domain (DEC-15) while still giving the converter everything it needs from a single
-/// property.
+/// the domain (DEC-15) while still giving the mapper everything it needs.
 /// </para>
 /// </remarks>
 public sealed class OutcomeType : ValueObject
@@ -59,8 +58,8 @@ public sealed class OutcomeType : ValueObject
     }
 
     /// <summary>
-    /// Resolves an outcome from its member name, scoped to an activity type. Used by the API edge
-    /// and by the persistence converter.
+    /// Resolves an outcome from its member name, scoped to an activity type. Used by the API
+    /// edge.
     /// </summary>
     public static Result<OutcomeType, ValidationError> Create(ActivityType scope, string? name)
     {

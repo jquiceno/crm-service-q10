@@ -2,4 +2,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\Shared\Domain\Shared.Domain.csproj" />
   </ItemGroup>
+
+  <!-- Persistence rehydration only: the repository mapper rebuilds aggregates through the
+       internal Activity.Reconstruct and the value objects' internal Reconstruct (stored legacy
+       values are valid data even where today's creation rules would reject them — DEC-6). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Infrastructure" />
+  </ItemGroup>
 </Project>

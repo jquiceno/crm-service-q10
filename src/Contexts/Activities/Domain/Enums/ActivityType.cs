@@ -5,8 +5,8 @@ namespace Activities.Domain.Enums;
 /// </summary>
 /// <remarks>
 /// The numeric values do NOT match the legacy <c>negact_tipo</c> chars on purpose: the char
-/// mapping lives only in the persistence value converter, so no caller can cast this enum to
-/// a legacy code (DEC-15).
+/// mapping lives only in the persistence mapper, so no caller can cast this enum to a legacy
+/// code (DEC-15).
 /// <para>
 /// <see cref="VirtualMeeting"/> and <see cref="LegacyMeeting"/> are read-only: historical rows
 /// are returned with their real type, but the service never writes them (DEC-5).

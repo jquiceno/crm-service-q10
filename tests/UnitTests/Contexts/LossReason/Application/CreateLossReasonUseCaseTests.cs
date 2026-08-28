@@ -52,22 +52,27 @@ public sealed class CreateLossReasonUseCaseTests
 
         _persisted.ShouldNotBeNull();
         _persisted.Name.ShouldBe(input.Name);
-        _persisted.IsActive.ShouldBe(input.IsActive);
+        _persisted.IsActive.ShouldBe(input.IsActive!.Value);
         _persisted.Id.ShouldBe(0, "the id is the IDENTITY, so it is only assigned by the insert");
         _persisted.CreatedAt.ShouldNotBeNull("Create() stamps the aggregate before it is persisted");
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenIsActiveIsOmitted_PersistsItAsActive()
+    public async Task ExecuteAsync_WithNullIsActive_FailsInTheAggregateAndNeverPersists()
     {
-        StubSuccessfulCreate();
+        // IsActive is nullable so the structural validator can report it; the aggregate refuses it
+        // too, so a caller that skips the HTTP layer cannot create a loss reason without the flag.
+        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName, IsActive: null));
 
-        // IsActive is the only optional parameter of the input: its default has to reach the aggregate.
-        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName));
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.DomainError);
+        result.Error.Origin.ShouldBe(nameof(CreateLossReasonUseCase));
+        result.Error.Details
+            .SelectMany(detail => detail.Errors ?? [])
+            .ShouldContain(LossReasonErrors.IsActiveRequired.Message);
 
-        result.IsSuccess.ShouldBeTrue();
-        _persisted.ShouldNotBeNull();
-        _persisted.IsActive.ShouldBeTrue();
+        await _repository.DidNotReceive()
+            .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -83,7 +88,7 @@ public sealed class CreateLossReasonUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.Id.ShouldBe(AssignedId);
         result.Value.Name.ShouldBe(input.Name);
-        result.Value.IsActive.ShouldBe(input.IsActive);
+        result.Value.IsActive.ShouldBe(input.IsActive!.Value);
     }
 
     [Fact]
@@ -103,7 +108,7 @@ public sealed class CreateLossReasonUseCaseTests
     [Fact]
     public async Task ExecuteAsync_WithInvalidName_FailsInTheAggregateAndNeverPersists()
     {
-        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(Name: null));
+        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(Name: null, IsActive: true));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.DomainError);
@@ -127,7 +132,7 @@ public sealed class CreateLossReasonUseCaseTests
             .CreateAsync(Arg.Any<LossReasonAggregate>(), Arg.Any<CancellationToken>())
             .Returns(Result<LossReasonAggregate>.Failure(failure));
 
-        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName));
+        var result = await CreateSut().ExecuteAsync(new CreateLossReasonInputDto(ValidName, IsActive: true));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Origin.ShouldBe("LossReasonRepository", "the use case does not replace the origin of the failure");

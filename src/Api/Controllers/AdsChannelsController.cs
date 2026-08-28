@@ -90,8 +90,9 @@ public sealed class AdsChannelsController(
     [OutputCache(Duration = 60, Tags = [CacheTag])]
     [EndpointSummary("List ads channels")]
     [EndpointDescription("Returns a paginated, filterable list of ads channels.")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<AdsChannelOutputDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpOkPagedResult<AdsChannelOutputDto>> GetAdsChannels(
         [FromQuery] GetAdsChannelsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,

@@ -41,6 +41,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpOkResult<UpdateAdsChannelOutputDto>> UpdateAdsChannel(
         [FromRoute] int id,
         [FromBody] UpdateAdsChannelInputDto input,

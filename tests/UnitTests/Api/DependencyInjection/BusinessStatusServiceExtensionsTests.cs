@@ -1,5 +1,7 @@
 using Api.DependencyInjection;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Application.UseCases.GetBusinessStatuses;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Repositories;
@@ -10,6 +12,11 @@ using Xunit;
 
 namespace UnitTests.Api.DependencyInjection;
 
+/// <summary>
+/// Every slice adds its own registration line here, and a missing one surfaces only as a 500 when
+/// the controller is activated: no test of a use case or of a controller action can catch it,
+/// because they all inject doubles and never go through the container.
+/// </summary>
 public sealed class BusinessStatusServiceExtensionsTests
 {
     private static readonly IServiceCollection Registrations = new ServiceCollection().AddBusinessStatusServices();
@@ -18,7 +25,9 @@ public sealed class BusinessStatusServiceExtensionsTests
     [InlineData(typeof(IBusinessStatusRepository), typeof(BusinessStatusRepository))]
     [InlineData(typeof(IGetBusinessStatusesUseCase), typeof(GetBusinessStatusesUseCase))]
     [InlineData(typeof(ICreateBusinessStatusUseCase), typeof(CreateBusinessStatusUseCase))]
+    [InlineData(typeof(IGetBusinessStatusByIdUseCase), typeof(GetBusinessStatusByIdUseCase))]
     [InlineData(typeof(IUpdateBusinessStatusUseCase), typeof(UpdateBusinessStatusUseCase))]
+    [InlineData(typeof(IDeleteBusinessStatusUseCase), typeof(DeleteBusinessStatusUseCase))]
     public void AddBusinessStatusServices_RegistersTheContextScoped(Type service, Type implementation)
     {
         var descriptor = Registrations.Where(d => d.ServiceType == service).ShouldHaveSingleItem();

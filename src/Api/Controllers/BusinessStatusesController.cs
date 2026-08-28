@@ -1,4 +1,6 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Application.UseCases.GetBusinessStatuses;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using Microsoft.AspNetCore.Mvc;
@@ -23,7 +25,9 @@ namespace Api.Controllers;
 public sealed class BusinessStatusesController(
     ICreateBusinessStatusUseCase createBusinessStatusUseCase,
     IGetBusinessStatusesUseCase getBusinessStatusesUseCase,
-    IUpdateBusinessStatusUseCase updateBusinessStatusUseCase) : ControllerBase
+    IGetBusinessStatusByIdUseCase getBusinessStatusByIdUseCase,
+    IUpdateBusinessStatusUseCase updateBusinessStatusUseCase,
+    IDeleteBusinessStatusUseCase deleteBusinessStatusUseCase) : ControllerBase
 {
     private const string CacheTag = "business-statuses";
 
@@ -67,6 +71,20 @@ public sealed class BusinessStatusesController(
         return await createBusinessStatusUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
     }
 
+    [HttpGet("{id}")]
+    [EndpointSummary("Get business status by id")]
+    [EndpointDescription("Returns the business status with the given id. An unknown id answers 404.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetBusinessStatusByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCache(Duration = 300, Tags = [CacheTag], VaryByRouteValueNames = ["id"])]
+    public async Task<HttpOkResult<GetBusinessStatusByIdOutputDto>> GetBusinessStatusById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getBusinessStatusByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
     [HttpPut("{id:int}")]
     [ValidateRequest]
     [EndpointSummary("Update business status")]
@@ -85,5 +103,22 @@ public sealed class BusinessStatusesController(
         CancellationToken cancellationToken = default)
     {
         return await updateBusinessStatusUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpDelete("{id:int}")]
+    [EndpointSummary("Delete business status")]
+    [EndpointDescription(
+        "Deletes the business status with the given id. A terminal status — the one at 0 % or at 100 % — "
+        + "answers 409, and so does a status still referenced by a business.")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpNoContentResult> DeleteBusinessStatus(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await deleteBusinessStatusUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 }

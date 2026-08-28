@@ -26,13 +26,16 @@ public sealed class UpdateAdsChannelUseCase(
         if (updateResult.IsFailure)
             return updateResult.Error with { Context = AdsChannelErrors.Context, Origin = Origin };
 
+        // aggregate.Update() above already normalized the name (trimmed), so aggregate.Name is what
+        // will actually be persisted — check and report that value, not the raw input, so a
+        // leading/trailing-whitespace variant can't slip past this check.
         var existsResult = await repository                                 // 3. persistence-level rule
-            .ExistsByNameAsync(input.Name!, excludingId: id, cancellationToken: cancellationToken)
+            .ExistsByNameAsync(aggregate.Name, excludingId: id, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
         if (existsResult.IsFailure)
             return existsResult.Error;
         if (existsResult.Value)
-            return AdsChannelErrors.NameAlreadyExists(input.Name!)
+            return AdsChannelErrors.NameAlreadyExists(aggregate.Name)
                 with { Context = AdsChannelErrors.Context, Origin = Origin };
 
         var updateRepoResult = repository.Update(aggregate);                // 4. mark modified

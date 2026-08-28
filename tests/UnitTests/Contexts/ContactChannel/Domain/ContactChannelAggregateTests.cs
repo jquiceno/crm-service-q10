@@ -210,4 +210,43 @@ public sealed class ContactChannelAggregateTests
         detail.Errors.ShouldNotBeNull();
         detail.Errors.ShouldContain(expectedMessage);
     }
+
+    [Fact]
+    public void Create_WithoutState_ReturnsIsActiveRequired()
+    {
+        var result = ContactChannelAggregate.Create(new CreateContactChannelArgs(ValidName, IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        var detail = result.Error.Details.ShouldHaveSingleItem();
+        detail.Property.ShouldBe(nameof(ContactChannelAggregate.IsActive));
+        detail.Errors.ShouldNotBeNull();
+        detail.Errors.ShouldContain(ContactChannelErrors.IsActiveRequired.Message);
+    }
+
+    [Fact]
+    public void Create_WithNeitherNameNorState_AccumulatesBothErrors()
+    {
+        var result = ContactChannelAggregate.Create(new CreateContactChannelArgs(null, IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Details.Count.ShouldBe(2);
+        result.Error.Details.Select(d => d.Property).ShouldBe(
+            [nameof(ContactChannelAggregate.Name), nameof(ContactChannelAggregate.IsActive)],
+            ignoreOrder: true);
+    }
+
+    [Fact]
+    public void Update_WithoutState_ReturnsIsActiveRequiredAndLeavesAggregateUntouched()
+    {
+        var aggregate = ContactChannelAggregate.Reconstruct(id: 7, name: ValidName, isActive: true);
+
+        var result = aggregate.Update(new UpdateContactChannelArgs("Feria", IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Details.ShouldHaveSingleItem().Property.ShouldBe(
+            nameof(ContactChannelAggregate.IsActive));
+        aggregate.Name.ShouldBe(ValidName);
+        aggregate.IsActive.ShouldBeTrue();
+        aggregate.UpdatedAt.ShouldBeNull();
+    }
 }

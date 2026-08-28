@@ -1,6 +1,8 @@
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Domain.Aggregates;
-using Infrastructure.Validation.FluentValidation.ContactChannels;
+using ContactChannel.Domain.Errors;
+using Shared.Results.Errors;
+using Infrastructure.Validation.FluentValidation.ContactChannel;
 using Shouldly;
 using Xunit;
 
@@ -11,6 +13,17 @@ public sealed class CreateContactChannelValidatorTests
     private readonly CreateContactChannelValidator _sut = new();
 
     private static CreateContactChannelInputDto WithName(string? name) => new(name, IsActive: true);
+
+    [Fact]
+    public void Validate_WithoutState_HasTheRequiredErrorOnIsActive()
+    {
+        var result = _sut.Validate(new CreateContactChannelInputDto("WhatsApp", IsActive: null));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e =>
+            e.PropertyName == nameof(CreateContactChannelInputDto.IsActive)
+            && e.ErrorMessage == "The contact channel state is required.");
+    }
 
     [Fact]
     public void Validate_WithAName_ReturnsValid()
@@ -29,7 +42,7 @@ public sealed class CreateContactChannelValidatorTests
         result.IsValid.ShouldBeFalse();
         result.Errors.ShouldContain(e =>
             e.PropertyName == nameof(CreateContactChannelInputDto.Name)
-            && e.ErrorMessage == "The contact channel name is required.");
+            && e.ErrorMessage == ContactChannelErrors.NameRequired.Message);
     }
 
     [Fact]
@@ -48,8 +61,7 @@ public sealed class CreateContactChannelValidatorTests
         result.IsValid.ShouldBeFalse();
         result.Errors.ShouldContain(e =>
             e.PropertyName == nameof(CreateContactChannelInputDto.Name)
-            && e.ErrorMessage ==
-                $"The contact channel name cannot exceed {ContactChannelAggregate.NameMaxLength} characters.");
+            && e.ErrorMessage == ContactChannelErrors.NameTooLong.Message);
     }
 
     [Theory]
@@ -58,5 +70,24 @@ public sealed class CreateContactChannelValidatorTests
     public void Validate_AcceptsEitherState(bool isActive)
     {
         _sut.Validate(new CreateContactChannelInputDto("WhatsApp", isActive)).IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_WithNameOverMaxLength_CarriesTheDomainErrorAsState()
+    {
+        var result = _sut.Validate(WithName(new string('a', ContactChannelAggregate.NameMaxLength + 1)));
+
+        var failure = result.Errors.Single(e => e.PropertyName == nameof(CreateContactChannelInputDto.Name));
+        var state = failure.CustomState.ShouldBeOfType<ValidationError>();
+        state.Attributes.ShouldNotBeNull();
+        state.Attributes["maxLength"].ShouldBe(ContactChannelAggregate.NameMaxLength);
+    }
+
+    [Fact]
+    public void Validate_CarriesTheDomainErrorAsStateOnEveryRule()
+    {
+        var result = _sut.Validate(new CreateContactChannelInputDto(null, IsActive: null));
+
+        result.Errors.ShouldAllBe(e => e.CustomState is ValidationError);
     }
 }

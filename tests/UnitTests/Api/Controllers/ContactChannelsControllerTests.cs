@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
+using ContactChannel.Application.Dtos;
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
@@ -15,6 +16,7 @@ using Microsoft.AspNetCore.Routing;
 using NSubstitute;
 using Shared.Application.Dtos;
 using Shared.Domain.Pagination;
+using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
 using Shared.Presentation.Results;
 using Shared.Results;
@@ -190,7 +192,7 @@ public sealed class ContactChannelsControllerTests
     }
 
     private Task<HttpOkResult<GetContactChannelByIdOutputDto>> InvokeByIdAsync(int id = 7) =>
-        CreateController().GetContactChannelById(id, CancellationToken.None);
+        CreateController().GetContactChannelById(new ContactChannelIdInputDto(id), CancellationToken.None);
 
     private void ReturnsById(Result<GetContactChannelByIdOutputDto> result) =>
         _getContactChannelByIdUseCase
@@ -263,22 +265,22 @@ public sealed class ContactChannelsControllerTests
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(-5)]
-    public async Task GetContactChannelById_WithANonPositiveId_StillReachesTheUseCase(int id)
+    [InlineData(nameof(ContactChannelsController.GetContactChannelById))]
+    [InlineData(nameof(ContactChannelsController.UpdateContactChannel))]
+    [InlineData(nameof(ContactChannelsController.DeleteContactChannel))]
+    public void ActionsTakingAnIdentifier_RunTheStructuralValidation(string actionName)
     {
-        ReturnsById(Result<GetContactChannelByIdOutputDto>.Failure(
-            new NotFoundError($"No contact channel exists with identifier {id}.")));
+        var action = typeof(ContactChannelsController).GetMethod(actionName)!;
 
-        var (statusCode, _) = await ExecuteAsync(await InvokeByIdAsync(id));
-
-        await _getContactChannelByIdUseCase.Received(1)
-            .ExecuteAsync(id, Arg.Any<CancellationToken>());
-        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+        action.GetParameters().ShouldContain(
+            p => p.ParameterType == typeof(ContactChannelIdInputDto),
+            $"{actionName} must take the identifier as a dto so FluentValidation reaches it");
+        action.GetCustomAttribute<ValidateRequestAttribute>().ShouldNotBeNull(
+            $"{actionName} must declare [ValidateRequest] or its validator never runs");
     }
 
     private Task<HttpNoContentResult> InvokeDeleteAsync(int id = 7) =>
-        CreateController().DeleteContactChannel(id, CancellationToken.None);
+        CreateController().DeleteContactChannel(new ContactChannelIdInputDto(id), CancellationToken.None);
 
     private void ReturnsDelete(Result result) =>
         _deleteContactChannelUseCase
@@ -407,7 +409,7 @@ public sealed class ContactChannelsControllerTests
         int id = 7,
         UpdateContactChannelInputDto? input = null) =>
         CreateController().UpdateContactChannel(
-            id,
+            new ContactChannelIdInputDto(id),
             input ?? new UpdateContactChannelInputDto("WhatsApp", IsActive: true),
             CancellationToken.None);
 

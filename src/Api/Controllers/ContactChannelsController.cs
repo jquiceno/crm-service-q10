@@ -1,3 +1,4 @@
+using ContactChannel.Application.Dtos;
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
@@ -49,6 +50,7 @@ public sealed class ContactChannelsController(
     }
 
     [HttpGet("{id:int}")]
+    [ValidateRequest]
     [EndpointSummary("Get contact channel by id")]
     [EndpointDescription("Returns the contact channel with the given identifier.")]
     [ProducesResponseType(typeof(ApiSuccessResponse<GetContactChannelByIdOutputDto>), StatusCodes.Status200OK)]
@@ -56,10 +58,10 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkResult<GetContactChannelByIdOutputDto>> GetContactChannelById(
-        [FromRoute] int id,
+        [FromRoute] ContactChannelIdInputDto route,
         CancellationToken cancellationToken = default)
     {
-        return await getContactChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+        return await getContactChannelByIdUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPost]
@@ -89,29 +91,31 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpOkResult<UpdateContactChannelOutputDto>> UpdateContactChannel(
-        [FromRoute] int id,
+        [FromRoute] ContactChannelIdInputDto route,
         [FromBody] UpdateContactChannelInputDto input,
         CancellationToken cancellationToken = default)
     {
         return await updateContactChannelUseCase
-            .ExecuteAsync(id, input, cancellationToken)
+            .ExecuteAsync(route.Id, input, cancellationToken)
             .ConfigureAwait(false);
     }
 
     [HttpDelete("{id:int}")]
+    [ValidateRequest]
     [EndpointSummary("Delete contact channel")]
     [EndpointDescription(
         "Deletes the contact channel with the given identifier. A channel referenced by an " +
         "opportunity cannot be deleted.")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpNoContentResult> DeleteContactChannel(
-        [FromRoute] int id,
+        [FromRoute] ContactChannelIdInputDto route,
         CancellationToken cancellationToken = default)
     {
-        return await deleteContactChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+        return await deleteContactChannelUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
     }
 }

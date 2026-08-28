@@ -25,6 +25,12 @@ public static class ContactChannelErrors
             },
         };
 
+    public static readonly ValidationError IsActiveRequired =
+        new("The contact channel state is required.", ErrorType.Validation)
+        {
+            Property = nameof(ContactChannelAggregate.IsActive),
+        };
+
     public static NotFoundError NotFound(int id) =>
         new($"No contact channel exists with identifier {id}.") { Context = Context };
 

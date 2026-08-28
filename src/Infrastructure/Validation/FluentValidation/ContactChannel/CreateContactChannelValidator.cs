@@ -18,6 +18,6 @@ public sealed class CreateContactChannelValidator
 
         RuleFor(x => x.IsActive)
             .NotNull()
-            .WithMessage("The contact channel state is required.");
+            .WithMessage(ContactChannelErrors.IsActiveRequired.Message);
     }
 }

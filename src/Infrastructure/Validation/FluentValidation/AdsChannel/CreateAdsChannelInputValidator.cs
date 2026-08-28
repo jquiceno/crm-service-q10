@@ -1,4 +1,5 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
+using AdsChannel.Domain.Aggregates;
 using FluentValidation;
 
 namespace Infrastructure.Validation.FluentValidation.AdsChannel;
@@ -10,6 +11,6 @@ public sealed class CreateAdsChannelInputValidator
     {
         RuleFor(x => x.Name)
             .NotEmpty()
-            .MaximumLength(100);
+            .MaximumLength(AdsChannelAggregate.MaxNameLength);
     }
 }

@@ -296,6 +296,14 @@ public sealed class Activity : AggregateRoot<int>
         return activity;
     }
 
+    /// <summary>
+    /// Assigns the identity SQL Server generated on insert. Only
+    /// <c>ActivityRepositoryAdapter</c> calls this, once the unit of work actually commits: the
+    /// persistence entity round-trips through <c>ActivityRepositoryMapper</c> as a separate
+    /// object, so nothing else ever stamps this aggregate's <c>Id</c>.
+    /// </summary>
+    internal void AssignId(int id) => Id = id;
+
     // UpdatedAt intentionally stays null: the legacy table has no updated column.
     protected override void Created() => SetCreatedAt(DateTime.UtcNow);
 }

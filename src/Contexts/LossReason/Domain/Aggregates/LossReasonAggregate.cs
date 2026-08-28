@@ -47,11 +47,14 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
     {
         var errors = ValidateName(input.Name);
 
+        if (input.IsActive is null)
+            errors.Add(LossReasonErrors.IsActiveRequired);
+
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
         Name = input.Name!;
-        IsActive = input.IsActive;
+        IsActive = input.IsActive!.Value;
         SetUpdatedAt(DateTime.UtcNow);
 
         return Result.Success();

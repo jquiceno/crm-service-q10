@@ -8,9 +8,10 @@ namespace Infrastructure.Validation.FluentValidation.LossReasons;
 public sealed class UpdateLossReasonInputValidator
     : AbstractValidator<UpdateLossReasonInputDto>, IStructuralValidator<UpdateLossReasonInputDto>
 {
-    // Same two Name rules as CreateLossReasonInputValidator, and for the same reason: the messages
-    // and state come from the domain error catalog so the HTTP layer answers exactly what the
-    // aggregate would. IsActive is non-nullable here, so the deserializer already rejects a null.
+    // Same three rules as CreateLossReasonInputValidator, and for the same reason: the messages and
+    // state come from the domain error catalog so the HTTP layer answers exactly what the aggregate
+    // would. IsActive is required rather than defaulted -- a bool that is not sent would otherwise
+    // arrive as false and deactivate the reason silently.
     public UpdateLossReasonInputValidator()
     {
         RuleFor(x => x.Name)
@@ -22,5 +23,10 @@ public sealed class UpdateLossReasonInputValidator
             .MaximumLength(LossReasonAggregate.NameMaxLength)
             .WithMessage(LossReasonErrors.NameTooLong.Message)
             .WithState(_ => LossReasonErrors.NameTooLong);
+
+        RuleFor(x => x.IsActive)
+            .NotNull()
+            .WithMessage(LossReasonErrors.IsActiveRequired.Message)
+            .WithState(_ => LossReasonErrors.IsActiveRequired);
     }
 }

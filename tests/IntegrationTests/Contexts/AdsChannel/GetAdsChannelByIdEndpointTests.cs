@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AdsChannel.Application.UseCases.GetAdsChannelById;
 using IntegrationTests.Infrastructure;
+using Shared.Presentation.Responses;
 using Shouldly;
 using Xunit;
 
@@ -41,14 +42,15 @@ public sealed class GetAdsChannelByIdEndpointTests : IntegrationTestBase
         var response = await Client.GetAsync("/ads-channels/999999");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("NOT_FOUND");
+        body.StatusCode.ShouldBe(404);
     }
 
     [Fact]
-    public async Task GetAdsChannelById_CalledTwiceForSameId_ReturnsIdenticalResponsesBothOk()
+    public async Task GetAdsChannelById_CalledTwiceForSameId_ServesSecondCallFromCache()
     {
-        // Smoke check for the [OutputCache] attribute that a later step will add to the controller
-        // action: once wired, the second call should be served from cache but must still answer 200
-        // with the same body as the first call. Without caching this simply verifies idempotency.
         var adsChannel = new global::Infrastructure.Persistence.EntityFramework.AdsChannels.Entities.AdsChannel
         {
             Name = "Meta Ads",
@@ -58,16 +60,21 @@ public sealed class GetAdsChannelByIdEndpointTests : IntegrationTestBase
         await Db.SaveChangesAsync();
 
         var firstResponse = await Client.GetAsync($"/ads-channels/{adsChannel.Id}");
-        var secondResponse = await Client.GetAsync($"/ads-channels/{adsChannel.Id}");
-
         firstResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-        secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
-
         var firstBody = await firstResponse.Content.ReadFromJsonAsync<ApiResponse<GetAdsChannelByIdOutputDto>>(
             JsonSerializerOptions.Web);
+
+        // Mutate the row directly, bypassing the use case (and its cache-invalidation tag), so the
+        // only way the second call could observe the new name is by skipping [OutputCache] entirely.
+        adsChannel.Name = "Google Ads";
+        await Db.SaveChangesAsync();
+
+        var secondResponse = await Client.GetAsync($"/ads-channels/{adsChannel.Id}");
+        secondResponse.StatusCode.ShouldBe(HttpStatusCode.OK);
         var secondBody = await secondResponse.Content.ReadFromJsonAsync<ApiResponse<GetAdsChannelByIdOutputDto>>(
             JsonSerializerOptions.Web);
 
         secondBody.ShouldBe(firstBody);
+        secondBody!.Data.Name.ShouldBe("Meta Ads");
     }
 }

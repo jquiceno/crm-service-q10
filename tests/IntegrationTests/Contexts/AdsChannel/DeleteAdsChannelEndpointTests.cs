@@ -1,6 +1,9 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using IntegrationTests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Shared.Presentation.Responses;
 using Shouldly;
 using Xunit;
 
@@ -41,6 +44,10 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
         var response = await Client.DeleteAsync($"/ads-channels/{nonExistentId}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+
+        var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+        body!.Error.Type.ShouldBe("NOT_FOUND");
+        body.StatusCode.ShouldBe(404);
     }
 
     [Fact]
@@ -85,6 +92,10 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
             var response = await Client.DeleteAsync($"/ads-channels/{adsChannel.Id}");
 
             response.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+
+            var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
+            body!.Error.Type.ShouldBe("CONFLICT");
+            body.StatusCode.ShouldBe(409);
         }
         finally
         {

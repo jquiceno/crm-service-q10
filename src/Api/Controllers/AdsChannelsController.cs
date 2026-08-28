@@ -1,7 +1,12 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
 using AdsChannel.Application.UseCases.DeleteAdsChannel;
+using AdsChannel.Application.UseCases.GetAdsChannelById;
+using AdsChannel.Application.UseCases.GetAdsChannels;
 using AdsChannel.Application.UseCases.UpdateAdsChannel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
+using Shared.Application.Dtos;
+using Shared.Domain.Pagination;
 using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
 using Shared.Presentation.Responses;
@@ -15,7 +20,9 @@ namespace Api.Controllers;
 public sealed class AdsChannelsController(
     ICreateAdsChannelUseCase createAdsChannelUseCase,
     IUpdateAdsChannelUseCase updateAdsChannelUseCase,
-    IDeleteAdsChannelUseCase deleteAdsChannelUseCase) : ControllerBase
+    IDeleteAdsChannelUseCase deleteAdsChannelUseCase,
+    IGetAdsChannelByIdUseCase getAdsChannelByIdUseCase,
+    IGetAdsChannelsUseCase getAdsChannelsUseCase) : ControllerBase
 {
     private const string CacheTag = "ads-channels";
 
@@ -64,5 +71,38 @@ public sealed class AdsChannelsController(
         CancellationToken cancellationToken = default)
     {
         return await deleteAdsChannelUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("{id}")]
+    [OutputCache(Duration = 120, Tags = [CacheTag], VaryByRouteValueNames = ["id"])]
+    [EndpointSummary("Get ads channel by id")]
+    [EndpointDescription("Returns a single ads channel by its identifier.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetAdsChannelByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<HttpOkResult<GetAdsChannelByIdOutputDto>> GetAdsChannelById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getAdsChannelByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet]
+    [ValidateRequest]
+    [OutputCache(Duration = 60, Tags = [CacheTag])]
+    [EndpointSummary("List ads channels")]
+    [EndpointDescription("Returns a paginated, filterable list of ads channels.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetAdsChannelsOutputDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    public async Task<HttpOkPagedResult<GetAdsChannelsOutputDto>> GetAdsChannels(
+        [FromQuery] GetAdsChannelsInputDto filter,
+        [FromQuery] PageQueryInputDto pagination,
+        CancellationToken cancellationToken = default)
+    {
+        return await getAdsChannelsUseCase.ExecuteAsync(
+            filter,
+            new PageQuery(pagination.PageIndex, pagination.PageSize),
+            cancellationToken).ConfigureAwait(false);
     }
 }

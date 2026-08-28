@@ -107,6 +107,23 @@ public sealed class UpdateContactChannelUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WhenTheRepositoryUpdateFails_PropagatesItsOriginWithoutCommitting()
+    {
+        Existing();
+        _repository.Update(Arg.Any<ContactChannelAggregate>())
+            .Returns(new InternalError("A persistence error occurred.") { Origin = "ContactChannelRepository" });
+
+        var result = await CreateUseCase().ExecuteAsync(7, Input());
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.Internal);
+        result.Error.Origin.ShouldBe(
+            "ContactChannelRepository",
+            "the use case does not replace the origin of the failure");
+        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenTheCommitFails_PropagatesTheErrorWithoutResealingIt()
     {
         Existing();

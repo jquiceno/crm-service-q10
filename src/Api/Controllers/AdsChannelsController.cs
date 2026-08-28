@@ -23,6 +23,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(typeof(ApiSuccessResponse<CreateAdsChannelOutputDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpCreatedResult<CreateAdsChannelOutputDto>> CreateAdsChannel(
         [FromBody] CreateAdsChannelInputDto input,
         CancellationToken cancellationToken = default)

@@ -23,7 +23,7 @@ public sealed class ContactChannelUsageReader(
                 .AnyAsync(usage => usage.ContactChannelId == id, cancellationToken)
                 .ConfigureAwait(false);
 
-            return Result<bool>.Success(isReferenced);
+            return isReferenced;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

@@ -19,7 +19,13 @@ public sealed class DeleteContactChannelUseCaseTests
     private readonly IContactChannelUsageReader _usageReader = Substitute.For<IContactChannelUsageReader>();
     private readonly IUnitOfWorkPort _unitOfWork = Substitute.For<IUnitOfWorkPort>();
 
+    public DeleteContactChannelUseCaseTests() => Exists(true);
+
     private DeleteContactChannelUseCase CreateUseCase() => new(_repository, _usageReader, _unitOfWork);
+
+    private void Exists(bool exists) =>
+        _repository.ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(exists));
 
     private void IsReferenced(bool referenced) =>
         _usageReader.IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -99,7 +105,40 @@ public sealed class DeleteContactChannelUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithAnUnknownId_PropagatesTheNotFoundWithoutCommitting()
+    public async Task ExecuteAsync_WithAnUnknownId_FailsAsNotFoundWithoutCheckingTheUsage()
+    {
+        Exists(false);
+
+        var result = await CreateUseCase().ExecuteAsync(404);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.NotFound);
+        result.Error.Message.ShouldContain("404");
+        result.Error.Context.ShouldBe(ContactChannelErrors.Context);
+        result.Error.Origin.ShouldBe(nameof(DeleteContactChannelUseCase));
+        await _usageReader.DidNotReceive().IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenTheExistenceCheckFails_PropagatesTheErrorAndStops()
+    {
+        _repository.ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Failure(
+                new InternalError("A persistence error occurred.") { Origin = RepositoryOrigin }));
+
+        var result = await CreateUseCase().ExecuteAsync(7);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.Internal);
+        result.Error.Origin.ShouldBe(RepositoryOrigin);
+        await _usageReader.DidNotReceive().IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenTheRowDisappearsAfterTheCheck_PropagatesTheNotFoundWithoutCommitting()
     {
         IsReferenced(false);
         RemoveReturns(ContactChannelErrors.NotFound(404) with { Origin = RepositoryOrigin });
@@ -108,7 +147,9 @@ public sealed class DeleteContactChannelUseCaseTests
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Origin.ShouldBe(RepositoryOrigin);
+        result.Error.Origin.ShouldBe(
+            RepositoryOrigin,
+            "the race is reported by the repository, not resealed by the use case");
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 

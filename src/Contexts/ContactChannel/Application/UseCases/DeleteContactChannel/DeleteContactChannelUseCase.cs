@@ -15,6 +15,14 @@ public sealed class DeleteContactChannelUseCase(
 
     public async Task<Result> ExecuteAsync(int id, CancellationToken cancellationToken = default)
     {
+        var existsResult = await repository.ExistsAsync(id, cancellationToken).ConfigureAwait(false);
+
+        if (existsResult.IsFailure)
+            return existsResult.Error;
+
+        if (!existsResult.Value)
+            return ContactChannelErrors.NotFound(id) with { Origin = Origin };
+
         var usageResult = await usageReader.IsReferencedAsync(id, cancellationToken).ConfigureAwait(false);
 
         if (usageResult.IsFailure)
@@ -28,8 +36,6 @@ public sealed class DeleteContactChannelUseCase(
         if (removeResult.IsFailure)
             return removeResult.Error;
 
-        // The commit still classifies a 547: the row can be referenced between the check above and
-        // this write.
         return await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 }

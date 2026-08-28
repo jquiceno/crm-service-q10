@@ -15,7 +15,6 @@ public sealed class ContactChannelUsageConfiguration : IEntityTypeConfiguration<
         builder.ToTable("tbl_opo_oportunidades");
 
         builder.Property(u => u.ContactChannelId)
-            .HasColumnName("opo_medcon_consecutivo")
-            .HasColumnType("int");
+            .HasColumnName("opo_medcon_consecutivo");
     }
 }

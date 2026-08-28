@@ -418,14 +418,14 @@ DTO de entrada para endpoints paginados. Vive en `Shared.Application.Dtos`. Se v
 ```csharp
 public sealed record PageQueryInputDto(int PageIndex = 0, int PageSize = 20)
 {
-    public const int MaxPageSize = 100;
+    public const int MaxPageSize = 5000;
 }
 ```
 
 Reglas de validación:
 
 * `PageIndex >= 0`
-* `PageSize` entre `1` y `PageQueryInputDto.MaxPageSize` (100)
+* `PageSize` entre `1` y `PageQueryInputDto.MaxPageSize` (5000)
 
 ### Flujo de paginación de extremo a extremo
 

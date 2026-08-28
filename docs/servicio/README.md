@@ -13,4 +13,5 @@ Ver `Announcements-service` (`Q10-Software/service-template-dotnet` fork) como e
 
 ## Documentos de este servicio
 
+- [activities.md](activities.md) — el contexto `Activities`: qué expone, sus reglas, su procedencia legada y qué falta antes de cortar tráfico.
 - [working-plan-actividades.md](working-plan-actividades.md) — plan de trabajo del contexto `Activities` (decisiones DEC-1…DEC-10, mapeo legado→modelo, contratos, fases F0–F3, riesgos y GAPs). Guía de ejecución para el frente API-first del strangler.

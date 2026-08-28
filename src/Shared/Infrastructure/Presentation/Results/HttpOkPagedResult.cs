@@ -31,4 +31,8 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
     }
 }
 
-internal sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);
+/// <summary>
+/// Body of a paged success response. Public because the controllers name it in their
+/// <c>[ProducesResponseType]</c>, which is what publishes the shape to OpenAPI.
+/// </summary>
+public sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);

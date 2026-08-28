@@ -35,9 +35,8 @@ public sealed class GetActivitiesUseCaseTests
     }
 
     /// <summary>
-    /// The use case does not police the page: the size limits of §6.1 (1–5000, the legacy cap)
-    /// belong to the request validator of Tarea 10, which still has to reconcile them with the
-    /// shared <c>PageQueryInputDto.MaxPageSize</c> of 100.
+    /// The use case does not police the page: the size limits of §6.1 (1–5000, the legacy cap) are
+    /// the request validator's, and <c>PageQueryInputDto.MaxPageSize</c> already carries them.
     /// </summary>
     [Fact]
     public async Task ExecuteAsync_ForwardsThePageUntouched()

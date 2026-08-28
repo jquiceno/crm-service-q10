@@ -134,6 +134,44 @@ public static class ActivityErrors
             Property = nameof(Activity.Description),
         };
 
+    // --- Raised by the use cases when resolving the request against the institution ----------
+
+    public static readonly ValidationError InvalidActivityStatus =
+        new("Activity status is not a known value.", ErrorType.Validation)
+        {
+            Property = nameof(Activity.Status),
+        };
+
+    /// <summary>
+    /// Distinct from <see cref="InvalidActivityStatus"/> on purpose: <c>cancelled</c> is a real
+    /// status of the domain, it just cannot be the status an activity is born with.
+    /// </summary>
+    public static readonly ValidationError StatusNotCreatable =
+        new("Only 'scheduled' and 'completed' activities can be created.", ErrorType.Validation)
+        {
+            Property = nameof(Activity.Status),
+        };
+
+    /// <summary>
+    /// The deal's opportunity is archived. A validation error, not a conflict: the legacy API
+    /// answered 400 here and the strangler keeps that status (§6.x).
+    /// </summary>
+    public static readonly ValidationError OpportunityArchived =
+        new("The deal's opportunity is archived.", ErrorType.Validation)
+        {
+            Property = nameof(Activity.DealId),
+        };
+
+    public static NotFoundError DealNotFound(int dealId) =>
+        new($"Deal with id '{dealId}' was not found.");
+
+    /// <summary>
+    /// No person carries that identification. Whether the person exists but lacks the advisor role
+    /// is not asked here — that check belongs to the caller (DEC-17).
+    /// </summary>
+    public static NotFoundError AdvisorNotFound(string? identification) =>
+        new($"Advisor with identification '{identification}' was not found.");
+
     // --- Persistence ------------------------------------------------------------------------
 
     public static NotFoundError NotFound(int id) =>

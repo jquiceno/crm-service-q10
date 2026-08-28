@@ -133,4 +133,9 @@ public static class ActivityErrors
         {
             Property = nameof(Activity.Description),
         };
+
+    // --- Persistence ------------------------------------------------------------------------
+
+    public static NotFoundError NotFound(int id) =>
+        new($"Activity with id '{id}' was not found.");
 }

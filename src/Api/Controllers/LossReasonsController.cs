@@ -29,6 +29,16 @@ public sealed class LossReasonsController(
 {
     private const string CacheTag = "loss-reasons";
 
+    // Loss reasons are an administrative catalog that changes rarely, and every write invalidates
+    // CacheTag, so a stale read can only last until the next mutation. One minute, the duration
+    // controllers.md uses for both read shapes.
+    private const int CacheDurationSeconds = 60;
+
+    // The route id travels as IdInputDto, not as a bare int: ValidateRequestFilter skips simple
+    // types, so a validator over an int would never run. Wrapped, IdInputValidator applies and the
+    // three actions that take an id carry [ValidateRequest]. A route constraint would answer 404
+    // instead, hiding a malformed id as a missing resource.
+
     [HttpGet]
     [ValidateRequest]
     [EndpointSummary("Get loss reasons")]
@@ -36,10 +46,14 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetLossReasonsOutputDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    // The named policy replaces the base one, so it has to re-declare the tenant isolation the base
-    // provides and add the filter keys on top; without them the listing would serve the result of
-    // one filter for another.
-    [OutputCache(PolicyName = "loss-reasons-list", Tags = [CacheTag])]
+    // VaryByQueryKeys complements the base policy instead of replacing it, which is what PolicyName
+    // would do. The filter keys are what keeps the listing from serving the result of one filter for
+    // another; EntityCode is repeated from the base because it is the query-side tenant channel and
+    // the key list must not narrow it away.
+    [OutputCache(
+        Duration = CacheDurationSeconds,
+        Tags = [CacheTag],
+        VaryByQueryKeys = ["EntityCode", "search", "isActive", "pageIndex", "pageSize"])]
     public async Task<HttpOkPagedResult<GetLossReasonsOutputDto>> GetLossReasons(
         [FromQuery] GetLossReasonsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,
@@ -52,17 +66,19 @@ public sealed class LossReasonsController(
     }
 
     [HttpGet("{id}")]
+    [ValidateRequest]
     [EndpointSummary("Get loss reason by id")]
     [EndpointDescription("Returns the loss reason with the given id.")]
     [ProducesResponseType(typeof(ApiSuccessResponse<GetLossReasonByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    [OutputCache(Tags = [CacheTag])]
+    [OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
     public async Task<HttpOkResult<GetLossReasonByIdOutputDto>> GetLossReasonById(
-        [FromRoute] int id,
+        [FromRoute] IdInputDto route,
         CancellationToken cancellationToken = default)
     {
-        return await getLossReasonByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+        return await getLossReasonByIdUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPost]
@@ -90,25 +106,27 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpOkResult<UpdateLossReasonOutputDto>> UpdateLossReason(
-        [FromRoute] int id,
+        [FromRoute] IdInputDto route,
         [FromBody] UpdateLossReasonInputDto input,
         CancellationToken cancellationToken = default)
     {
-        return await updateLossReasonUseCase.ExecuteAsync(id, input, cancellationToken).ConfigureAwait(false);
+        return await updateLossReasonUseCase.ExecuteAsync(route.Id, input, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpDelete("{id}")]
+    [ValidateRequest]
     [EndpointSummary("Delete loss reason")]
     [EndpointDescription("Deletes the loss reason with the given id. A reason already assigned to a deal answers 409 and is not deleted.")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpNoContentResult> DeleteLossReason(
-        [FromRoute] int id,
+        [FromRoute] IdInputDto route,
         CancellationToken cancellationToken = default)
     {
-        return await deleteLossReasonUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
+        return await deleteLossReasonUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
     }
 }

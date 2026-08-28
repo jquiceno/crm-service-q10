@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Api.Controllers;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
 using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Errors;
@@ -18,6 +19,8 @@ namespace UnitTests.Api.Controllers;
 
 public sealed class BusinessStatusesControllerTests
 {
+    private const int Id = 7;
+
     private readonly ICreateBusinessStatusUseCase _createBusinessStatusUseCase =
         Substitute.For<ICreateBusinessStatusUseCase>();
 
@@ -27,10 +30,16 @@ public sealed class BusinessStatusesControllerTests
     private readonly IUpdateBusinessStatusUseCase _updateBusinessStatusUseCase =
         Substitute.For<IUpdateBusinessStatusUseCase>();
 
-    private BusinessStatusesController Sut =>
-        new(_createBusinessStatusUseCase, _getBusinessStatusByIdUseCase, _updateBusinessStatusUseCase);
+    private readonly IDeleteBusinessStatusUseCase _deleteBusinessStatusUseCase =
+        Substitute.For<IDeleteBusinessStatusUseCase>();
 
-    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
+    private BusinessStatusesController Sut =>
+        new(_createBusinessStatusUseCase,
+            _getBusinessStatusByIdUseCase,
+            _updateBusinessStatusUseCase,
+            _deleteBusinessStatusUseCase);
+
+    private static async Task<(int StatusCode, string Body)> RunAsync(IActionResult result)
     {
         var httpContext = new DefaultHttpContext();
         httpContext.Response.Body = new MemoryStream();
@@ -40,8 +49,14 @@ public sealed class BusinessStatusesControllerTests
 
         httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
         using var reader = new StreamReader(httpContext.Response.Body);
-        var json = await reader.ReadToEndAsync().ConfigureAwait(false);
-        return (httpContext.Response.StatusCode, JsonDocument.Parse(json));
+        var body = await reader.ReadToEndAsync().ConfigureAwait(false);
+        return (httpContext.Response.StatusCode, body);
+    }
+
+    private static async Task<(int StatusCode, JsonDocument Body)> ExecuteAsync(IActionResult result)
+    {
+        var (statusCode, body) = await RunAsync(result).ConfigureAwait(false);
+        return (statusCode, JsonDocument.Parse(body));
     }
 
     // ── POST /business-statuses ───────────────────────────────────────────────
@@ -201,6 +216,70 @@ public sealed class BusinessStatusesControllerTests
                 new DomainError("boom", ErrorType.Internal)));
 
         var result = await Sut.UpdateBusinessStatus(7, input, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    // ── DELETE /business-statuses/{id} ────────────────────────────────────────
+
+    [Fact]
+    public async Task DeleteBusinessStatus_WhenTheUseCaseSucceeds_ReturnsNoContentWithoutBody()
+    {
+        _deleteBusinessStatusUseCase.ExecuteAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result.Success());
+
+        var result = await Sut.DeleteBusinessStatus(Id, CancellationToken.None);
+        var (statusCode, body) = await RunAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status204NoContent);
+        body.ShouldBeEmpty();
+        await _deleteBusinessStatusUseCase.Received(1).ExecuteAsync(Id, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteBusinessStatus_WhenTheStatusDoesNotExist_ReturnsNotFound()
+    {
+        _deleteBusinessStatusUseCase.ExecuteAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result.Failure(BusinessStatusErrors.NotFound(Id)));
+
+        var result = await Sut.DeleteBusinessStatus(Id, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteBusinessStatus_WhenTheStatusIsTerminal_ReturnsConflict()
+    {
+        _deleteBusinessStatusUseCase.ExecuteAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result.Failure(BusinessStatusErrors.TerminalCannotBeDeleted));
+
+        var result = await Sut.DeleteBusinessStatus(Id, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task DeleteBusinessStatus_WhenTheStatusIsInUse_ReturnsConflict()
+    {
+        _deleteBusinessStatusUseCase.ExecuteAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result.Failure(BusinessStatusErrors.StatusInUse(Id)));
+
+        var result = await Sut.DeleteBusinessStatus(Id, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status409Conflict);
+    }
+
+    [Fact]
+    public async Task DeleteBusinessStatus_WhenPersistenceFails_ReturnsInternalServerError()
+    {
+        _deleteBusinessStatusUseCase.ExecuteAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result.Failure(new DomainError("boom", ErrorType.Internal)));
+
+        var result = await Sut.DeleteBusinessStatus(Id, CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);

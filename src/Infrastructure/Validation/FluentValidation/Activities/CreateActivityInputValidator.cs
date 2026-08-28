@@ -43,8 +43,8 @@ public sealed class CreateActivityInputValidator
         RuleFor(input => input.AdvisorIdentification)
             .NotEmpty()
             .WithMessage("Advisor identification is required.")
-            .MaximumLength(ActivityLimits.PersonCodeMaxLength)
-            .WithMessage($"Advisor identification cannot exceed {ActivityLimits.PersonCodeMaxLength} characters.");
+            .MaximumLength(ActivityLimits.AdvisorIdentificationMaxLength)
+            .WithMessage($"Advisor identification cannot exceed {ActivityLimits.AdvisorIdentificationMaxLength} characters.");
 
         RuleFor(input => input.ActivityDate)
             .NotNull()

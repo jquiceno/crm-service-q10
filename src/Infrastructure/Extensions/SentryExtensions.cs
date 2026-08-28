@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog.Events;
 
 namespace Infrastructure.Extensions;
 
@@ -17,6 +18,21 @@ public static class SentryExtensions
     /// </summary>
     public const string SharedDsnVariable = "SENTRY_DSN";
 
+    /// <summary>
+    /// Language-agnostic variable holding the deployment tier (dev, qa, prod), published once per
+    /// overlay so every service reports the same literal regardless of stack.
+    /// </summary>
+    public const string SharedEnvironmentVariable = "SENTRY_ENVIRONMENT";
+
+    /// <summary>
+    /// Resolves the tier reported to Sentry, always lowercase. Falls back to the host environment
+    /// name only for local runs, where no overlay supplies the variable.
+    /// </summary>
+    public static string ResolveEnvironment(string? configured, string hostEnvironmentName) =>
+        (string.IsNullOrWhiteSpace(configured) ? hostEnvironmentName : configured)
+            .Trim()
+            .ToLowerInvariant();
+
     public static WebApplicationBuilder AddSentry(this WebApplicationBuilder builder)
     {
         // The platform-shared secret publishes the DSN under the language-agnostic
@@ -24,6 +40,13 @@ public static class SentryExtensions
         var sharedDsn = builder.Configuration[SharedDsnVariable];
         if (!string.IsNullOrWhiteSpace(sharedDsn))
             builder.Configuration[$"{SentrySettings.SectionName}:Dsn"] = sharedDsn;
+
+        // Same bridge for the tier. Deliberately NOT ASPNETCORE_ENVIRONMENT: that one is a runtime
+        // mode with two useful values, so qa and prod would both report "Production" and stop being
+        // distinguishable in Sentry.
+        var sharedEnvironment = builder.Configuration[SharedEnvironmentVariable];
+        if (!string.IsNullOrWhiteSpace(sharedEnvironment))
+            builder.Configuration[$"{SentrySettings.SectionName}:Environment"] = sharedEnvironment;
 
         var sentrySettings =
             builder.Configuration.GetSection(SentrySettings.SectionName).Get<SentrySettings>()
@@ -64,9 +87,15 @@ public static class SentryExtensions
         // via OTLP. This makes Sentry's principal trace the same Activity/W3C trace id that
         // appears in the logs and in the X-Trace-Id header. Sampling is driven by the OTel
         // sampler (ParentBased honors the upstream service's decision for a consistent trace).
+        var environment = ResolveEnvironment(sentrySettings.Environment, builder.Environment.EnvironmentName);
+
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(resource => resource
-                .AddService(serviceName: serviceInfo.Name, serviceVersion: serviceInfo.Version))
+                .AddService(serviceName: serviceInfo.Name, serviceVersion: serviceInfo.Version)
+                // Spans travel by OTLP, outside the SDK pipeline, so options.Environment below does
+                // not reach them: without this attribute every span arrives with no environment and
+                // filtering by environment silently misses this service's traces.
+                .AddAttributes([new KeyValuePair<string, object>("deployment.environment", environment)]))
             .WithTracing(tracing => tracing
                 .SetSampler(new ParentBasedSampler(
                     new TraceIdRatioBasedSampler(sentrySettings.TracesSampleRate)))
@@ -74,14 +103,34 @@ public static class SentryExtensions
                 .AddHttpClientInstrumentation(o =>
                     o.FilterHttpRequestMessage = request =>
                         !string.Equals(request.RequestUri?.Host, sentryIngestHost, StringComparison.OrdinalIgnoreCase))
+                // Without this the database round-trip is invisible: AspNetCore and HttpClient
+                // instrumentation cover the request and the outbound calls, so an endpoint that
+                // spends most of its time querying shows a long root span with nothing under it.
+                .AddSqlClientInstrumentation()
+                // Makes a cache hit legible: without it a served-from-cache request is a single
+                // root span with nothing underneath, indistinguishable from work that never ran.
+                // Resolves IConnectionMultiplexer from DI, which AddDistributedCache registers.
+                .AddRedisInstrumentation()
                 .AddSentryOtlpExporter(sentrySettings.Dsn));
 
         builder.WebHost.UseSentry(options =>
         {
             options.Dsn = sentrySettings.Dsn;
-            options.Environment = builder.Environment.EnvironmentName;
+            options.Environment = environment;
             options.Release = serviceInfo.Version;
             options.SendDefaultPii = false;
+
+            // Feeds the Logs product (Explore > Logs). Without it the SDK installs a disabled
+            // structured logger and drops every log, which is why this service produced errors and
+            // spans but no log stream at all.
+#pragma warning disable SENTRY0001 // Structured logging is still marked experimental in the SDK.
+            options.EnableLogs = true;
+
+            // The Logs equivalent of MinimumEventLevel: Issues and the log stream are separate
+            // destinations and want different thresholds. Returning null drops the log.
+            options.SetBeforeSendLog(log =>
+                log.Level >= MapLogLevel(sentrySettings.MinimumLogLevel) ? log : null!);
+#pragma warning restore SENTRY0001
 
             // Routes traces via OTLP and makes the SDK read the trace context from the OTel
             // Activity: errors land on the SAME trace as the spans and the logs.
@@ -105,6 +154,21 @@ public static class SentryExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Bridges Serilog's level scale onto Sentry's. The two differ in two names only — Verbose maps
+    /// to Trace and Information to Info — so the settings stay expressed in Serilog terms like the
+    /// neighbouring MinimumEventLevel and MinimumBreadcrumbLevel.
+    /// </summary>
+    private static SentryLogLevel MapLogLevel(LogEventLevel level) => level switch
+    {
+        LogEventLevel.Verbose => SentryLogLevel.Trace,
+        LogEventLevel.Debug => SentryLogLevel.Debug,
+        LogEventLevel.Information => SentryLogLevel.Info,
+        LogEventLevel.Warning => SentryLogLevel.Warning,
+        LogEventLevel.Error => SentryLogLevel.Error,
+        _ => SentryLogLevel.Fatal
+    };
 
     private static void ScrubRequest(
         SentryRequest? request,

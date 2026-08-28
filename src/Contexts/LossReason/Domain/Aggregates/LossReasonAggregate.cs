@@ -28,10 +28,13 @@ public sealed class LossReasonAggregate : AggregateRoot<int>
     {
         var errors = ValidateName(input.Name);
 
+        if (input.IsActive is null)
+            errors.Add(LossReasonErrors.IsActiveRequired);
+
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new LossReasonAggregate(name: input.Name!, isActive: input.IsActive);
+        var aggregate = new LossReasonAggregate(name: input.Name!, isActive: input.IsActive!.Value);
         aggregate.Created();
 
         return aggregate;

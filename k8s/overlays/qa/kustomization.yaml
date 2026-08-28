@@ -24,8 +24,12 @@ patches:
         namespace: crm-service
       data:
         ASPNETCORE_ENVIRONMENT: "Staging"
-        ASPNETCORE_PATHBASE: ""
+        ASPNETCORE_PATHBASE: "/crm-service"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
+        # Deployment tier, lowercase, same literal every service reports regardless of stack.
+        # Deliberately separate from ASPNETCORE_ENVIRONMENT above: that one is a runtime mode and
+        # says "Staging" here, which would not match the `qa` other services report.
+        SENTRY_ENVIRONMENT: "qa"
         Cors__AllowedOrigins__0: "https://qa.app.q10.com"
 
   # --- ExternalSecret: Secrets Manager paths for qa ---
@@ -52,6 +56,21 @@ patches:
         namespace: crm-service
       spec:
         replicas: 2
+
+  # --- Ingress: qa Internal ALB group + HTTPS ---
+  - target:
+      kind: Ingress
+      name: crm-service-ingress
+    patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: crm-service-ingress
+        namespace: crm-service
+        annotations:
+          alb.ingress.kubernetes.io/group.name: q10-qa-internal
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          alb.ingress.kubernetes.io/certificate-arn: "" # TODO: set ACM cert ARN for qa
 
   # --- HPA: moderate range in qa ---
   - target:

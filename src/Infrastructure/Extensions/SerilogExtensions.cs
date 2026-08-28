@@ -31,9 +31,14 @@ public static class SerilogExtensions
                     .Enrich.FromLogContext()
                     .Enrich.With<ActivityEnricher>()
                     .Enrich.WithProperty("service", serviceInfo.Name)
+                    // Same resolved tier the SDK and the OTel resource report, so a log, a span and
+                    // an error from one request all agree on the environment.
                     .Enrich.WithProperty(
                         "environment",
-                        context.HostingEnvironment.EnvironmentName.ToLowerInvariant()
+                        SentryExtensions.ResolveEnvironment(
+                            sentrySettings.Environment,
+                            context.HostingEnvironment.EnvironmentName
+                        )
                     )
                     .Enrich.WithProperty("version", serviceInfo.Version);
 
@@ -62,6 +67,12 @@ public static class SerilogExtensions
                         options.InitializeSdk = false; // SDK already initialized by SentryExtensions
                         options.MinimumEventLevel = sentrySettings.MinimumEventLevel;
                         options.MinimumBreadcrumbLevel = sentrySettings.MinimumBreadcrumbLevel;
+
+                        // Forwards Serilog events to the Logs product as structured logs. The level
+                        // cut lives in SetBeforeSendLog on the SDK options, next to EnableLogs.
+#pragma warning disable SENTRY0001 // Structured logging is still marked experimental in the SDK.
+                        options.EnableLogs = true;
+#pragma warning restore SENTRY0001
                     });
                 }
             }

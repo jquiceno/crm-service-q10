@@ -48,9 +48,12 @@ patches:
         namespace: crm-service
       data:
         ASPNETCORE_ENVIRONMENT: "Development"
-        ASPNETCORE_PATHBASE: ""
+        ASPNETCORE_PATHBASE: "/crm-service"   # URL prefix — must match ingress path
         TenantResolverService__Enabled: "true"
         Sentry__Enabled: "false"
+        # Deployment tier, lowercase, same literal every service reports regardless of stack.
+        # Set even with Sentry off here, so enabling it never reports the wrong environment.
+        SENTRY_ENVIRONMENT: "dev"
         Cors__AllowedOrigins__0: "http://localhost:3000"
 
   # --- ExternalSecret: Secrets Manager paths for dev ---
@@ -77,6 +80,19 @@ patches:
         namespace: crm-service
       spec:
         replicas: 1
+
+  # --- Ingress: dev Internal ALB group (HTTP:80, inherited from base) ---
+  - target:
+      kind: Ingress
+      name: crm-service-ingress
+    patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: crm-service-ingress
+        namespace: crm-service
+        annotations:
+          alb.ingress.kubernetes.io/group.name: q10-dev-internal
 
   # --- HPA: reduced range in dev ---
   - target:

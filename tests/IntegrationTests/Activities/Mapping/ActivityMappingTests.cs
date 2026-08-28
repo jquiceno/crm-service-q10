@@ -23,70 +23,6 @@ namespace IntegrationTests.Activities.Mapping;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class ActivityMappingTests : IAsyncLifetime
 {
-    private const string Universal15 = "activities_mapping_universal15";
-    private const string Extended16 = "activities_mapping_extended16";
-
-    private const string Universal15Ddl = """
-        CREATE TABLE dbo.tbl_opo_negocios_actividades (
-            negact_consecutivoP int IDENTITY(1,1) NOT NULL PRIMARY KEY,
-            negact_neg_consecutivo int NULL,
-            negact_opo_consecutivo int NULL,
-            negact_per_codigo varchar(20) NOT NULL,
-            negact_asesor varchar(20) NULL,
-            negact_tipo char(1) NOT NULL,
-            negact_fecha datetime NOT NULL,
-            negact_titulo varchar(500) NULL,
-            negact_descripcion varchar(MAX) NULL,
-            negact_resultado char(1) NULL,
-            negact_fecha_vencimiento datetime NULL,
-            negact_completada bit NULL,
-            negact_anulada bit NULL,
-            negact_fecha_resuelto datetime NULL,
-            negact_descripcion_virtual varchar(500) NULL)
-        """;
-
-    private const string Extended16Ddl = """
-        CREATE TABLE dbo.tbl_opo_negocios_actividades (
-            negact_consecutivoP int IDENTITY(1,1) NOT NULL PRIMARY KEY,
-            negact_neg_consecutivo int NULL,
-            negact_opo_consecutivo int NULL,
-            negact_tipo char(1) NOT NULL,
-            negact_titulo varchar(500) NULL,
-            negact_descripcion varchar(2000) NULL,
-            negact_resultado char(1) NULL,
-            negact_fecha datetime NOT NULL,
-            negact_fecha_vencimiento datetime NULL,
-            negact_completada bit NULL,
-            negact_anulada bit NULL,
-            negact_fecha_resuelto datetime NULL,
-            negact_asesor varchar(20) NULL,
-            negact_per_codigo varchar(20) NOT NULL,
-            negact_descripcion_virtual varchar(500) NULL,
-            ConsecutivoActMiG int NULL)
-        """;
-
-    private const string CreateUniversal15Database =
-        $"IF DB_ID(N'{Universal15}') IS NULL CREATE DATABASE [{Universal15}];";
-
-    private const string CreateExtended16Database =
-        $"IF DB_ID(N'{Extended16}') IS NULL CREATE DATABASE [{Extended16}];";
-
-    private const string SetupUniversal15Table = $"""
-        IF OBJECT_ID(N'dbo.tbl_opo_negocios_actividades') IS NULL
-        BEGIN
-        {Universal15Ddl}
-        END
-        DELETE FROM dbo.tbl_opo_negocios_actividades;
-        """;
-
-    private const string SetupExtended16Table = $"""
-        IF OBJECT_ID(N'dbo.tbl_opo_negocios_actividades') IS NULL
-        BEGIN
-        {Extended16Ddl}
-        END
-        DELETE FROM dbo.tbl_opo_negocios_actividades;
-        """;
-
     private const string InsertRawRowSql = """
         INSERT INTO dbo.tbl_opo_negocios_actividades
             (negact_neg_consecutivo, negact_opo_consecutivo, negact_tipo, negact_titulo,
@@ -111,7 +47,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     private static PersonCode Advisor => PersonCode.Create("advisor-01").Value;
     private static PersonCode Creator => PersonCode.Create("creator-01").Value;
 
-    public static TheoryData<string> Variants => new() { Universal15, Extended16 };
+    public static TheoryData<string> Variants => ActivitySchemaVariants.Variants;
 
     private readonly SqlServerContainerFixture _fixture;
 
@@ -122,9 +58,9 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        await EnsureVariantDatabaseAsync(CreateUniversal15Database, Universal15, SetupUniversal15Table)
+        await ActivitySchemaVariants.EnsureCreatedAsync(_fixture, ActivitySchemaVariants.Universal15)
             .ConfigureAwait(false);
-        await EnsureVariantDatabaseAsync(CreateExtended16Database, Extended16, SetupExtended16Table)
+        await ActivitySchemaVariants.EnsureCreatedAsync(_fixture, ActivitySchemaVariants.Extended16)
             .ConfigureAwait(false);
     }
 
@@ -330,10 +266,11 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         // NOT NULL in the domain (DEC-1); a NULL must fail naming the property, not with a bare
         // "Data is Null".
         var id = await InsertRawAsync(
-                Universal15, type: "1", outcomeType: null, completed: null, dealId: null)
+                ActivitySchemaVariants.Universal15, type: "1", outcomeType: null, completed: null, dealId: null)
             .ConfigureAwait(true);
 
-        var exception = await Record.ExceptionAsync(() => ReadEntityAsync(Universal15, id))
+        var exception = await Record.ExceptionAsync(
+                () => ReadEntityAsync(ActivitySchemaVariants.Universal15, id))
             .ConfigureAwait(true);
 
         exception.ShouldNotBeNull();
@@ -351,9 +288,10 @@ public sealed class ActivityMappingTests : IAsyncLifetime
             1200, 845, ActivityType.Note, Outcome.Create("noted").Value, outcomeType: null,
             dueAt: null, Advisor, Creator, Now).Value;
 
-        var id = await SaveAsync(Extended16, completed).ConfigureAwait(true);
+        var id = await SaveAsync(ActivitySchemaVariants.Extended16, completed).ConfigureAwait(true);
 
-        var connection = new SqlConnection(VariantConnectionString(Extended16));
+        var connection = new SqlConnection(
+            ActivitySchemaVariants.ConnectionString(_fixture, ActivitySchemaVariants.Extended16));
         await using (connection.ConfigureAwait(true))
         {
             await connection.OpenAsync().ConfigureAwait(true);
@@ -374,7 +312,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     {
         var entity = ActivityRepositoryMapper.ToEntity(activity);
 
-        var context = CreateContext(variant);
+        var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await using (context.ConfigureAwait(false))
         {
             context.Activities.Add(entity);
@@ -391,7 +329,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
 
     private async Task<ActivityEntity> ReadEntityAsync(string variant, int id)
     {
-        var context = CreateContext(variant);
+        var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await using (context.ConfigureAwait(false))
         {
             return await context.Activities.AsNoTracking()
@@ -402,7 +340,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
     private async Task<(string TypeChar, string? OutcomeChar, bool? IsCompleted, bool? IsCancelled)>
         ReadRawRowAsync(string variant, int id)
     {
-        var connection = new SqlConnection(VariantConnectionString(variant));
+        var connection = new SqlConnection(ActivitySchemaVariants.ConnectionString(_fixture, variant));
         await using (connection.ConfigureAwait(false))
         {
             await connection.OpenAsync().ConfigureAwait(false);
@@ -442,7 +380,7 @@ public sealed class ActivityMappingTests : IAsyncLifetime
         string? advisor = "advisor-01",
         int? dealId = 1200)
     {
-        var connection = new SqlConnection(VariantConnectionString(variant));
+        var connection = new SqlConnection(ActivitySchemaVariants.ConnectionString(_fixture, variant));
         await using (connection.ConfigureAwait(false))
         {
             await connection.OpenAsync().ConfigureAwait(false);
@@ -469,48 +407,5 @@ public sealed class ActivityMappingTests : IAsyncLifetime
                 return (int)(await command.ExecuteScalarAsync().ConfigureAwait(false))!;
             }
         }
-    }
-
-    private async Task EnsureVariantDatabaseAsync(string createDatabaseSql, string database, string setupTableSql)
-    {
-        var master = new SqlConnection(_fixture.ConnectionString);
-        await using (master.ConfigureAwait(false))
-        {
-            await master.OpenAsync().ConfigureAwait(false);
-            var createDatabase = master.CreateCommand();
-            await using (createDatabase.ConfigureAwait(false))
-            {
-#pragma warning disable CA2100 // Only the const SQL strings defined above ever reach this method.
-                createDatabase.CommandText = createDatabaseSql;
-#pragma warning restore CA2100
-                await createDatabase.ExecuteNonQueryAsync().ConfigureAwait(false);
-            }
-        }
-
-        var connection = new SqlConnection(VariantConnectionString(database));
-        await using (connection.ConfigureAwait(false))
-        {
-            await connection.OpenAsync().ConfigureAwait(false);
-            var setupTable = connection.CreateCommand();
-            await using (setupTable.ConfigureAwait(false))
-            {
-#pragma warning disable CA2100 // Only the const SQL strings defined above ever reach this method.
-                setupTable.CommandText = setupTableSql;
-#pragma warning restore CA2100
-                await setupTable.ExecuteNonQueryAsync().ConfigureAwait(false);
-            }
-        }
-    }
-
-    private string VariantConnectionString(string database) =>
-        new SqlConnectionStringBuilder(_fixture.ConnectionString) { InitialCatalog = database }.ConnectionString;
-
-    private ApplicationDbContext CreateContext(string variant)
-    {
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseSqlServer(VariantConnectionString(variant))
-            .Options;
-
-        return new ApplicationDbContext(options);
     }
 }

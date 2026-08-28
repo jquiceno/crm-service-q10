@@ -38,7 +38,7 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
     // --- AddAsync --------------------------------------------------------------------------
 
     [Fact]
-    public async Task AddAsync_ThenSaveChanges_PersistsTheRowAndAssignsTheGeneratedId()
+    public async Task AddAsync_PersistsTheRowAndAssignsTheGeneratedId()
     {
         var dueAt = DateTime.UtcNow.AddDays(1);
         var activity = Activity.Schedule(
@@ -48,11 +48,8 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
         var sut = Sut;
 
         (await sut.AddAsync(activity)).IsSuccess.ShouldBeTrue();
-        activity.Id.ShouldBe(0, "the id is not known until the unit of work actually commits");
 
-        await Db.SaveChangesAsync();
-
-        activity.Id.ShouldBeGreaterThan(0, "DbContext.SavedChanges should assign the generated id");
+        activity.Id.ShouldBeGreaterThan(0, "AddAsync saves immediately and assigns the generated id");
 
         var fetched = await sut.GetByIdAsync(activity.Id);
         fetched.IsSuccess.ShouldBeTrue();

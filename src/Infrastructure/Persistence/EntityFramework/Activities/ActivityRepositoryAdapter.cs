@@ -2,6 +2,7 @@ using Activities.Domain.Aggregates;
 using Activities.Domain.Errors;
 using Activities.Domain.Filters;
 using Activities.Domain.Repositories;
+using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Infrastructure.Persistence.EntityFramework.Activities.Mappers;
 using Infrastructure.Persistence.EntityFramework.Common;
@@ -23,12 +24,12 @@ namespace Infrastructure.Persistence.EntityFramework.Activities;
 /// every operation below reimplements what the base would otherwise provide, in the same
 /// try/catch/logger shape.
 /// <para>
-/// <see cref="AddAsync"/> cannot return the generated id synchronously either — no
-/// <c>SaveChangesAsync</c> has run yet at that point (DEC: the unit of work commits in its own,
-/// explicit step, never implicitly inside <c>AddAsync</c>). It instead subscribes to
-/// <see cref="DbContext.SavedChanges"/>, which fires once <em>whoever</em> eventually calls
-/// <c>SaveChangesAsync</c> on this same (request-scoped) context — <c>UnitOfWorkAdapter</c>, in
-/// practice — completes successfully, and copies the id onto the original aggregate then.
+/// <see cref="AddAsync"/> is the one exception to "no repository saves on its own": the id is a
+/// SQL Server <c>IDENTITY</c>, unknown until the insert actually runs, and nothing links the
+/// discarded <see cref="ActivityEntity"/> back to the caller's <see cref="Activity"/> once
+/// <c>AddAsync</c> returns — so there is no later point at which the id could still be copied
+/// over. It saves immediately and assigns the id right there; a use case's own
+/// <c>unitOfWork.CommitAsync()</c> afterwards simply finds nothing left to save.
 /// </para>
 /// </remarks>
 public sealed class ActivityRepositoryAdapter(
@@ -90,15 +91,16 @@ public sealed class ActivityRepositoryAdapter(
         {
             var entity = ActivityRepositoryMapper.ToEntity(aggregate);
             await DbSet.AddAsync(entity, cancellationToken).ConfigureAwait(false);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-            void OnSaved(object? sender, SavedChangesEventArgs e)
-            {
-                context.SavedChanges -= OnSaved;
-                aggregate.AssignId(entity.Id);
-            }
-            context.SavedChanges += OnSaved;
+            aggregate.AssignId(entity.Id);
 
             return Result.Success();
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.Error(ex, "Database update error adding Activity");
+            return SqlServerErrorClassifier.Classify(ex, Origin);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

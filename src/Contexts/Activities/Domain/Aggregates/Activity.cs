@@ -298,9 +298,8 @@ public sealed class Activity : AggregateRoot<int>
 
     /// <summary>
     /// Assigns the identity SQL Server generated on insert. Only
-    /// <c>ActivityRepositoryAdapter</c> calls this, once the unit of work actually commits: the
-    /// persistence entity round-trips through <c>ActivityRepositoryMapper</c> as a separate
-    /// object, so nothing else ever stamps this aggregate's <c>Id</c>.
+    /// <c>ActivityRepositoryAdapter.AddAsync</c> calls this, right after saving: the persistence
+    /// entity is a separate object from this aggregate, so nothing else ever stamps <c>Id</c>.
     /// </summary>
     internal void AssignId(int id) => Id = id;
 

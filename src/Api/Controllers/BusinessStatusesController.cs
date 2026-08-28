@@ -1,6 +1,8 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
 using Shared.Presentation.Responses;
@@ -18,6 +20,7 @@ namespace Api.Controllers;
 [Tags("business-statuses")]
 public sealed class BusinessStatusesController(
     ICreateBusinessStatusUseCase createBusinessStatusUseCase,
+    IGetBusinessStatusByIdUseCase getBusinessStatusByIdUseCase,
     IUpdateBusinessStatusUseCase updateBusinessStatusUseCase) : ControllerBase
 {
     private const string CacheTag = "business-statuses";
@@ -37,6 +40,20 @@ public sealed class BusinessStatusesController(
         CancellationToken cancellationToken = default)
     {
         return await createBusinessStatusUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
+    }
+
+    [HttpGet("{id}")]
+    [EndpointSummary("Get business status by id")]
+    [EndpointDescription("Returns the business status with the given id. An unknown id answers 404.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetBusinessStatusByIdOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCache(Duration = 300, Tags = [CacheTag], VaryByRouteValueNames = ["id"])]
+    public async Task<HttpOkResult<GetBusinessStatusByIdOutputDto>> GetBusinessStatusById(
+        [FromRoute] int id,
+        CancellationToken cancellationToken = default)
+    {
+        return await getBusinessStatusByIdUseCase.ExecuteAsync(id, cancellationToken).ConfigureAwait(false);
     }
 
     [HttpPut("{id:int}")]

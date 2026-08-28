@@ -57,7 +57,7 @@ public sealed class PageQueryInputValidatorTests
 
     [Theory]
     [InlineData(1)]
-    [InlineData(100)]
+    [InlineData(PageQueryInputDto.MaxPageSize)]
     public void Validate_WithPageSizeAtBoundaries_ReturnsValid(int pageSize)
     {
         var result = _sut.Validate(new PageQueryInputDto(PageSize: pageSize));

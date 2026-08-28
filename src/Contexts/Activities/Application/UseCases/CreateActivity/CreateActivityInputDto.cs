@@ -26,11 +26,14 @@ public sealed record CreateActivityInputDto(
     string? AdvisorIdentification,
     [property: Description("Date the caller reports for the activity. Kept for legacy parity; the stored creation date comes from the service clock.")]
     DateTime? ActivityDate,
+    // The four conditional fields carry a default so the published schema does not mark them
+    // required: a positional record parameter without one is `required` in OpenAPI even when its
+    // type is nullable, which would demand an outcome on the very requests that reject one.
     [property: Description("What is planned. Required when scheduled, not allowed when completed.")]
-    string? Description,
+    string? Description = null,
     [property: Description("What happened. Required when completed, not allowed when scheduled.")]
-    string? Outcome,
+    string? Outcome = null,
     [property: Description("Coded outcome, e.g. 'contacted' or 'deal-closed'. Required for a completed call or meeting.")]
-    string? OutcomeType,
+    string? OutcomeType = null,
     [property: Description("When the activity is due. Required when scheduled.")]
-    DateTime? DueAt);
+    DateTime? DueAt = null);

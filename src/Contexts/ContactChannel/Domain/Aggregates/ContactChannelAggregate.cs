@@ -21,12 +21,12 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     public static Result<ContactChannelAggregate> Create(CreateContactChannelArgs input)
     {
         var name = Normalize(input.Name);
-        var errors = ValidateName(name);
+        var errors = Validate(name, input.IsActive);
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
-        var aggregate = new ContactChannelAggregate(name: name, isActive: input.IsActive);
+        var aggregate = new ContactChannelAggregate(name: name, isActive: input.IsActive!.Value);
 
         aggregate.Created();
 
@@ -39,13 +39,13 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
     public Result Update(UpdateContactChannelArgs input)
     {
         var name = Normalize(input.Name);
-        var errors = ValidateName(name);
+        var errors = Validate(name, input.IsActive);
 
         if (errors.Count > 0)
             return DomainError.FromValidationDomainErrors(errors);
 
         Name = name;
-        IsActive = input.IsActive;
+        IsActive = input.IsActive!.Value;
 
         SetUpdatedAt(DateTime.UtcNow);
 
@@ -59,18 +59,17 @@ public sealed class ContactChannelAggregate : AggregateRoot<int>
 
     private static string Normalize(string? name) => name?.Trim() ?? string.Empty;
 
-    private static List<ValidationError> ValidateName(string name)
+    private static List<ValidationError> Validate(string name, bool? isActive)
     {
         var errors = new List<ValidationError>();
 
         if (string.IsNullOrEmpty(name))
-        {
             errors.Add(ContactChannelErrors.NameRequired with { Value = name });
-            return errors;
-        }
-
-        if (name.Length > NameMaxLength)
+        else if (name.Length > NameMaxLength)
             errors.Add(ContactChannelErrors.NameTooLong with { Value = name });
+
+        if (isActive is null)
+            errors.Add(ContactChannelErrors.IsActiveRequired);
 
         return errors;
     }

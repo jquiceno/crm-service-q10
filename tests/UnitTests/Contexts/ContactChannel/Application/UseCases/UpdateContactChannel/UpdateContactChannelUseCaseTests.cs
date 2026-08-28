@@ -103,6 +103,7 @@ public sealed class UpdateContactChannelUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Details.ShouldHaveSingleItem().Property.ShouldBe(
             nameof(ContactChannelAggregate.IsActive));
+        _repository.DidNotReceive().Update(Arg.Any<ContactChannelAggregate>());
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 

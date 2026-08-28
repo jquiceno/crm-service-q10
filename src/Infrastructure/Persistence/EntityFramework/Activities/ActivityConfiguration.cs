@@ -1,3 +1,5 @@
+using Activities.Domain.Aggregates;
+using Activities.Domain.ValueObjects;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;

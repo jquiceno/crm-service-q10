@@ -1,5 +1,7 @@
+using Activities.Application.Ports;
 using Infrastructure.Adapters.Persistence;
 using Infrastructure.Persistence.EntityFramework;
+using Infrastructure.Persistence.EntityFramework.Activities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Application.Ports;
@@ -33,5 +35,10 @@ public static class EfCorePersistenceExtensions
     private static void RegisterPersistenceServices(IServiceCollection services)
     {
         services.AddScoped<IUnitOfWorkPort, UnitOfWorkAdapter>();
+
+        // Activities context — readers of the institution's foreign tables. Registered next to the
+        // context's persistence pieces, before the use cases that consume them.
+        services.AddScoped<IDealReader, DealReader>();
+        services.AddScoped<IAdvisorReader, AdvisorReader>();
     }
 }

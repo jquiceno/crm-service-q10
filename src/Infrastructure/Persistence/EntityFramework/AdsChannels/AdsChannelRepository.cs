@@ -170,7 +170,10 @@ public sealed class AdsChannelRepository(
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             // The Id is a SQL Server IDENTITY: only known now, after SaveChangesAsync populated it on
-            // the tracked entity. Re-reconstruct from the entity rather than mutating the input aggregate.
+            // the tracked entity. Re-reconstructing from the entity (rather than the repositorio.md
+            // AssignId pattern) drops the in-memory CreatedAt/UpdatedAt that Create() set; harmless
+            // today because the legacy table has no such columns and no output DTO exposes them — revisit
+            // if either changes.
             return AdsChannelRepositoryMapper.ToDomain(document);
         }
         catch (DbUpdateException ex)

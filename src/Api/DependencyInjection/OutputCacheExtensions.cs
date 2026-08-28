@@ -48,6 +48,15 @@ public static class OutputCacheExtensions
                 .SetVaryByHeader("X-Entity-Code", "Accept-Language")
                 .SetVaryByQuery("EntityCode"));
             options.AddPolicy("Global", p => { });
+
+            // A named policy is selected *instead of* the base one, not on top of it, so this
+            // repeats the base tenant/locale isolation verbatim and only then adds the filter keys.
+            // Dropping either half is a correctness bug that shows up as wrong data, not as an
+            // error: without the header and EntityCode one tenant reads another's listing, and
+            // without the query keys one filter serves the result of another.
+            options.AddPolicy("loss-reasons-list", policy => policy
+                .SetVaryByHeader("X-Entity-Code", "Accept-Language")
+                .SetVaryByQuery("EntityCode", "name", "isActive", "pageIndex", "pageSize"));
         });
 
         return services;

@@ -31,9 +31,4 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
     }
 }
 
-/// <summary>
-/// Body of a successful paged response: <c>{ "items": [...], "totalCount": n }</c>. Public because
-/// controllers name it in <c>[ProducesResponseType(typeof(ApiSuccessResponse&lt;PagedPayload&lt;T&gt;&gt;), 200)]</c>
-/// to publish the real schema of a paged endpoint, as controllers.md §5.5 prescribes.
-/// </summary>
 public sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);

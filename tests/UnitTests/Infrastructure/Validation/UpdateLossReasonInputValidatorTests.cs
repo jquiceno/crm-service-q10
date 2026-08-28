@@ -11,7 +11,7 @@ namespace UnitTests.Infrastructure.Validation;
 
 public sealed class UpdateLossReasonInputValidatorTests
 {
-    private const string ValidName = "Precio";
+    private const string ValidName = "Price";
 
     private static string NameOfMaxLength => new('a', LossReasonAggregate.NameMaxLength);
 
@@ -66,12 +66,35 @@ public sealed class UpdateLossReasonInputValidatorTests
     }
 
     [Fact]
-    public void Validate_WithNoRuleOnIsActive_AcceptsBothStates()
+    public void Validate_WithNullIsActive_ReportsTheDomainIsActiveRequired()
     {
-        // IsActive is non-nullable on the update DTO (unlike create), so there is nothing to
-        // validate: an explicit null is rejected by the deserializer before the validator runs.
-        _sut.Validate(new UpdateLossReasonInputDto(ValidName, IsActive: false)).IsValid.ShouldBeTrue();
-        _sut.Validate(new UpdateLossReasonInputDto(ValidName, IsActive: true)).IsValid.ShouldBeTrue();
+        var result = _sut.Validate(new UpdateLossReasonInputDto(ValidName, IsActive: null));
+
+        // Required rather than defaulted: an omitted flag would otherwise arrive as false through
+        // the CLR default and deactivate the reason without the caller ever asking for it.
+        result.IsValid.ShouldBeFalse();
+        var failure = result.Errors.Single(e => e.PropertyName == nameof(UpdateLossReasonInputDto.IsActive));
+        failure.ErrorMessage.ShouldBe(LossReasonErrors.IsActiveRequired.Message);
+        failure.CustomState.ShouldBe(LossReasonErrors.IsActiveRequired);
+    }
+
+    [Fact]
+    public void Validate_WithBlankNameLongerThanMaxAndNullIsActive_ReportsEveryFailure()
+    {
+        // Whitespace past the limit violates both name rules at once; no rule short-circuits
+        // another, so the response mirrors what the aggregate accumulates. Same shape as create.
+        var name = new string(' ', LossReasonAggregate.NameMaxLength + 1);
+
+        var result = _sut.Validate(new UpdateLossReasonInputDto(name, IsActive: null));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.Select(e => e.ErrorMessage).ShouldBe(
+            [
+                LossReasonErrors.NameRequired.Message,
+                LossReasonErrors.NameTooLong.Message,
+                LossReasonErrors.IsActiveRequired.Message
+            ],
+            ignoreOrder: true);
     }
 
     [Fact]

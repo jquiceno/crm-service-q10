@@ -2,8 +2,6 @@ using Infrastructure.Adapters.Validation;
 using Infrastructure.Validation.FluentValidation.LossReasons;
 using LossReason.Application.UseCases.GetLossReasons;
 using LossReason.Domain.Aggregates;
-using LossReason.Domain.Errors;
-using Shared.Results.Errors;
 using Shouldly;
 using Xunit;
 
@@ -11,9 +9,11 @@ namespace UnitTests.Infrastructure.Validation;
 
 public sealed class GetLossReasonsInputValidatorTests
 {
-    private static string NameOfMaxLength => new('a', LossReasonAggregate.NameMaxLength);
+    private const string ExpectedMessage = "Search text must not exceed 50 characters.";
 
-    private static string NameLongerThanMax => new('a', LossReasonAggregate.NameMaxLength + 1);
+    private static string SearchOfMaxLength => new('a', LossReasonAggregate.NameMaxLength);
+
+    private static string SearchLongerThanMax => new('a', LossReasonAggregate.NameMaxLength + 1);
 
     private readonly GetLossReasonsInputValidator _sut = new();
 
@@ -21,13 +21,13 @@ public sealed class GetLossReasonsInputValidatorTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("Precio")]
-    public void Validate_WithAnyNameUpToTheLimit_ReturnsValid(string? name)
+    [InlineData("Price")]
+    public void Validate_WithAnySearchUpToTheLimit_ReturnsValid(string? search)
     {
-        var result = _sut.Validate(new GetLossReasonsInputDto(name, IsActive: null));
+        var result = _sut.Validate(new GetLossReasonsInputDto(search, IsActive: null));
 
-        // A blank name means "do not filter by name" on the listing, so unlike create and update
-        // there is no NotEmpty rule here: requiring it would turn the unfiltered listing into a 400.
+        // A blank search means "do not filter" on the listing, so unlike create and update there is
+        // no NotEmpty rule here: requiring it would turn the unfiltered listing into a 400.
         result.IsValid.ShouldBeTrue();
     }
 
@@ -37,46 +37,48 @@ public sealed class GetLossReasonsInputValidatorTests
     [InlineData(false)]
     public void Validate_WithAnyIsActive_ReturnsValid(bool? isActive)
     {
-        var result = _sut.Validate(new GetLossReasonsInputDto("Precio", isActive));
+        var result = _sut.Validate(new GetLossReasonsInputDto("Price", isActive));
 
         // D9: the state filter is optional; null means every loss reason.
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
-    public void Validate_WithNameOfMaxLength_ReturnsValid()
+    public void Validate_WithSearchOfMaxLength_ReturnsValid()
     {
-        var result = _sut.Validate(new GetLossReasonsInputDto(NameOfMaxLength, IsActive: null));
+        var result = _sut.Validate(new GetLossReasonsInputDto(SearchOfMaxLength, IsActive: null));
 
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
-    public void Validate_WithNameLongerThanMax_KeepsTheMaxAttributeFromTheDomainError()
+    public void Validate_WithSearchLongerThanMax_ReportsItsOwnMessage()
     {
-        var result = _sut.Validate(new GetLossReasonsInputDto(NameLongerThanMax, IsActive: null));
+        var result = _sut.Validate(new GetLossReasonsInputDto(SearchLongerThanMax, IsActive: null));
 
         result.IsValid.ShouldBeFalse();
-        var failure = result.Errors.Single(e => e.PropertyName == nameof(GetLossReasonsInputDto.Name));
-        failure.ErrorMessage.ShouldBe(LossReasonErrors.NameTooLong.Message);
+        var failure = result.Errors.Single(e => e.PropertyName == nameof(GetLossReasonsInputDto.Search));
 
-        var state = failure.CustomState.ShouldBeOfType<ValidationError>();
-        state.Attributes.ShouldNotBeNull();
-        state.Attributes!["max"].ShouldBe(LossReasonAggregate.NameMaxLength);
+        // The filter carries a plain request-level message, not a domain error: a too-long search is
+        // a malformed request, not a broken invariant of the catalog. The literal is spelled out on
+        // purpose so a change to the interpolated message cannot pass unnoticed.
+        failure.ErrorMessage.ShouldBe(ExpectedMessage);
+        failure.CustomState.ShouldBeNull();
     }
 
     [Fact]
-    public async Task ValidateAsync_ThroughTheAdapter_CarriesTheDomainAttributesIntoTheResult()
+    public async Task ValidateAsync_ThroughTheAdapter_ReportsTheFailureOnSearch()
     {
         var adapter = new FluentRequestValidationAdapter<GetLossReasonsInputDto>(_sut);
 
-        var result = await adapter.ValidateAsync(new GetLossReasonsInputDto(NameLongerThanMax, IsActive: null));
+        var result = await adapter.ValidateAsync(new GetLossReasonsInputDto(SearchLongerThanMax, IsActive: null));
 
         result.IsFailure.ShouldBeTrue();
-        var name = result.Error.Details.Single(d => d.Property == nameof(GetLossReasonsInputDto.Name));
-        name.Errors.ShouldNotBeNull();
-        name.Errors!.ShouldContain(LossReasonErrors.NameTooLong.Message);
-        name.Attributes.ShouldNotBeNull();
-        name.Attributes!["max"].ShouldBe(LossReasonAggregate.NameMaxLength);
+        var search = result.Error.Details.Single(d => d.Property == nameof(GetLossReasonsInputDto.Search));
+        search.Errors.ShouldNotBeNull();
+        search.Errors!.ShouldContain(ExpectedMessage);
+
+        // No domain error behind it, so nothing rebuilds an Attributes dictionary here.
+        search.Attributes.ShouldBeNull();
     }
 }

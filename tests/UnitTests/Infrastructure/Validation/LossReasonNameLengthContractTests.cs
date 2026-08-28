@@ -36,6 +36,8 @@ public sealed class LossReasonNameLengthContractTests
             .Validate(new CreateLossReasonInputDto(NameAtTheLimit, IsActive: true)).IsValid.ShouldBeTrue();
         new UpdateLossReasonInputValidator()
             .Validate(new UpdateLossReasonInputDto(NameAtTheLimit, IsActive: true)).IsValid.ShouldBeTrue();
+        // The listing filter is no longer tied to the domain error, but it is still bounded by the
+        // same number: a search longer than the longest possible name can never match a row.
         new GetLossReasonsInputValidator()
             .Validate(new GetLossReasonsInputDto(NameAtTheLimit, IsActive: null)).IsValid.ShouldBeTrue();
 

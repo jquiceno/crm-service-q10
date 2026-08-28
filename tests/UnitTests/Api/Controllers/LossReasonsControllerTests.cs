@@ -9,6 +9,7 @@ using LossReason.Domain.Errors;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Abstractions;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Routing;
 using NSubstitute;
 using Shared.Application.Dtos;
@@ -55,12 +56,37 @@ public sealed class LossReasonsControllerTests
     }
 
     [Fact]
+    public void GetLossReasons_VariesTheCacheByEveryQueryParameterItBinds()
+    {
+        var cache = typeof(LossReasonsController)
+            .GetMethod(nameof(LossReasonsController.GetLossReasons))!
+            .GetCustomAttributes(typeof(OutputCacheAttribute), inherit: false)
+            .Cast<OutputCacheAttribute>()
+            .Single();
+
+        // Every bound query parameter must be in the key, plus EntityCode, which is the query-side
+        // tenant channel. A parameter missing here is R8: the listing serves the result of one
+        // filter for another, or of one tenant for another, answering 200 with no error anywhere.
+        // Renaming a DTO property without touching the attribute is exactly how that regresses.
+        // Query lookups are case-insensitive, so only the set of names matters.
+        var expected = typeof(GetLossReasonsInputDto).GetProperties().Select(p => p.Name)
+            .Concat(typeof(PageQueryInputDto).GetProperties().Select(p => p.Name))
+            .Append("EntityCode")
+            .Select(name => name.ToLowerInvariant());
+
+        cache.VaryByQueryKeys!.Select(key => key.ToLowerInvariant())
+            .ShouldBe(expected, ignoreOrder: true);
+        cache.Tags.ShouldBe(["loss-reasons"]);
+        cache.Duration.ShouldBe(60);
+    }
+
+    [Fact]
     public async Task GetLossReasons_WhenUseCaseSucceeds_Returns200WithItemsAndTotalCount()
     {
-        var filter = new GetLossReasonsInputDto("Precio", IsActive: true);
+        var filter = new GetLossReasonsInputDto("Price", IsActive: true);
         _getLossReasons.ExecuteAsync(filter, Arg.Any<PageQuery>(), Arg.Any<CancellationToken>())
             .Returns(PagedResult<GetLossReasonsOutputDto>.Success(
-                [new GetLossReasonsOutputDto(1, "Precio", true)],
+                [new GetLossReasonsOutputDto(1, "Price", true)],
                 totalCount: 8));
 
         var result = await CreateSut().GetLossReasons(filter, new PageQueryInputDto(), CancellationToken.None);
@@ -70,13 +96,13 @@ public sealed class LossReasonsControllerTests
         using var json = JsonDocument.Parse(body);
         var data = json.RootElement.GetProperty("data");
         data.GetProperty("totalCount").GetInt32().ShouldBe(8);
-        data.GetProperty("items")[0].GetProperty("name").GetString().ShouldBe("Precio");
+        data.GetProperty("items")[0].GetProperty("name").GetString().ShouldBe("Price");
     }
 
     [Fact]
     public async Task GetLossReasons_ForwardsTheFilterAndTheRequestedPage()
     {
-        var filter = new GetLossReasonsInputDto("Precio", IsActive: null);
+        var filter = new GetLossReasonsInputDto("Price", IsActive: null);
         _getLossReasons.ExecuteAsync(Arg.Any<GetLossReasonsInputDto>(), Arg.Any<PageQuery>(), Arg.Any<CancellationToken>())
             .Returns(PagedResult<GetLossReasonsOutputDto>.Success([], totalCount: 0));
 
@@ -110,9 +136,9 @@ public sealed class LossReasonsControllerTests
     public async Task GetLossReasonById_WhenFound_Returns200AndForwardsTheId()
     {
         _getLossReasonById.ExecuteAsync(7, Arg.Any<CancellationToken>())
-            .Returns(Result<GetLossReasonByIdOutputDto>.Success(new GetLossReasonByIdOutputDto(7, "Precio", true)));
+            .Returns(Result<GetLossReasonByIdOutputDto>.Success(new GetLossReasonByIdOutputDto(7, "Price", true)));
 
-        var result = await CreateSut().GetLossReasonById(7, CancellationToken.None);
+        var result = await CreateSut().GetLossReasonById(new IdInputDto(7), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status200OK);
@@ -126,7 +152,7 @@ public sealed class LossReasonsControllerTests
         _getLossReasonById.ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Result<GetLossReasonByIdOutputDto>.Failure(LossReasonErrors.NotFound(7)));
 
-        var result = await CreateSut().GetLossReasonById(7, CancellationToken.None);
+        var result = await CreateSut().GetLossReasonById(new IdInputDto(7), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status404NotFound);
@@ -135,9 +161,9 @@ public sealed class LossReasonsControllerTests
     [Fact]
     public async Task CreateLossReason_WhenUseCaseSucceeds_Returns201AndForwardsTheInput()
     {
-        var input = new CreateLossReasonInputDto("Precio", IsActive: true);
+        var input = new CreateLossReasonInputDto("Price", IsActive: true);
         _createLossReason.ExecuteAsync(input, Arg.Any<CancellationToken>())
-            .Returns(Result<CreateLossReasonOutputDto>.Success(new CreateLossReasonOutputDto(1, "Precio", true)));
+            .Returns(Result<CreateLossReasonOutputDto>.Success(new CreateLossReasonOutputDto(1, "Price", true)));
 
         var result = await CreateSut().CreateLossReason(input, CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
@@ -150,15 +176,15 @@ public sealed class LossReasonsControllerTests
     [Fact]
     public async Task UpdateLossReason_WhenUseCaseSucceeds_Returns200AndForwardsIdAndInput()
     {
-        var input = new UpdateLossReasonInputDto("Precio alto", IsActive: false);
+        var input = new UpdateLossReasonInputDto("High price", IsActive: false);
         _updateLossReason.ExecuteAsync(3, input, Arg.Any<CancellationToken>())
-            .Returns(Result<UpdateLossReasonOutputDto>.Success(new UpdateLossReasonOutputDto(3, "Precio alto", false)));
+            .Returns(Result<UpdateLossReasonOutputDto>.Success(new UpdateLossReasonOutputDto(3, "High price", false)));
 
-        var result = await CreateSut().UpdateLossReason(3, input, CancellationToken.None);
+        var result = await CreateSut().UpdateLossReason(new IdInputDto(3), input, CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status200OK);
-        JsonDocument.Parse(body).RootElement.GetProperty("data").GetProperty("name").GetString().ShouldBe("Precio alto");
+        JsonDocument.Parse(body).RootElement.GetProperty("data").GetProperty("name").GetString().ShouldBe("High price");
         await _updateLossReason.Received(1).ExecuteAsync(3, input, Arg.Any<CancellationToken>());
     }
 
@@ -169,7 +195,7 @@ public sealed class LossReasonsControllerTests
             .Returns(Result<UpdateLossReasonOutputDto>.Failure(LossReasonErrors.NotFound(3)));
 
         var result = await CreateSut().UpdateLossReason(
-            3, new UpdateLossReasonInputDto("Precio", IsActive: true), CancellationToken.None);
+            new IdInputDto(3), new UpdateLossReasonInputDto("Price", IsActive: true), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status404NotFound);
@@ -180,7 +206,7 @@ public sealed class LossReasonsControllerTests
     {
         _deleteLossReason.ExecuteAsync(5, Arg.Any<CancellationToken>()).Returns(Result.Success());
 
-        var result = await CreateSut().DeleteLossReason(5, CancellationToken.None);
+        var result = await CreateSut().DeleteLossReason(new IdInputDto(5), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status204NoContent);
@@ -194,7 +220,7 @@ public sealed class LossReasonsControllerTests
         _deleteLossReason.ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure(LossReasonErrors.InUse(5)));
 
-        var result = await CreateSut().DeleteLossReason(5, CancellationToken.None);
+        var result = await CreateSut().DeleteLossReason(new IdInputDto(5), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         // D7: the 409 is a decision of the use case, which consulted the usage reader. The controller

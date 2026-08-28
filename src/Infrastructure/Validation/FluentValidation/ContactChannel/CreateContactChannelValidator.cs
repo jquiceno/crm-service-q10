@@ -13,11 +13,14 @@ public sealed class CreateContactChannelValidator
         RuleFor(x => x.Name)
             .NotEmpty()
             .WithMessage(ContactChannelErrors.NameRequired.Message)
+            .WithState(_ => ContactChannelErrors.NameRequired)
             .MaximumLength(ContactChannelAggregate.NameMaxLength)
-            .WithMessage(ContactChannelErrors.NameTooLong.Message);
+            .WithMessage(ContactChannelErrors.NameTooLong.Message)
+            .WithState(_ => ContactChannelErrors.NameTooLong);
 
         RuleFor(x => x.IsActive)
             .NotNull()
-            .WithMessage(ContactChannelErrors.IsActiveRequired.Message);
+            .WithMessage(ContactChannelErrors.IsActiveRequired.Message)
+            .WithState(_ => ContactChannelErrors.IsActiveRequired);
     }
 }

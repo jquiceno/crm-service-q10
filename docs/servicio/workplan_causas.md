@@ -1,10 +1,10 @@
-﻿---
+---
 service: crm-service-q10
 context: loss-reasons (Causas de pérdida)
 doc: plan
 status: draft
 source: discovery_causas.md
-updated: 2026-08-14
+updated: 2026-08-21
 ---
 
 # Plan de trabajo — Causas de pérdida (`crm-service-q10`)
@@ -395,7 +395,7 @@ Cada carpeta lleva sus cinco archivos coubicados: `I{X}UseCase.cs`, `{X}UseCase.
 | `ToOutputDto()` — agregado → DTO de salida | La construcción del **objeto de filtro** (`new LossReasonFilter(input.Name, input.IsActive)`) |
 | `ToAggregate()` / `ToUpdateArgs()` — DTO de entrada → dominio | |
 
-El corte es el de `casos-de-uso.md` §5.5, que arma el filtro con un `new` dentro del `ExecuteAsync` y mapea los items con `ToOutputDto()`. El Mapping traduce **entre DTO y dominio**; un `ToFilter()` no traduce, solo mueve tres campos a un record de consulta, y esconder eso en otro archivo aleja la lectura del caso de uso sin ganar nada. **Aplica a las cinco carpetas** — T7, T8, T9 y T10 van igual. `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`GetLossReasonById`, `Update`, `Delete`; `Create` lo lleva por los errores del agregado).
+El corte es el de `casos-de-uso.md` §5.5, que arma el filtro con un `new` dentro del `ExecuteAsync` y mapea los items con `ToOutputDto()`. El Mapping traduce **entre DTO y dominio**; un `ToFilter()` no traduce, solo mueve tres campos a un record de consulta, y esconder eso en otro archivo aleja la lectura del caso de uso sin ganar nada. **Aplica a las cinco carpetas** — T7, T8, T9 y T10 van igual. `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`Update`, `Delete`; `Create` lo lleva por los errores del agregado). **`GetLossReasonById` no lo lleva** —corregido el 2026-08-28 por la revisión del PR de T7—: el `NotFound` lo origina y lo sella el **repositorio**, y el caso de uso solo propaga, que es lo que dice el propio §5.6 en la fila de `GetLossReasonByIdUseCase` («404 sale del `ErrorType`») y el Detalle de `F3.2`. Un `Origin` ahí sería código muerto.
 
 **Orden en `DeleteLossReasonUseCase`: primero el dominio/existencia, después el Reader** — validar el uso antes gastaría un scan de 300.000 filas en un request que iba a responder 404.
 
@@ -690,11 +690,11 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release`
 
 #### [F2.6] Implement LossReasonUsageReader
-`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: pending`
+`id: F2.6 · depende_de: F2.5 · tarea: T5 (Juan Camilo) · estado: done`
 - Objetivo: leer `tbl_opo_negocios` sin crearle un repositorio.
 - Fuente: D7 · Discovery §4.1
-- Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/DealLossReasonUsage.cs`, `…/Configurations/DealLossReasonUsageConfiguration.cs`, `…/LossReasonUsageReader.cs`, `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs`
-- Detalle: entidad **keyless** con una sola propiedad `int? NegCauConsecutivo`, configurada `ToTable("tbl_opo_negocios").HasNoKey()` — es solo lectura y no se le crea repositorio (regla explícita). El reader hace `AnyAsync(x => x.NegCauConsecutivo == lossReasonId)` con `.AsNoTracking()`, `private const string Origin = nameof(LossReasonUsageReader);`, y el mismo `try/catch` → `PersistenceErrors.Failure(Origin)`. La implementación vive en `Persistence/EntityFramework/`, **no** en `Adapters/`. Registrar su `DbSet` de solo lectura en `ApplicationDbContext` — es un archivo compartido con F2.7, solo se añade.
+- Archivos: `src/Infrastructure/Persistence/EntityFramework/LossReasons/Entities/DealLossReasonUsage.cs`, `…/Configurations/DealLossReasonUsageConfiguration.cs`, `…/LossReasonUsageReader.cs`
+- Detalle: entidad **keyless** con una sola propiedad `int? LossReasonId` mapeada a la columna legada `neg_cau_consecutivo`, configurada `ToTable("tbl_opo_negocios").HasNoKey()` — es solo lectura y no se le crea repositorio (regla explícita). El reader hace `AnyAsync(x => x.LossReasonId == lossReasonId)` con `.AsNoTracking()`, `private const string Origin = nameof(LossReasonUsageReader);`, y el mismo `try/catch` → `PersistenceErrors.Failure(Origin)`. La implementación vive en `Persistence/EntityFramework/`, **no** en `Adapters/`. **No se registra `DbSet` en `ApplicationDbContext`**: la revisión del PR lo retiró por no tener consumidor —el reader consulta con `context.Set<DealLossReasonUsage>()` y `ApplyConfigurationsFromAssembly` descubre la configuración sola—, así que este paso **no toca el archivo compartido con F2.7**.
 - Hecho cuando: la entidad keyless no expone escritura y el reader devuelve `Result<bool>` en las tres ramas (usada, libre, fallo).
 - Verificar: `dotnet build Service.slnx -c Release`
 
@@ -745,13 +745,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - **Revisión de QA sobre el PR (2026-08-21), aplicada:** `GetLossReasonsMapping.cs` **se mantiene, con `ToOutputDto()` únicamente**; **el `ToFilter()` era el que sobraba** y el filtro se arma inline con `new LossReasonFilter(...)`, como en `casos-de-uso.md` §5.5. Los `[property: Description(...)]` de los dos DTOs pasan **a inglés** (§3.1). Se quita el comentario del catálogo vacío del use case, porque D9 ya lo explica y el test `ExecuteAsync_WithNoRows_ReturnsSuccessfulEmptyPage` lo fija. **Las dos primeras son reglas de contexto: T7–T10 van igual** (§3.1 y §5.6).
 
 #### [F3.2] Create GetLossReasonById use case
-`id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: pending`
+`id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: done`
 - Objetivo: la consulta por id.
 - Fuente: D11 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/GetLossReasonById/{…}.cs` (5 archivos)
 - Detalle: `Task<Result<GetLossReasonByIdOutputDto>> ExecuteAsync(int id, CancellationToken)`. Propaga tal cual el error del repositorio; el 404 sale del `ErrorType`, no de un `if` en el controller.
 - Hecho cuando: un id inexistente devuelve `ErrorType.NotFound`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: exit code 0, 0 errores**
+- Nota de ejecución: **son 4 archivos, no 5.** No hay `GetLossReasonByIdInputDto`: la entrada es un `int id` y envolverlo en un DTO no aporta nada. El caso de uso inyecta **solo** `ILossReasonRepository` —sin `IUnitOfWorkPort`, porque es una lectura— y **no declara `Origin`**: no origina errores, propaga tal cual el del repositorio, que es lo que exige el Detalle.
 
 #### [F3.3] Create CreateLossReason use case
 `id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: done`
@@ -793,13 +794,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Nota de ejecución: **T6 añadió a `tests/UnitTests/UnitTests.csproj` la `ProjectReference` a `LossReason.Application`**, que F1.6 había dejado anotada como pendiente para la primera de T6–T10. **T7–T10 ya no tienen que tocar ese archivo**, solo rebasar sobre la base.
 
 #### [F3.7] Unit tests for GetLossReasonById
-`id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: pending`
+`id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: done`
 - Objetivo: cubrir la consulta por id.
 - Fuente: `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/GetLossReasonByIdUseCaseTests.cs`
 - Detalle: casos: id existente → DTO mapeado; id inexistente → `ErrorType.NotFound`; fallo del repositorio → `Origin` propagado sin reescribir.
 - Hecho cuando: los 3 casos pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-28: 3/3 del caso de uso y 388/388 en la suite**
+- Nota de ejecución: el caso del fallo del repositorio **arma el error con `DomainError` de `Shared`**, no con `PersistenceErrors` de Infrastructure. Es un test de la capa de aplicación: importar Infrastructure para fabricar el error invertía la dependencia sin necesidad. Es el mismo patrón del test de T6.
 
 #### [F3.8] Unit tests for CreateLossReason
 `id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: done`
@@ -967,6 +969,8 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-21 | **El assert de "no hay commit" de F3.8 pasa a leer el constructor, no un sustituto.** Tal como el paso lo pedía —`DidNotReceive()` sobre un `IUnitOfWorkPort`— el assert **no podía fallar nunca**: el use case no recibe el puerto, así que el sustituto quedaba sin inyectar y el test seguiría verde aunque alguien agregara el `CommitAsync`. Cumplía la letra de F3.8 y no su intención. Se reemplaza por una aserción de reflexión sobre los parámetros del constructor, que **sí falla** ante la regresión: verificado simulándola (agregar el puerto y llamar `CommitAsync` deja el test en rojo; sin usarlo ni siquiera compila, `CS9113`). **Es una desviación de la letra del paso F3.8** y se declara como tal. La mitad conductual de D3 —que el insert se confirma dentro del repositorio— ya la cubre `F2.9`. El caso equivalente de T9 no tiene el problema: allí el puerto sí se inyecta | — | `F3.8` (detalle) | ninguna — T8 se corrige en su propia rama |
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
+| 2026-08-21 | **F2.6 ejecutado** (T5 — Juan Camilo): entidad keyless `DealLossReasonUsage` (`tbl_opo_negocios`, `HasNoKey()`), su configuración EF y `LossReasonUsageReader` (implementa `ILossReasonUsageReader` con `AnyAsync` + `AsNoTracking` + guard `OperationCanceledException` → `PersistenceErrors.Failure`). **Descubrimiento:** `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia. Verificado: `dotnet build Service.slnx -c Release` (0 errores, 0 advertencias) y `dotnet test tests/UnitTests -c Release` (357/357 en verde). F2.6 → `done` | — | F2.6 | ninguna |
+| 2026-08-21 | **Revisión del PR de T5.** La propiedad de la entidad keyless pasa de `NegCauConsecutivo` a **`LossReasonId`** (nombres en inglés y sin abreviar; el nombre de columna legado se queda solo en la configuración EF), el Reader deja de nombrar la tabla en su comentario, y **se retira el `DbSet<DealLossReasonUsage>` de `ApplicationDbContext`** por no tener consumidor. Con eso **`F2.6` deja de tocar el archivo compartido** y el choque declarado entre T4 y T5 desaparece. Sin cambios de comportamiento | — | `F2.6` (lista de `Archivos:` y detalle) | ninguna |
 
 ---
 

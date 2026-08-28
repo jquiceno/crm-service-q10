@@ -395,7 +395,7 @@ Cada carpeta lleva sus cinco archivos coubicados: `I{X}UseCase.cs`, `{X}UseCase.
 | `ToOutputDto()` — agregado → DTO de salida | La construcción del **objeto de filtro** (`new LossReasonFilter(input.Name, input.IsActive)`) |
 | `ToAggregate()` / `ToUpdateArgs()` — DTO de entrada → dominio | |
 
-El corte es el de `casos-de-uso.md` §5.5, que arma el filtro con un `new` dentro del `ExecuteAsync` y mapea los items con `ToOutputDto()`. El Mapping traduce **entre DTO y dominio**; un `ToFilter()` no traduce, solo mueve tres campos a un record de consulta, y esconder eso en otro archivo aleja la lectura del caso de uso sin ganar nada. **Aplica a las cinco carpetas** — T7, T8, T9 y T10 van igual. `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`GetLossReasonById`, `Update`, `Delete`; `Create` lo lleva por los errores del agregado).
+El corte es el de `casos-de-uso.md` §5.5, que arma el filtro con un `new` dentro del `ExecuteAsync` y mapea los items con `ToOutputDto()`. El Mapping traduce **entre DTO y dominio**; un `ToFilter()` no traduce, solo mueve tres campos a un record de consulta, y esconder eso en otro archivo aleja la lectura del caso de uso sin ganar nada. **Aplica a las cinco carpetas** — T7, T8, T9 y T10 van igual. `private const string Origin = nameof({X}UseCase);` solo en los que originan errores propios (`Update`, `Delete`; `Create` lo lleva por los errores del agregado). **`GetLossReasonById` no lo lleva** —corregido el 2026-08-28 por la revisión del PR de T7—: el `NotFound` lo origina y lo sella el **repositorio**, y el caso de uso solo propaga, que es lo que dice el propio §5.6 en la fila de `GetLossReasonByIdUseCase` («404 sale del `ErrorType`») y el Detalle de `F3.2`. Un `Origin` ahí sería código muerto.
 
 **Orden en `DeleteLossReasonUseCase`: primero el dominio/existencia, después el Reader** — validar el uso antes gastaría un scan de 300.000 filas en un request que iba a responder 404.
 
@@ -745,13 +745,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - **Revisión de QA sobre el PR (2026-08-21), aplicada:** `GetLossReasonsMapping.cs` **se mantiene, con `ToOutputDto()` únicamente**; **el `ToFilter()` era el que sobraba** y el filtro se arma inline con `new LossReasonFilter(...)`, como en `casos-de-uso.md` §5.5. Los `[property: Description(...)]` de los dos DTOs pasan **a inglés** (§3.1). Se quita el comentario del catálogo vacío del use case, porque D9 ya lo explica y el test `ExecuteAsync_WithNoRows_ReturnsSuccessfulEmptyPage` lo fija. **Las dos primeras son reglas de contexto: T7–T10 van igual** (§3.1 y §5.6).
 
 #### [F3.2] Create GetLossReasonById use case
-`id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: pending`
+`id: F3.2 · depende_de: F2.7 · tarea: T7 (Juan Camilo) · estado: done`
 - Objetivo: la consulta por id.
 - Fuente: D11 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/GetLossReasonById/{…}.cs` (5 archivos)
 - Detalle: `Task<Result<GetLossReasonByIdOutputDto>> ExecuteAsync(int id, CancellationToken)`. Propaga tal cual el error del repositorio; el 404 sale del `ErrorType`, no de un `if` en el controller.
 - Hecho cuando: un id inexistente devuelve `ErrorType.NotFound`.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: exit code 0, 0 errores**
+- Nota de ejecución: **son 4 archivos, no 5.** No hay `GetLossReasonByIdInputDto`: la entrada es un `int id` y envolverlo en un DTO no aporta nada. El caso de uso inyecta **solo** `ILossReasonRepository` —sin `IUnitOfWorkPort`, porque es una lectura— y **no declara `Origin`**: no origina errores, propaga tal cual el del repositorio, que es lo que exige el Detalle.
 
 #### [F3.3] Create CreateLossReason use case
 `id: F3.3 · depende_de: F2.7 · tarea: T8 (Brayan) · estado: done`
@@ -793,13 +794,14 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Nota de ejecución: **T6 añadió a `tests/UnitTests/UnitTests.csproj` la `ProjectReference` a `LossReason.Application`**, que F1.6 había dejado anotada como pendiente para la primera de T6–T10. **T7–T10 ya no tienen que tocar ese archivo**, solo rebasar sobre la base.
 
 #### [F3.7] Unit tests for GetLossReasonById
-`id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: pending`
+`id: F3.7 · depende_de: F3.2 · tarea: T7 (Juan Camilo) · estado: done`
 - Objetivo: cubrir la consulta por id.
 - Fuente: `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/GetLossReasonByIdUseCaseTests.cs`
 - Detalle: casos: id existente → DTO mapeado; id inexistente → `ErrorType.NotFound`; fallo del repositorio → `Origin` propagado sin reescribir.
 - Hecho cuando: los 3 casos pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-28: 3/3 del caso de uso y 388/388 en la suite**
+- Nota de ejecución: el caso del fallo del repositorio **arma el error con `DomainError` de `Shared`**, no con `PersistenceErrors` de Infrastructure. Es un test de la capa de aplicación: importar Infrastructure para fabricar el error invertía la dependencia sin necesidad. Es el mismo patrón del test de T6.
 
 #### [F3.8] Unit tests for CreateLossReason
 `id: F3.8 · depende_de: F3.3 · tarea: T8 (Brayan) · estado: done`

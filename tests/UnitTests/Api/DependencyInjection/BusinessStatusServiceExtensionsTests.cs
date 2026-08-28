@@ -2,6 +2,7 @@ using Api.DependencyInjection;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
 using BusinessStatus.Application.UseCases.GetBusinessStatusById;
+using BusinessStatus.Application.UseCases.GetBusinessStatuses;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Repositories;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses;
@@ -22,6 +23,7 @@ public sealed class BusinessStatusServiceExtensionsTests
 
     [Theory]
     [InlineData(typeof(IBusinessStatusRepository), typeof(BusinessStatusRepository))]
+    [InlineData(typeof(IGetBusinessStatusesUseCase), typeof(GetBusinessStatusesUseCase))]
     [InlineData(typeof(ICreateBusinessStatusUseCase), typeof(CreateBusinessStatusUseCase))]
     [InlineData(typeof(IGetBusinessStatusByIdUseCase), typeof(GetBusinessStatusByIdUseCase))]
     [InlineData(typeof(IUpdateBusinessStatusUseCase), typeof(UpdateBusinessStatusUseCase))]

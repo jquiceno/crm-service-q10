@@ -6,8 +6,12 @@ using BusinessStatus.Domain.Repositories;
 using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.BusinessStatuses.Mappers;
 using Infrastructure.Persistence.EntityFramework.Common;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Shared.Application.Caching;
 using Shared.Application.Ports;
 using Shared.Domain.Pagination;
 using Shared.Results;
@@ -17,9 +21,15 @@ namespace Infrastructure.Persistence.EntityFramework.BusinessStatuses;
 
 public sealed class BusinessStatusRepository(
     ApplicationDbContext context,
-    ILoggerPort<BusinessStatusRepository> logger) : IBusinessStatusRepository
+    ILoggerPort<BusinessStatusRepository> logger,
+    ICacheStore cacheStore,
+    ITenantCodeProvider tenantCodeProvider) : IBusinessStatusRepository
 {
     private const string Origin = nameof(BusinessStatusRepository);
+    private const string CacheContext = "businessstatus";
+    private const string ListResource = "list";
+
+    private static readonly TimeSpan ListCacheTtl = TimeSpan.FromMinutes(10);
 
     public async Task<Result<BusinessStatusAggregate>> GetByIdAsync(
         int id, CancellationToken cancellationToken = default)
@@ -66,6 +76,22 @@ public sealed class BusinessStatusRepository(
     {
         try
         {
+            // Null when there is no tenant to partition by, in which case nothing is cached rather
+            // than one key being shared between tenants. Built inside the try so that any surprise
+            // building it is handled like the rest, never as an unhandled failure of the listing.
+            var cacheKey = ListCacheKey(filter, page);
+
+            if (cacheKey is not null)
+            {
+                var cached = await cacheStore
+                    .GetAsync<BusinessStatusListSnapshot>(cacheKey, cancellationToken)
+                    .ConfigureAwait(false);
+
+                if (cached is not null)
+                    return PagedResult<BusinessStatusAggregate>.Success(
+                        [.. cached.Items.Select(ToAggregate)], cached.TotalCount);
+            }
+
             var query = ApplyFilter(context.BusinessStatuses.AsNoTracking(), filter);
 
             var totalCount = await query.CountAsync(cancellationToken).ConfigureAwait(false);
@@ -80,6 +106,12 @@ public sealed class BusinessStatusRepository(
 
             IReadOnlyList<BusinessStatusAggregate> items =
                 [.. rows.Select(BusinessStatusRepositoryMapper.ToDomain)];
+
+            // Only successes are cached: the failure paths below never reach this line.
+            if (cacheKey is not null)
+                await cacheStore
+                    .SetAsync(cacheKey, ToSnapshot(items, totalCount), ListCacheTtl, cancellationToken)
+                    .ConfigureAwait(false);
 
             return PagedResult<BusinessStatusAggregate>.Success(items, totalCount);
         }
@@ -213,6 +245,57 @@ public sealed class BusinessStatusRepository(
             return PersistenceErrors.Failure(Origin);
         }
     }
+
+    /// <summary>
+    /// The key of a page of the catalogue, or <c>null</c> when there is nothing to partition by.
+    /// <c>CacheKey</c> refuses a segment that is empty or contains <c>':'</c>, and a tenant code it
+    /// cannot represent is not a reason to fail the listing: the cache is skipped exactly as when no
+    /// tenant is resolved, so the endpoint degrades instead of answering 500.
+    /// </summary>
+    private string? ListCacheKey(BusinessStatusFilter filter, PageQuery page)
+    {
+        var tenantCode = tenantCodeProvider.Current;
+
+        if (string.IsNullOrWhiteSpace(tenantCode))
+            return null;
+
+        if (tenantCode.Contains(':', StringComparison.Ordinal))
+        {
+            logger.Warning(
+                "Tenant code {TenantCode} cannot be a cache key segment; the catalogue is served without L2 cache.",
+                tenantCode);
+
+            return null;
+        }
+
+        return CacheKey.For(CacheContext).Tenant(tenantCode).Resource(ListResource, FilterDigest(filter, page));
+    }
+
+    /// <summary>
+    /// Identifies a filter-and-page combination inside the key. It is a SHA-256 digest and not
+    /// <c>GetHashCode</c> because that one is randomized per process: two replicas would never share
+    /// an entry, and a restart would silently orphan every key. The name is length-prefixed so
+    /// ("a|b", null) and ("a", "b") cannot collide into one entry.
+    /// </summary>
+    private static string FilterDigest(BusinessStatusFilter filter, PageQuery page)
+    {
+        var canonical = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{filter.Name?.Length ?? -1}|{filter.Name}|{filter.IsActive}|{(int)filter.Kind}|{page.PageIndex}|{page.PageSize}");
+
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));
+
+        return Convert.ToHexString(digest.AsSpan(0, 8));
+    }
+
+    private static BusinessStatusListSnapshot ToSnapshot(
+        IReadOnlyList<BusinessStatusAggregate> items, int totalCount) =>
+        new([.. items.Select(x => new BusinessStatusSnapshotItem(
+                x.Id, x.Name, x.Percentage, x.Color?.Value, x.IsActive))],
+            totalCount);
+
+    private static BusinessStatusAggregate ToAggregate(BusinessStatusSnapshotItem item) =>
+        BusinessStatusAggregate.Reconstruct(item.Id, item.Name, item.Percentage, item.Color, item.IsActive);
 
     private static NotFoundError NotFound(int id) =>
         BusinessStatusErrors.NotFound(id) with

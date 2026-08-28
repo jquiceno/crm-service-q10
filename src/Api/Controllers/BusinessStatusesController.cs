@@ -1,9 +1,12 @@
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
 using BusinessStatus.Application.UseCases.GetBusinessStatusById;
+using BusinessStatus.Application.UseCases.GetBusinessStatuses;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Shared.Application.Dtos;
+using Shared.Domain.Pagination;
 using Shared.Presentation.Attributes;
 using Shared.Presentation.Filters;
 using Shared.Presentation.Responses;
@@ -21,11 +24,35 @@ namespace Api.Controllers;
 [Tags("business-statuses")]
 public sealed class BusinessStatusesController(
     ICreateBusinessStatusUseCase createBusinessStatusUseCase,
+    IGetBusinessStatusesUseCase getBusinessStatusesUseCase,
     IGetBusinessStatusByIdUseCase getBusinessStatusByIdUseCase,
     IUpdateBusinessStatusUseCase updateBusinessStatusUseCase,
     IDeleteBusinessStatusUseCase deleteBusinessStatusUseCase) : ControllerBase
 {
     private const string CacheTag = "business-statuses";
+
+    [HttpGet]
+    [ValidateRequest]
+    [EndpointSummary("Get business statuses")]
+    [EndpointDescription(
+        "Returns the catalogue paginated and ordered by percentage, with optional filters by name, "
+        + "activity and stage kind. An omitted filter is no filter.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetBusinessStatusesOutputDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    // The base policy varies by tenant and headers, not by the filter parameters: caching this
+    // listing would serve the result of one filter for another.
+    [OutputCache(NoStore = true)]
+    public async Task<HttpOkPagedResult<GetBusinessStatusesOutputDto>> GetBusinessStatuses(
+        [FromQuery] GetBusinessStatusesInputDto filter,
+        [FromQuery] PageQueryInputDto pagination,
+        CancellationToken cancellationToken = default)
+    {
+        return await getBusinessStatusesUseCase.ExecuteAsync(
+            filter,
+            new PageQuery(pagination.PageIndex, pagination.PageSize),
+            cancellationToken).ConfigureAwait(false);
+    }
 
     [HttpPost]
     [ValidateRequest]

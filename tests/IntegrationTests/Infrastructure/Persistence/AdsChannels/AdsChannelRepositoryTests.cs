@@ -12,7 +12,9 @@ namespace IntegrationTests.Infrastructure.Persistence.AdsChannels;
 
 // These behaviors are asserted here (against the real SqlServerContainerFixture) rather than with
 // EF's InMemory provider, because ordering, LIKE-based filtering, and pagination all depend on SQL
-// Server's actual collation/OFFSET-FETCH semantics, which InMemory does not reproduce.
+// Server's actual collation/OFFSET-FETCH semantics, which InMemory does not reproduce. Ids are always
+// left for SQL Server's real IDENTITY column to assign — medpub_consecutivoP rejects explicit values
+// without IDENTITY_INSERT ON, unlike EF's InMemory provider.
 [Collection(IntegrationTestCollection.Name)]
 public sealed class AdsChannelRepositoryTests : IntegrationTestBase
 {
@@ -21,16 +23,16 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     private AdsChannelRepository CreateSut() =>
         new(Db, Substitute.For<ILoggerPort<AdsChannelRepository>>());
 
-    private static AdsChannelDocument Document(int id, string name, bool isActive = true) =>
-        new() { Id = id, Name = name, IsActive = isActive };
+    private static AdsChannelDocument Document(string name, bool isActive = true) =>
+        new() { Name = name, IsActive = isActive };
 
     [Fact]
     public async Task GetAsync_WithNameContainsFilter_ReturnsOnlyMatchingItems()
     {
         Db.AdsChannels.AddRange(
-            Document(1, "Google Ads"),
-            Document(2, "Meta Ads"),
-            Document(3, "Google Analytics"));
+            Document("Google Ads"),
+            Document("Meta Ads"),
+            Document("Google Analytics"));
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
@@ -45,8 +47,8 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     public async Task GetAsync_WithIsActiveFilter_ReturnsOnlyMatchingItems()
     {
         Db.AdsChannels.AddRange(
-            Document(1, "Google Ads", isActive: true),
-            Document(2, "Meta Ads", isActive: false));
+            Document("Google Ads", isActive: true),
+            Document("Meta Ads", isActive: false));
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
@@ -61,9 +63,9 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     public async Task GetAsync_WithoutFilters_ReturnsAllOrderedByNameThenId()
     {
         Db.AdsChannels.AddRange(
-            Document(2, "Beta"),
-            Document(1, "Alpha"),
-            Document(3, "Gamma"));
+            Document("Beta"),
+            Document("Alpha"),
+            Document("Gamma"));
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
@@ -77,9 +79,9 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     public async Task GetAsync_Paginates_UsingSkipAndTake()
     {
         Db.AdsChannels.AddRange(
-            Document(1, "Alpha"),
-            Document(2, "Beta"),
-            Document(3, "Gamma"));
+            Document("Alpha"),
+            Document("Beta"),
+            Document("Gamma"));
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
@@ -93,7 +95,7 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     [Fact]
     public async Task ExistsByNameAsync_WhenNameExists_ReturnsTrue()
     {
-        Db.AdsChannels.Add(Document(1, "Google Ads"));
+        Db.AdsChannels.Add(Document("Google Ads"));
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
@@ -117,11 +119,12 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     [Fact]
     public async Task ExistsByNameAsync_WhenExcludingTheOnlyMatchingId_ReturnsFalse()
     {
-        Db.AdsChannels.Add(Document(1, "Google Ads"));
+        var document = Document("Google Ads");
+        Db.AdsChannels.Add(document);
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
-        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: 1);
+        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: document.Id);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeFalse();
@@ -130,11 +133,12 @@ public sealed class AdsChannelRepositoryTests : IntegrationTestBase
     [Fact]
     public async Task ExistsByNameAsync_WhenExcludingADifferentId_StillReturnsTrue()
     {
-        Db.AdsChannels.Add(Document(1, "Google Ads"));
+        var document = Document("Google Ads");
+        Db.AdsChannels.Add(document);
         await Db.SaveChangesAsync();
         var sut = CreateSut();
 
-        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: 2);
+        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: document.Id + 1);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBeTrue();

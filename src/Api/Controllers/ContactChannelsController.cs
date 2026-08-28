@@ -1,6 +1,7 @@
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
 using ContactChannel.Application.UseCases.GetContactChannels;
+using ContactChannel.Application.UseCases.UpdateContactChannel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
 using Shared.Application.Dtos;
@@ -21,7 +22,8 @@ namespace Api.Controllers;
 public sealed class ContactChannelsController(
     IGetContactChannelsUseCase getContactChannelsUseCase,
     IGetContactChannelByIdUseCase getContactChannelByIdUseCase,
-    ICreateContactChannelUseCase createContactChannelUseCase) : ControllerBase
+    ICreateContactChannelUseCase createContactChannelUseCase,
+    IUpdateContactChannelUseCase updateContactChannelUseCase) : ControllerBase
 {
     private const string CacheTag = "contact-channels";
 
@@ -73,6 +75,25 @@ public sealed class ContactChannelsController(
     {
         return await createContactChannelUseCase
             .ExecuteAsync(input, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    [HttpPut("{id:int}")]
+    [ValidateRequest]
+    [EndpointSummary("Update contact channel")]
+    [EndpointDescription("Updates the name and the state of the contact channel with the given identifier. An unknown identifier answers 404.")]
+    [ProducesResponseType(typeof(ApiSuccessResponse<UpdateContactChannelOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
+    [OutputCacheInvalidate(CacheTag)]
+    public async Task<HttpOkResult<UpdateContactChannelOutputDto>> UpdateContactChannel(
+        [FromRoute] int id,
+        [FromBody] UpdateContactChannelInputDto input,
+        CancellationToken cancellationToken = default)
+    {
+        return await updateContactChannelUseCase
+            .ExecuteAsync(id, input, cancellationToken)
             .ConfigureAwait(false);
     }
 }

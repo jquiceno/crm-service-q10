@@ -24,8 +24,10 @@ patches:
         namespace: crm-service
       data:
         ASPNETCORE_ENVIRONMENT: "Production"
-        ASPNETCORE_PATHBASE: ""
+        ASPNETCORE_PATHBASE: "/crm-service"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
+        # Deployment tier, lowercase, same literal every service reports regardless of stack.
+        SENTRY_ENVIRONMENT: "prod"
         Cors__AllowedOrigins__0: "https://app.q10.com"
 
   # --- ExternalSecret: Secrets Manager paths for prod ---
@@ -64,6 +66,23 @@ patches:
       - op: add
         path: /spec/maxUnavailable
         value: 1
+
+  # --- Ingress: prod Internal ALB group + HTTPS ---
+  # Para habilitar HTTPS: obtener cert ARN en cuenta Prod:
+  #   aws acm list-certificates --profile <perfil-prod> --region us-east-1
+  - target:
+      kind: Ingress
+      name: crm-service-ingress
+    patch: |-
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: crm-service-ingress
+        namespace: crm-service
+        annotations:
+          alb.ingress.kubernetes.io/group.name: q10-prod-internal
+          alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+          alb.ingress.kubernetes.io/certificate-arn: "" # TODO: set ACM cert ARN for prod
 
   # --- HPA: min=1 in prod (max=10 from base) ---
   - target:

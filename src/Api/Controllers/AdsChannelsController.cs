@@ -61,6 +61,7 @@ public sealed class AdsChannelsController(
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpNoContentResult> DeleteAdsChannel(
         [FromRoute] int id,
         CancellationToken cancellationToken = default)

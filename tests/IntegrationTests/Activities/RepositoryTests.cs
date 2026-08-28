@@ -2,6 +2,7 @@ using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
 using Activities.Domain.Filters;
 using Activities.Domain.ValueObjects;
+using Infrastructure.Adapters.Persistence;
 using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Activities;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
@@ -62,12 +63,38 @@ public sealed class RepositoryTests : IAsyncLifetime
 
         (await sut.AddAsync(activity).ConfigureAwait(true)).IsSuccess.ShouldBeTrue();
 
-        activity.Id.ShouldBeGreaterThan(0, "AddAsync saves immediately and assigns the generated id");
+        // AddAsync only stages the row; the unit of work owns the write, and the IDENTITY the
+        // database generates lands on the aggregate as part of that commit. The commit goes
+        // through the real UnitOfWorkAdapter on purpose: it is the piece that writes in
+        // production, so the whole chain that fills the response's id is under test.
+        activity.Id.ShouldBe(0, "nothing is written before the commit");
+
+        var unitOfWork = new UnitOfWorkAdapter(context, Substitute.For<ILoggerPort<UnitOfWorkAdapter>>());
+        (await unitOfWork.CommitAsync().ConfigureAwait(true)).IsSuccess.ShouldBeTrue();
+
+        activity.Id.ShouldBeGreaterThan(0);
 
         var fetched = await sut.GetByIdAsync(activity.Id).ConfigureAwait(true);
         fetched.IsSuccess.ShouldBeTrue();
         fetched.Value.DealId.ShouldBe(1200);
         fetched.Value.Description!.Value.ShouldBe("call back");
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public async Task AddAsync_WhenTheCommitNeverHappens_LeavesNoRowBehind(string variant)
+    {
+        using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        var activity = Activity.Schedule(
+            1200, 845, ActivityType.Call, Description.Create("call back").Value,
+            DateTime.UtcNow.AddDays(1), Advisor, Creator).Value;
+
+        await Sut(context).AddAsync(activity).ConfigureAwait(true);
+
+        // A caller that fails between the add and the commit can retry without duplicating.
+        using var reader = ActivitySchemaVariants.CreateContext(_fixture, variant);
+        var all = await Sut(reader).GetAllAsync(new PageQuery(0, 10)).ConfigureAwait(true);
+        all.TotalCount.ShouldBe(0);
     }
 
     [Theory]

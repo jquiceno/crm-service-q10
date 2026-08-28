@@ -94,10 +94,10 @@ public sealed class CreateActivityUseCase(
         if (addResult.IsFailure)
             return Enrich(addResult.Error);
 
-        // The commit is its own explicit step, never implicit in AddAsync. Today it is a no-op:
-        // the repository has to save inside AddAsync to read back the IDENTITY the aggregate needs
-        // (Tarea 7), so by this point the row is already committed and a failure here cannot be
-        // reported as "nothing was written" — the caller must not retry blindly on it.
+        // The commit is its own explicit step, never implicit in AddAsync: this is the single
+        // point where the row is written, so a failure here means nothing was persisted and the
+        // caller can retry without duplicating the activity. The generated id lands on the
+        // aggregate as part of this commit.
         var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
         if (commitResult.IsFailure)
             return Enrich(commitResult.Error);

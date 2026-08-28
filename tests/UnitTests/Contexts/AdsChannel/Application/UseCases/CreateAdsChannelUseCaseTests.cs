@@ -67,6 +67,7 @@ public sealed class CreateAdsChannelUseCaseTests
         var result = await _sut.ExecuteAsync(input, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.DomainError);
         result.Error.Origin.ShouldBe(nameof(CreateAdsChannelUseCase));
 
         await _repository.DidNotReceive().ExistsByNameAsync(Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());
@@ -80,6 +81,7 @@ public sealed class CreateAdsChannelUseCaseTests
         var result = await _sut.ExecuteAsync(input, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.DomainError);
         result.Error.Origin.ShouldBe(nameof(CreateAdsChannelUseCase));
 
         await _repository.DidNotReceive().ExistsByNameAsync(Arg.Any<string>(), cancellationToken: Arg.Any<CancellationToken>());

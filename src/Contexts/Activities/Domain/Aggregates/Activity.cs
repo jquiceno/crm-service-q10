@@ -20,12 +20,9 @@ namespace Activities.Domain.Aggregates;
 /// error; the value-object-typed overloads hold the invariants and fail fast with the first
 /// violated one, returning the <see cref="ActivityErrors"/> instance as-is.
 /// <para>
-/// <c>CreatedAt</c> is stamped in UTC by <see cref="Created"/> itself, the same as every other
-/// aggregate in this service. <c>CompletedAt</c> is different: it is business data (when the
-/// activity was completed), not an audit field, so it comes from the caller through
-/// <c>RegisterCompleted</c>'s <c>now</c> parameter instead. <c>UpdatedAt</c> stays null because
-/// the legacy table has no updated column, and <c>Id</c> stays 0 until the database generates
-/// the identity on save.
+/// <c>CreatedAt</c> is stamped in UTC by <see cref="Created"/>. <c>CompletedAt</c> comes from the
+/// caller instead — it's business data, not an audit field. <c>UpdatedAt</c> stays null (no legacy
+/// column); <c>Id</c> stays 0 until save.
 /// </para>
 /// </remarks>
 public sealed class Activity : AggregateRoot<int>
@@ -296,11 +293,7 @@ public sealed class Activity : AggregateRoot<int>
         return activity;
     }
 
-    /// <summary>
-    /// Assigns the identity SQL Server generated on insert. Only
-    /// <c>ActivityRepositoryAdapter.AddAsync</c> calls this, right after saving: the persistence
-    /// entity is a separate object from this aggregate, so nothing else ever stamps <c>Id</c>.
-    /// </summary>
+    /// <summary>Assigns the id SQL Server generated on insert (called only by the repository).</summary>
     internal void AssignId(int id) => Id = id;
 
     // UpdatedAt intentionally stays null: the legacy table has no updated column.

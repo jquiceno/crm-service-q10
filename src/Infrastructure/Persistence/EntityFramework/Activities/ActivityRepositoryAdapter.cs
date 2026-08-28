@@ -13,24 +13,12 @@ using Shared.Results;
 
 namespace Infrastructure.Persistence.EntityFramework.Activities;
 
-/// <summary>
-/// EF Core persistence for the <see cref="Activity"/> aggregate.
-/// </summary>
+/// <summary>EF Core persistence for the <see cref="Activity"/> aggregate.</summary>
 /// <remarks>
-/// Cannot inherit <see cref="RepositoryBaseEF{TAggregate, TId}"/>: that base assumes the aggregate
-/// itself is the type EF maps, so saving it is enough for EF to hand the generated id back on the
-/// very same object. Here it is not — <see cref="ActivityEntity"/> is the mapped shape (F2.2), a
-/// separate object translated in both directions by <see cref="ActivityRepositoryMapper"/> — so
-/// every operation below reimplements what the base would otherwise provide, in the same
-/// try/catch/logger shape.
-/// <para>
-/// <see cref="AddAsync"/> is the one exception to "no repository saves on its own": the id is a
-/// SQL Server <c>IDENTITY</c>, unknown until the insert actually runs, and nothing links the
-/// discarded <see cref="ActivityEntity"/> back to the caller's <see cref="Activity"/> once
-/// <c>AddAsync</c> returns — so there is no later point at which the id could still be copied
-/// over. It saves immediately and assigns the id right there; a use case's own
-/// <c>unitOfWork.CommitAsync()</c> afterwards simply finds nothing left to save.
-/// </para>
+/// Can't inherit <see cref="RepositoryBaseEF{TAggregate, TId}"/>: it assumes the aggregate is what
+/// EF maps, but here <see cref="ActivityEntity"/> is (F2.2), translated via
+/// <see cref="ActivityRepositoryMapper"/>. <see cref="AddAsync"/> saves immediately, unlike the
+/// rest — the id is a SQL <c>IDENTITY</c> unknown until insert, with no later point to copy it back.
 /// </remarks>
 public sealed class ActivityRepositoryAdapter(
     ApplicationDbContext context,
@@ -110,12 +98,8 @@ public sealed class ActivityRepositoryAdapter(
     }
 
     /// <summary>
-    /// Full-column overwrite. No update flow calls this yet — Tarea 8 covers only
-    /// <c>GetActivities</c> and <c>CreateActivity</c> — so this exists solely to satisfy the
-    /// repository contract's <c>Update</c> member. When an update use case is built,
-    /// <see cref="ActivityRepositoryMapper.ToEntity"/>'s own warning applies: a blind copy would
-    /// normalize legacy data DEC-6 forbids touching, so that future caller must copy changed
-    /// columns selectively instead of relying on this method as written.
+    /// Full-column overwrite; no update flow exists yet. A real one must copy changed columns
+    /// selectively instead (DEC-6), not reuse this as-is.
     /// </summary>
     public Result Update(Activity aggregate)
     {
@@ -156,8 +140,7 @@ public sealed class ActivityRepositoryAdapter(
     {
         try
         {
-            // opportunity is joined only to enforce its existence, mirroring the legacy API SP's
-            // double INNER JOIN — it never appears in the projection or a Where.
+            // opportunity: joined only to enforce existence (legacy SP parity), never projected.
             var query =
                 from activity in DbSet.AsNoTracking()
                 join deal in context.Set<Deal>().AsNoTracking() on activity.DealId equals deal.Id
@@ -184,11 +167,7 @@ public sealed class ActivityRepositoryAdapter(
         }
     }
 
-    /// <summary>
-    /// Shared tail of <see cref="GetAllAsync"/> and <see cref="SearchAsync"/>: count and page in
-    /// one round trip (the same shape <c>RepositoryBaseEF.GetAllAsync</c> uses), ordered by
-    /// identity ascending, then map each row back to the aggregate.
-    /// </summary>
+    /// <summary>Shared count+page tail of <see cref="GetAllAsync"/> and <see cref="SearchAsync"/>.</summary>
     private static async Task<PagedResult<Activity>> PageAsync(
         IQueryable<ActivityEntity> query, PageQuery page, CancellationToken cancellationToken)
     {

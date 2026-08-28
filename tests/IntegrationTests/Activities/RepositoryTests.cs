@@ -14,18 +14,7 @@ using Xunit;
 
 namespace IntegrationTests.Activities;
 
-/// <summary>
-/// F2.4 "Hecho cuando": <c>AddAsync</c> persists the aggregate and its id becomes available once
-/// the unit of work commits, and <c>SearchAsync</c> filters/paginates/orders the same way the
-/// legacy API stored procedure does (double INNER JOIN Activity→Deal→Opportunity, ordered by
-/// <c>negact_consecutivoP ASC</c>).
-/// </summary>
-/// <remarks>
-/// Nothing here ever calls <c>Db.Set&lt;Deal&gt;()</c>/<c>Db.Set&lt;Opportunity&gt;()</c> for
-/// anything other than seeding and reading — <see cref="ActivityRepositoryAdapter"/> only ever
-/// queries those tables with <c>AsNoTracking()</c>, which structurally satisfies "no se toca
-/// ninguna tabla ajena al dominio de Actividades".
-/// </remarks>
+/// <summary>F2.4: <c>AddAsync</c> + generated id, and <c>SearchAsync</c> filter/page/order parity with the legacy SP.</summary>
 [Collection(IntegrationTestCollection.Name)]
 public sealed class RepositoryTests(SqlServerContainerFixture fixture) : IntegrationTestBase(fixture)
 {
@@ -116,8 +105,6 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
     [Fact]
     public async Task SearchAsync_ExcludesActivitiesWhoseDealDoesNotExist()
     {
-        // No Deal/Opportunity seeded at all — the legacy API SP's INNER JOIN to tbl_opo_negocios
-        // drops rows like this instead of returning them with a null relation (Discovery §4.2).
         await SeedActivityAsync(dealId: 999999);
 
         var result = await Sut.SearchAsync(new ActivityFilter(null, null, null), new PageQuery(0, 10));
@@ -128,8 +115,6 @@ public sealed class RepositoryTests(SqlServerContainerFixture fixture) : Integra
     [Fact]
     public async Task SearchAsync_ExcludesActivitiesWhoseDealsOpportunityDoesNotExist()
     {
-        // The deal exists but points at an opportunity that does not — the second INNER JOIN
-        // (to tbl_opo_oportunidades) drops it too.
         Db.Set<Deal>().Add(new Deal { Id = 1400, OpportunityId = 777777, DealStateId = 3, Name = "x" });
         await Db.SaveChangesAsync();
         await SeedActivityAsync(dealId: 1400);

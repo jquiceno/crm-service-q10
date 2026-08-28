@@ -4,7 +4,7 @@ context: loss-reasons (Causas de pérdida)
 doc: plan
 status: draft
 source: discovery_causas.md
-updated: 2026-08-21
+updated: 2026-08-28
 ---
 
 # Plan de trabajo — Causas de pérdida (`crm-service-q10`)
@@ -832,22 +832,23 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-28: 6/6 del caso de uso y 417/417 en la suite**
 - Nota de ejecución: **son 6 tests, no 5.** Con los cinco del paso, la rama de `RemoveAsync` fallando quedaba sin cubrir (93,3 % de líneas), así que se añade `ExecuteAsync_WhenRemoveFails_DoesNotCommit`, que además fija la regla de que un borrado que falló **no llega al commit**. Con él, el caso de uso queda en **100 % de líneas y de ramas**. Los errores del repositorio y del Reader se arman con `DomainError` de `Shared`, no con `PersistenceErrors` de Infrastructure: es un test de la capa de aplicación, igual que en `F3.6` y `F3.7`.
 
-### Fase 4 — API · `pending`
+### Fase 4 — API · `done`
 
 > Decisiones que la afectan: **D5, D8, D9, D10, D11**.
 > Estrategia de pruebas: unitarias de los validadores con `FluentValidation.TestHelper` y del controller con NSubstitute de los casos de uso.
 
 #### [F4.1] Create the input validators
-`id: F4.1 · depende_de: F3.1, F3.3, F3.4 · tarea: T11 (Juan Camilo) · estado: pending`
+`id: F4.1 · depende_de: F3.1, F3.3, F3.4 · tarea: T11 (Juan Esteban) · estado: done`
 - Objetivo: la validación estructural del request.
 - Fuente: D5 · D9 · D11 · `validaciones.md`
 - Archivos: `src/Infrastructure/Validation/FluentValidation/LossReasons/{CreateLossReasonInputValidator,UpdateLossReasonInputValidator,GetLossReasonsInputValidator}.cs`
 - Detalle: `sealed`, heredan `AbstractValidator<T>` **e** implementan `IStructuralValidator<T>` (eso los registra por reflection, sin registro manual). `Name`: `NotEmpty().MaximumLength(LossReasonAggregate.NameMaxLength)` en crear y actualizar; solo `MaximumLength(...)` en el filtro. **El límite se referencia desde la constante del agregado, nunca se escribe `50` literal** (D4: la regla está duplicada a propósito, pero el número no). **No hay DataAnnotations.** La paginación la cubre el `PageQueryInputValidator` existente.
 - Hecho cuando: los tres validadores se resuelven por DI sin ninguna línea de registro añadida, y ninguno contiene un literal numérico de longitud.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: 0 errores, 0 advertencias**
+- Nota de ejecución: **el paso entregó dos validadores, no tres.** `CreateLossReasonInputValidator` ya existía: lo escribió T8 junto a su caso de uso, porque su test de `F3.8` lo necesitaba. Se conserva tal cual y este paso solo añade `UpdateLossReasonInputValidator` y `GetLossReasonsInputValidator`, calcados de él en el uso de `WithState(...)` sobre el catálogo de errores de dominio. **`GetLossReasonsInputValidator` no lleva `NotEmpty`** y el paso tampoco lo pedía: en el filtro un nombre vacío significa «no filtrar por nombre», así que exigirlo convertiría el listado sin filtros en un 400. Los tres leen el límite de `LossReasonAggregate.NameMaxLength`; no hay ningún `50` literal en `src/`. Verificado además en caliente: `GET /loss-reasons?name=<51 chars>` responde 400 con `attributes.max = 50`, lo que prueba que el registro por reflexión de `AddContextValidators` los alcanza sin una sola línea de registro manual.
 
 #### [F4.2] Create LossReasonsController
-`id: F4.2 · depende_de: F4.1, F3.2, F3.5 · tarea: T11 (Juan Camilo) · estado: pending`
+`id: F4.2 · depende_de: F4.1, F3.2, F3.5 · tarea: T11 (Juan Esteban) · estado: done`
 - Objetivo: los 5 endpoints.
 - Fuente: D8 · D9 · D10 · D11 · §6 · `controllers.md` · `openapi.md`
 - Archivos: `src/Api/Controllers/LossReasonsController.cs`
@@ -855,10 +856,12 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
   **Caché L1 (D10):** `private const string CacheTag = "loss-reasons";` declarado una sola vez; `[OutputCache(PolicyName = "loss-reasons-list", Tags = [CacheTag])]` en el listado —la política la registra F4.3—, `[OutputCache(Tags = [CacheTag])]` en el GET por id, y `[OutputCacheInvalidate(CacheTag)]` en POST, PUT y DELETE.
   `[ProducesResponseType]` por cada código de §6.5, con `ApiSuccessResponse<T>`/`ApiErrorResponse`; para el 204, sin tipo. `[EndpointSummary]`/`[EndpointDescription]` en inglés en cada action. `.ConfigureAwait(false)` en todas las llamadas; `CancellationToken cancellationToken = default` al final.
 - Hecho cuando: `/loss-reasons` responde en los 5 verbos, ninguna action declara `[Tags]`, y el tag de caché aparece una sola vez como constante.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: 0 errores, 0 advertencias**
+- Nota de ejecución: los 5 verbos verificados en caliente contra la app corriendo (`dotnet run`, multitenencia apagada, EF InMemory): `GET` lista 200 con `{items, totalCount}`, `GET/{id}` 200 y 404, `POST` 201 con el `Id` asignado, `PUT` 200 y 404, `DELETE` 204 sin cuerpo y 404 en el segundo intento. El listado devuelve cuerpos distintos antes y después de un `POST`, lo que prueba que `[OutputCacheInvalidate]` evita servir el listado rancio. Rutas verificadas sin prefijo: `LossReasonsController` → `/loss-reasons` por el `KebabCaseParameterTransformer`, sin escribir la ruta a mano.
+  **⚠️ GAP-8, resuelto dentro del paso.** El `[ProducesResponseType]` del 200 del listado no compilaba: `controllers.md` §5.5 y `casos-de-uso.md` §5.2 prescriben `ApiSuccessResponse<PagedPayload<T>>`, pero **`PagedPayload<T>` está declarado `internal`** en `Shared/Infrastructure/Presentation/Results/HttpOkPagedResult.cs` y no hay `InternalsVisibleTo` hacia `Api`, así que ningún controller puede nombrarlo. Es un drift de la plantilla que nadie había tocado porque **este es el primer endpoint paginado del servicio**. Aplicando D11 (ante la contradicción entre documento y scaffold, manda el documento) se cambió la visibilidad del record a `public`, un cambio de una palabra sin efecto en runtime. **Toca `src/Shared`, fuera de la lista de `Archivos:` de este paso y de lo que R5 daba por auditado.** ✅ **Firmado por el tech lead el 2026-08-28: pasarlo a `public` es la solución aceptada.** El arreglo sigue perteneciendo aguas arriba, en `service-template-dotnet`, donde hoy ningún servicio puede documentar un endpoint paginado.
 
 #### [F4.3] Wire up dependency injection and the output cache policy
-`id: F4.3 · depende_de: F4.2 · tarea: T11 (Juan Camilo) · estado: pending`
+`id: F4.3 · depende_de: F4.2 · tarea: T11 (Juan Esteban) · estado: done`
 - Objetivo: registrar el contexto en el arranque y la política de caché que el listado necesita.
 - Fuente: D10 · `contextos.md` §5.5 · `puertos-y-adaptadores.md` · `cache.md`
 - Archivos: `src/Api/DependencyInjection/LossReasonServiceExtensions.cs`, `src/Api/DependencyInjection/ApplicationServiceExtensions.cs`, `src/Api/DependencyInjection/OutputCacheExtensions.cs`
@@ -866,16 +869,22 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
   Registrar en `ConfigureCache` la política `"loss-reasons-list"`, que **parte de la política base** (conserva `SetVaryByHeader("X-Entity-Code", "Accept-Language")`, que es lo que aísla los tenants) y **añade** `SetVaryByQuery("name", "isActive", "pageIndex", "pageSize")`. Sin esa variación por query, el listado filtrado serviría el resultado de un filtro para otro (D10).
   Antes de editar, confirmar la ruta real del archivo de configuración de caché: si `ConfigureCache` no está donde dice este paso, **detenerse y reportar** (regla 4 de §0), no buscarlo y decidir por cuenta propia.
 - Hecho cuando: la app arranca, `/loss-reasons` no da error de resolución de dependencias, y dos requests con distinto `name` devuelven cuerpos distintos.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-28: 0 errores, 0 advertencias**
+- Nota de ejecución: `ConfigureCache` **sí estaba** donde el paso decía (`src/Api/DependencyInjection/OutputCacheExtensions.cs`), así que no hubo que reportar nada. Las tres condiciones del `Hecho cuando` se verificaron en caliente: la app arranca, `GET /loss-reasons` responde 200 sin error de resolución, y `GET /loss-reasons` y `GET /loss-reasons?name=Precio` devuelven cuerpos distintos con la caché activa.
+  **La política nombrada reemplaza a la base, no se apila sobre ella** — `cache.md` lo dice explícitamente en su tabla de `[OutputCache]` («`PolicyName`: selecciona una política nombrada **en lugar de** la base»). Por eso `"loss-reasons-list"` repite el `SetVaryByHeader("X-Entity-Code", "Accept-Language")` **y también el `SetVaryByQuery("EntityCode")`** de la política base, que el paso no enumeraba: el `EntityCode` por query es el segundo canal de tenant que acepta la plantilla, y omitirlo dejaría a dos tenants que lo envían así compartiendo entrada de caché. La lista final es `("EntityCode", "name", "isActive", "pageIndex", "pageSize")`. Es una precisión del paso, no un cambio de decisión: D10 pide partir de la base, y la base incluye esa clave.
 
 #### [F4.4] Unit tests for validators and controller
-`id: F4.4 · depende_de: F4.3 · tarea: T11 (Juan Camilo) · estado: pending`
+`id: F4.4 · depende_de: F4.3 · tarea: T11 (Juan Esteban) · estado: done`
 - Objetivo: cubrir la capa de presentación.
 - Fuente: `testing.md`
 - Archivos: `tests/UnitTests/Api/Controllers/LossReasonsControllerTests.cs`, `tests/UnitTests/Infrastructure/Validation/LossReasons/{Create,Update,Get}LossReasonInputValidatorTests.cs`
 - Detalle: validadores con `TestValidate(input)` + `ShouldHaveValidationErrorFor`; casos límite de D5: **50 caracteres pasa, 51 falla, vacío falla**. Controller con NSubstitute de los casos de uso, verificando que delega y no decide.
 - Hecho cuando: todos pasan y existe un test que fija el límite exacto en 50 **por ambos caminos** — el validador (F4.1) y el agregado (F1.6) —, que es lo que hace visible cualquier divergencia entre las dos capas de D4.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-28: 455/455 en verde** (34 nuevos: 10 del controller, 8 del validador de actualizar, 11 del de listar, 5 del contrato de longitud)
+- Nota de ejecución: **son cuatro archivos de test, no tres, y no cuelgan de una carpeta `LossReasons/`.** Dos precisiones sobre la lista de `Archivos:` del paso:
+  1. **`{Create,Update,Get}LossReasonInputValidatorTests.cs` van en `tests/UnitTests/Infrastructure/Validation/`, plano**, no en un subdirectorio `LossReasons/`: es donde T8 ya había dejado el de crear, y abrir la carpeta obligaba a mover su archivo o a partir los tres hermanos en dos sitios.
+  2. **El `Hecho cuando` pedía un test que no existía en ninguna parte.** Los tests de F1.6 y los de los validadores leen el límite de `LossReasonAggregate.NameMaxLength`, así que **todos seguirían en verde si alguien cambiara la constante**: fijan la coherencia, no el número. Nace `LossReasonNameLengthContractTests.cs`, el único sitio con el literal `50` escrito, que recorre los dos caminos de D4 con las mismas cadenas — 50 pasa y 51 falla en los tres validadores **y** en `LossReasonAggregate.Create`/`Update`. Es lo que el paso pedía; el archivo extra es la forma de cumplirlo.
+- Cobertura: **97,5 % de líneas / 92,4 % de ramas** en la suite, sobre el piso de 90 de la puerta de CI. `LossReasonsController` y los tres validadores quedan en 100 %.
 
 ### Fase 5 — Verificación de extremo a extremo · `pending`
 
@@ -926,12 +935,12 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 | R9 | **La migración no corrige el defecto D1 del Discovery, solo lo traslada** (D13). Las 7 acciones `[AllowAnonymous]` de `EstructuracionComercialController` siguen abiertas en Jack, y el controller que llame al servicio necesita sus filas en `tbl_seg_funciones` para que exista autorización real. Cerrar `GAP-3` cerró la investigación, no el defecto | Abierto — trabajo del lado de Jack, en `03-flujos.md`. Sin esto, el corte deja el catálogo tan expuesto como hoy |
 | R6 | Durante la convivencia, **monolito y servicio escriben la misma tabla física** sin coordinación. Un borrado desde el servicio puede sorprender a una sesión del monolito | Aceptado — es inherente al patrón de corte progresivo |
 | R7 | **El límite de 50 (D5) es más estricto que la columna `varchar(200)`.** El endpoint `GET api/causas` del legado nunca validó longitud, así que puede haber filas de más de 50 caracteres: el servicio las lee pero **no las deja actualizar** (400 en el `PUT`) hasta acortar el nombre | Abierto — cuantificar antes del corte con `SELECT cau_consecutivoP, LEN(cau_nombre) FROM tbl_opo_causas WHERE LEN(cau_nombre) > 50;` en los tenants objetivo. Si el conteo es 0, el riesgo se cierra; si no, decidir entre acortar los datos o revisar D5 |
-| R8 | **El caché L1 del listado depende de que la política varíe por los filtros** (D10, paso F4.3). Si alguien la registra mal o el endpoint cae en la política base, se sirve el resultado de un filtro para otro — un fallo de correctitud que se ve como datos equivocados, no como error | Abierto — lo cubre el `Hecho cuando` de F4.3 y el escenario de invalidación de F5.1 |
+| R8 | **El caché L1 del listado depende de que la política varíe por los filtros** (D10, paso F4.3). Si alguien la registra mal o el endpoint cae en la política base, se sirve el resultado de un filtro para otro — un fallo de correctitud que se ve como datos equivocados, no como error | **Mitigado** el 2026-08-28 en F4.3, **no cerrado.** La política `"loss-reasons-list"` varía por `("EntityCode", "name", "isActive", "pageIndex", "pageSize")` además de los dos headers, verificado en caliente. Sigue abierto porque **ninguna prueba automatizada lo protege**: la política es configuración, no código con cobertura, y quien edite `OutputCacheExtensions.cs` puede quitar una clave sin que ningún test se ponga en rojo. Lo cierra el escenario de invalidación y filtrado de F5.1 |
 | R10 | **El servicio exige `NOT NULL` donde la BD no lo exige** (D6). `cau_nombre` y `cau_estado` aceptan NULL y `pa_opo_causas_modificar` puede seguir escribiéndolo desde el monolito durante la convivencia. Una sola fila con NULL hace que SqlClient lance `SqlNullValueException` **por la consulta entera**: el `GET /loss-reasons` de ese tenant responde 500 hasta que el dato se corrija, y no solo esa fila. **Es el fallo ruidoso que la decisión busca** —mejor que servir un nombre vacío como si fuera un nombre—, pero convierte un dato sucio en una caída del listado | **Aceptado, con condición.** La decisión es válida mientras el dato esté limpio: **cuantificar antes del corte** con `SELECT COUNT(*) FROM tbl_opo_causas WHERE cau_nombre IS NULL OR cau_estado IS NULL;` en los tenants objetivo (tarea `EXT-9`). Si el conteo es 0 el riesgo queda latente; si no, hay que limpiar el dato **antes** de exponer el servicio. Cerrarlo de raíz exige el `ALTER TABLE … NOT NULL` de Discovery D2/D3, que **no está en el alcance de este plan** |
 
 ### 9.2 GAPs
 
-**No quedan GAPs vivos.** Los siete se resolvieron el 2026-08-14. Se conservan con su resolución porque cerrarlos borrando el enunciado haría ilegible por qué el plan es como es.
+**No quedan GAPs bloqueantes.** Los siete originales se resolvieron el 2026-08-14; el octavo apareció y se resolvió dentro de F4.2 el 2026-08-28, y solo espera firma. Se conservan con su resolución porque cerrarlos borrando el enunciado haría ilegible por qué el plan es como es.
 
 | id | Qué faltaba | Resolución | Dónde quedó |
 |---|---|---|---|
@@ -942,6 +951,7 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 | `GAP-5` | Si el tenant-resolver sirve la base del CRM y con qué `X-Entity-Code` | ✅ **Jack resuelve el tenant** y lo transmite al servicio, que lo consume con el mecanismo estándar de la plantilla | **D14** · §7.1 |
 | `GAP-6` | Los veredictos del Discovery §7 sin firmar | ✅ **Todas las propuestas quedan firmadas.** Las catorce decisiones de §2 pasan a `aprobada` | §2 completo |
 | `GAP-7` | Destino de la escritura de `neg_cau_consecutivo` | ✅ **El agregado de negocio se queda en el monolito**, fuera del alcance de este plan | §1 fuera de alcance |
+| `GAP-8` | **`PagedPayload<T>` es `internal`**, así que ningún controller puede declarar el `[ProducesResponseType]` del 200 de un listado paginado que `controllers.md` §5.5 y `casos-de-uso.md` §5.2 prescriben. Drift de la plantilla, invisible hasta hoy porque este es el primer endpoint paginado del servicio | ✅ **Resuelto en F4.2 y firmado el 2026-08-28.** El record pasa a `public` por D11 (manda el documento); el tech lead acepta esa solución. Cambio de una palabra, sin efecto en runtime, pero **toca `src/Shared`**, que R5 daba por no tocado. El arreglo definitivo va aguas arriba, en `service-template-dotnet` | F4.2 · nota de ejecución |
 
 Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen vivas como riesgos, no como GAPs:
 
@@ -972,6 +982,10 @@ Dos consecuencias de estas resoluciones **no se cierran con ellas** y siguen viv
 | 2026-08-21 | **Asignación del plan a un equipo de tres.** Los 33 pasos de §8 pasan de `tarea: (sin asignar)` a declarar tarea y responsable (Juan Camilo, Brayan, Juan Esteban); `F0.1` queda como lectura de las tres personas. Ninguna decisión, paso, dependencia ni estimación cambia: el reparto vive en `tasks_causas.md` | — | ninguno en su contenido | ninguna |
 | 2026-08-14 | **Resolución de los siete GAPs.** D1–D11 pasan a `aprobada`; se añaden **D12** (sin autenticación en el servicio), **D13** (sin validación de permisos, la ejerce Jack) y **D14** (Jack determina y envía el tenant). Las seis fases pasan de `blocked` a `pending` | D1–D11 firmadas · D12, D13, D14 nuevas | Fase 0 a Fase 5 desbloqueadas · F0.2 → `done` | ninguna — el plan no se había ejecutado. Cierra R3, reescribe R5, **abre R9** |
 | 2026-08-21 | **F2.6 ejecutado** (T5 — Juan Camilo): entidad keyless `DealLossReasonUsage` (`tbl_opo_negocios`, `HasNoKey()`), su configuración EF y `LossReasonUsageReader` (implementa `ILossReasonUsageReader` con `AnyAsync` + `AsNoTracking` + guard `OperationCanceledException` → `PersistenceErrors.Failure`). **Descubrimiento:** `Infrastructure.csproj` no referenciaba `LossReason.Application.csproj`; se añadió la referencia. Verificado: `dotnet build Service.slnx -c Release` (0 errores, 0 advertencias) y `dotnet test tests/UnitTests -c Release` (357/357 en verde). F2.6 → `done` | — | F2.6 | ninguna |
+| 2026-08-28 | **Fase 4 ejecutada completa** (`F4.1`–`F4.4`, T11 — Juan Esteban): los dos validadores que faltaban, `LossReasonsController` con sus 5 endpoints, `AddLossReasonServices` con la política de caché `"loss-reasons-list"`, y 34 tests nuevos. Build en verde (0 advertencias), **455/455** unitarios, cobertura **97,5 %**. Los 5 verbos verificados en caliente contra la app corriendo. La Fase 4 pasa a `done`; **F5.1 queda desbloqueado** | — | `F4.1`, `F4.2`, `F4.3`, `F4.4` → `done` · encabezado de la Fase 4 | ninguna |
+| 2026-08-28 | **`PagedPayload<T>` pasa de `internal` a `public` (`GAP-8`).** `controllers.md` §5.5 y `casos-de-uso.md` §5.2 prescriben `[ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<T>>), 200)]`, pero el tipo era `internal` en `Shared.Presentation` y sin `InternalsVisibleTo`: **el paso F4.2 no compilaba tal como estaba escrito**. Se aplicó D11 (ante la contradicción documento/scaffold, manda el documento). Cambio de una palabra, sin efecto en runtime, pero **`src/Shared` deja de estar intacto**, contra lo que R5 daba por auditado. ✅ **Firmado por el tech lead el mismo día**; el arreglo pertenece aguas arriba, en `service-template-dotnet` | **D11** | `F4.2` · §9.2 `GAP-8` · §9.1 R5 (auditoría de `Shared`) | ninguna |
+| 2026-08-28 | **La política de caché nombrada también repite `SetVaryByQuery("EntityCode")` de la base.** F4.3 enumeraba solo el header a conservar, pero la política base varía además por el `EntityCode` de query, que es el segundo canal de tenant de la plantilla; como una política nombrada **reemplaza** a la base y no se apila sobre ella (`cache.md`), omitirlo dejaría a dos tenants que usan ese canal compartiendo entrada de caché. Lista final: `("EntityCode", "name", "isActive", "pageIndex", "pageSize")`. Precisión del paso, no cambio de decisión: D10 pide partir de la base | — | `F4.3` (detalle) · §9.1 R8 | ninguna |
+| 2026-08-28 | **F4.4 gana un cuarto archivo de test y sus rutas se aplanan.** El `Hecho cuando` exigía fijar el límite «exacto en 50 por ambos caminos», pero **ningún test existente escribía el número**: todos lo leen de `LossReasonAggregate.NameMaxLength` y seguirían verdes si la constante cambiara. Nace `LossReasonNameLengthContractTests.cs`, único sitio con el literal `50`, que recorre validadores y agregado con las mismas cadenas. Además, los tres tests de validador van en `tests/UnitTests/Infrastructure/Validation/` plano, no bajo `LossReasons/`, porque es donde T8 ya había dejado el de crear | — | `F4.4` (lista de `Archivos:` y detalle) | ninguna |
 | 2026-08-21 | **Revisión del PR de T5.** La propiedad de la entidad keyless pasa de `NegCauConsecutivo` a **`LossReasonId`** (nombres en inglés y sin abreviar; el nombre de columna legado se queda solo en la configuración EF), el Reader deja de nombrar la tabla en su comentario, y **se retira el `DbSet<DealLossReasonUsage>` de `ApplicationDbContext`** por no tener consumidor. Con eso **`F2.6` deja de tocar el archivo compartido** y el choque declarado entre T4 y T5 desaparece. Sin cambios de comportamiento | — | `F2.6` (lista de `Archivos:` y detalle) | ninguna |
 
 ---

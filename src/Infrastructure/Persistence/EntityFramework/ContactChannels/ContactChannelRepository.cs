@@ -54,7 +54,7 @@ public sealed class ContactChannelRepository(
                 .AnyAsync(c => c.Id == id, cancellationToken)
                 .ConfigureAwait(false);
 
-            return Result<bool>.Success(exists);
+            return exists;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

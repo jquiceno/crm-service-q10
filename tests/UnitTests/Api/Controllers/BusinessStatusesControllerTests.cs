@@ -2,6 +2,7 @@ using System.Text.Json;
 using Api.Controllers;
 using BusinessStatus.Application.UseCases.CreateBusinessStatus;
 using BusinessStatus.Application.UseCases.DeleteBusinessStatus;
+using BusinessStatus.Application.UseCases.GetBusinessStatusById;
 using BusinessStatus.Application.UseCases.UpdateBusinessStatus;
 using BusinessStatus.Domain.Errors;
 using Microsoft.AspNetCore.Http;
@@ -23,6 +24,9 @@ public sealed class BusinessStatusesControllerTests
     private readonly ICreateBusinessStatusUseCase _createBusinessStatusUseCase =
         Substitute.For<ICreateBusinessStatusUseCase>();
 
+    private readonly IGetBusinessStatusByIdUseCase _getBusinessStatusByIdUseCase =
+        Substitute.For<IGetBusinessStatusByIdUseCase>();
+
     private readonly IUpdateBusinessStatusUseCase _updateBusinessStatusUseCase =
         Substitute.For<IUpdateBusinessStatusUseCase>();
 
@@ -30,7 +34,10 @@ public sealed class BusinessStatusesControllerTests
         Substitute.For<IDeleteBusinessStatusUseCase>();
 
     private BusinessStatusesController Sut =>
-        new(_createBusinessStatusUseCase, _updateBusinessStatusUseCase, _deleteBusinessStatusUseCase);
+        new(_createBusinessStatusUseCase,
+            _getBusinessStatusByIdUseCase,
+            _updateBusinessStatusUseCase,
+            _deleteBusinessStatusUseCase);
 
     private static async Task<(int StatusCode, string Body)> RunAsync(IActionResult result)
     {
@@ -51,6 +58,8 @@ public sealed class BusinessStatusesControllerTests
         var (statusCode, body) = await RunAsync(result).ConfigureAwait(false);
         return (statusCode, JsonDocument.Parse(body));
     }
+
+    // ── POST /business-statuses ───────────────────────────────────────────────
 
     [Fact]
     public async Task CreateBusinessStatus_WhenTheUseCaseSucceeds_ReturnsCreatedWithTheResource()
@@ -98,6 +107,57 @@ public sealed class BusinessStatusesControllerTests
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
     }
+
+    // ── GET /business-statuses/{id} ───────────────────────────────────────────
+
+    [Fact]
+    public async Task GetBusinessStatusById_WhenTheStatusExists_ReturnsOkWithTheResource()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Success(
+                new GetBusinessStatusByIdOutputDto(7, "Negotiation", 50, "49ff7c", true)));
+
+        var result = await Sut.GetBusinessStatusById(7, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status200OK);
+        var data = body.RootElement.GetProperty("data");
+        data.GetProperty("id").GetInt32().ShouldBe(7);
+        data.GetProperty("name").GetString().ShouldBe("Negotiation");
+        data.GetProperty("percentage").GetInt32().ShouldBe(50);
+        data.GetProperty("color").GetString().ShouldBe("49ff7c");
+        data.GetProperty("isActive").GetBoolean().ShouldBeTrue();
+        await _getBusinessStatusByIdUseCase.Received(1).ExecuteAsync(7, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GetBusinessStatusById_WithAnUnknownId_ReturnsNotFound()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(999, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Failure(
+                BusinessStatusErrors.NotFound(999) with { Context = BusinessStatusErrors.Context }));
+
+        var result = await Sut.GetBusinessStatusById(999, CancellationToken.None);
+        var (statusCode, body) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+        body.RootElement.GetProperty("error").GetProperty("type").GetString().ShouldBe("NOT_FOUND");
+    }
+
+    [Fact]
+    public async Task GetBusinessStatusById_WhenTheQueryFails_ReturnsInternalServerError()
+    {
+        _getBusinessStatusByIdUseCase.ExecuteAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Result<GetBusinessStatusByIdOutputDto>.Failure(
+                new DomainError("boom", ErrorType.Internal)));
+
+        var result = await Sut.GetBusinessStatusById(7, CancellationToken.None);
+        var (statusCode, _) = await ExecuteAsync(result);
+
+        statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
+    }
+
+    // ── PUT /business-statuses/{id} ───────────────────────────────────────────
 
     [Fact]
     public async Task UpdateBusinessStatus_WhenTheUseCaseSucceeds_ReturnsOkWithTheResource()
@@ -160,6 +220,8 @@ public sealed class BusinessStatusesControllerTests
 
         statusCode.ShouldBe(StatusCodes.Status500InternalServerError);
     }
+
+    // ── DELETE /business-statuses/{id} ────────────────────────────────────────
 
     [Fact]
     public async Task DeleteBusinessStatus_WhenTheUseCaseSucceeds_ReturnsNoContentWithoutBody()

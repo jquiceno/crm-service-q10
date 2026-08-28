@@ -1,9 +1,9 @@
-using Activities.Application.Mapping;
+using Activities.Application.Contracts;
 using Activities.Domain.Enums;
 using Shouldly;
 using Xunit;
 
-namespace UnitTests.Contexts.Activities.Application.Mapping;
+namespace UnitTests.Contexts.Activities.Application.Contracts;
 
 /// <summary>The contract's names are part of the API surface: both directions are pinned here.</summary>
 public sealed class ContractNamesTests

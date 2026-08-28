@@ -1,4 +1,4 @@
-using Activities.Application.Mapping;
+using Activities.Application.Contracts;
 using Activities.Domain.Models;
 
 namespace Activities.Application.UseCases.GetActivities;

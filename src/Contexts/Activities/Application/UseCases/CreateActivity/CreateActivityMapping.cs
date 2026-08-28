@@ -1,4 +1,4 @@
-using Activities.Application.Mapping;
+using Activities.Application.Contracts;
 using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
 

@@ -1,14 +1,19 @@
 using System.Text;
 using Activities.Domain.Enums;
 
-namespace Activities.Application.Mapping;
+namespace Activities.Application.Contracts;
 
 /// <summary>
-/// Translates between the kebab-case names of the public contract (§6) and the domain enums.
+/// The public contract's vocabulary: the names §6 uses (kebab-case where they are compound) and
+/// the domain enums they stand for.
 /// </summary>
 /// <remarks>
-/// One place for both directions so reading and writing can never drift apart: whatever
-/// <see cref="ToContract(ActivityType)"/> renders, <see cref="TryParseType"/> accepts back.
+/// Not a use case's <c>Mapping</c> — those translate a use case's DTOs to and from the domain, and
+/// stay co-located with their use case (<c>GetActivitiesMapping</c>, <c>CreateActivityMapping</c>, which
+/// both call this). This is the name table underneath them, and it is deliberately a single one:
+/// <c>CreateActivity</c> parses these names and <c>GetActivities</c> renders them, so splitting the
+/// table in two is how <c>deal-closed</c> ends up accepted on POST and spelled differently on GET.
+/// Whatever <see cref="ToContract(ActivityType)"/> renders, <see cref="TryParseType"/> accepts back.
 /// <para>
 /// The maps are written out instead of derived from the member names because two of them are not
 /// mechanical: <see cref="ActivityType.WhatsApp"/> is one word in the contract, and

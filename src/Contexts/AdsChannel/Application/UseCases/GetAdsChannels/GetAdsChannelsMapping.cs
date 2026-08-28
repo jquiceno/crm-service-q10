@@ -4,6 +4,6 @@ namespace AdsChannel.Application.UseCases.GetAdsChannels;
 
 public static class GetAdsChannelsMapping
 {
-    public static AdsChannelOutputDto ToOutputDto(this AdsChannelAggregate aggregate) =>
+    public static GetAdsChannelsOutputDto ToOutputDto(this AdsChannelAggregate aggregate) =>
         new(aggregate.Id, aggregate.Name, aggregate.IsActive);
 }

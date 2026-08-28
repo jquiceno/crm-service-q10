@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace AdsChannel.Application.UseCases.GetAdsChannels;
 
-public sealed record AdsChannelOutputDto(
+public sealed record GetAdsChannelsOutputDto(
     [property: Description("Identifier of the ads channel.")]
     int Id,
     [property: Description("Name of the ads channel.")]

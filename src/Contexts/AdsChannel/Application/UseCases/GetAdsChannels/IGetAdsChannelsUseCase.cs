@@ -5,6 +5,6 @@ namespace AdsChannel.Application.UseCases.GetAdsChannels;
 
 public interface IGetAdsChannelsUseCase
 {
-    Task<PagedResult<AdsChannelOutputDto>> ExecuteAsync(
+    Task<PagedResult<GetAdsChannelsOutputDto>> ExecuteAsync(
         GetAdsChannelsInputDto input, PageQuery page, CancellationToken cancellationToken = default);
 }

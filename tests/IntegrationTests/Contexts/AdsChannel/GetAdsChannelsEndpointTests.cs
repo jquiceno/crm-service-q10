@@ -22,7 +22,7 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<AdsChannelOutputDto>>>(
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<GetAdsChannelsOutputDto>>>(
             JsonSerializerOptions.Web);
         body!.Data.Items.Count.ShouldBe(4);
         body.Data.TotalCount.ShouldBe(4);
@@ -37,7 +37,7 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<AdsChannelOutputDto>>>(
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<GetAdsChannelsOutputDto>>>(
             JsonSerializerOptions.Web);
         body!.Data.Items.Count.ShouldBe(1);
         body.Data.TotalCount.ShouldBe(4);
@@ -52,7 +52,7 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<AdsChannelOutputDto>>>(
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<GetAdsChannelsOutputDto>>>(
             JsonSerializerOptions.Web);
         body!.Data.TotalCount.ShouldBe(1);
         body.Data.Items.ShouldHaveSingleItem();
@@ -68,7 +68,7 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<AdsChannelOutputDto>>>(
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<ApiPagedData<GetAdsChannelsOutputDto>>>(
             JsonSerializerOptions.Web);
         body!.Data.TotalCount.ShouldBe(2);
         body.Data.Items.ShouldAllBe(x => !x.IsActive);

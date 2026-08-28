@@ -20,14 +20,6 @@ internal static class SqlServerErrorClassifier
     private const int DataTruncation = 8152;
     private const int Deadlock = 1205;
 
-    // Lets a repository replace the generic duplicate message with one that names the offending value,
-    // without having to know the error numbers.
-    internal static bool IsUniqueViolation(DbUpdateException ex) =>
-        ex.InnerException is SqlException sqlEx && IsUniqueViolation(sqlEx.Number);
-
-    internal static bool IsUniqueViolation(int number) =>
-        number is PrimaryKeyViolation or UniqueIndexViolation;
-
     internal static DomainError Classify(DbUpdateException ex, string origin)
     {
         if (ex.InnerException is SqlException sqlEx)

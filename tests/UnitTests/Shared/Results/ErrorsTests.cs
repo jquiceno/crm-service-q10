@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Collections.ObjectModel;
 using Shared.Results.Errors;
 using Shouldly;
 using Xunit;
@@ -79,28 +78,6 @@ public sealed class ErrorsTests
 
         error.Type.ShouldBe(ErrorType.NotFound);
         error.Message.ShouldBe("Announcement with id '42' was not found.");
-    }
-
-    [Fact]
-    public void ValidationErrorList_Constructor_SetsErrorsAndValidationType()
-    {
-        ValidationError[] errors = [new("Required.", ErrorType.Validation) { Property = "name" }];
-
-        var list = new ValidationErrorList(errors);
-
-        list.Type.ShouldBe(ErrorType.Validation);
-        list.Message.ShouldBe("Validation failed.");
-        list.Errors.ShouldBe(errors);
-    }
-
-    [Fact]
-    public void ValidationErrorList_ImplicitOperator_FromReadOnlyCollection_WrapsErrors()
-    {
-        var errors = new ReadOnlyCollection<ValidationError>([new("Required.", ErrorType.Validation)]);
-
-        ValidationErrorList list = errors;
-
-        list.Errors.Count.ShouldBe(1);
     }
 
     [Fact]

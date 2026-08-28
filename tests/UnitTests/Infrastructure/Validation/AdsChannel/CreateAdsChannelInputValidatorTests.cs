@@ -1,6 +1,7 @@
 using AdsChannel.Application.UseCases.CreateAdsChannel;
+using AdsChannel.Domain.Aggregates;
+using FluentValidation.TestHelper;
 using Infrastructure.Validation.FluentValidation.AdsChannel;
-using Shouldly;
 using Xunit;
 
 namespace UnitTests.Infrastructure.Validation.AdsChannel;
@@ -12,47 +13,44 @@ public sealed class CreateAdsChannelInputValidatorTests
     [Fact]
     public void Validate_WithValidName_ReturnsValid()
     {
-        var result = _sut.Validate(new CreateAdsChannelInputDto("Google Ads", true));
+        var result = _sut.TestValidate(new CreateAdsChannelInputDto("Google Ads", true));
 
-        result.IsValid.ShouldBeTrue();
+        result.ShouldNotHaveValidationErrorFor(x => x.Name);
     }
 
     [Fact]
     public void Validate_WithEmptyName_HasErrorOnName()
     {
-        var result = _sut.Validate(new CreateAdsChannelInputDto("", true));
+        var result = _sut.TestValidate(new CreateAdsChannelInputDto("", true));
 
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Name");
+        result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 
     [Fact]
     public void Validate_WithNullName_HasErrorOnName()
     {
-        var result = _sut.Validate(new CreateAdsChannelInputDto(null, true));
+        var result = _sut.TestValidate(new CreateAdsChannelInputDto(null, true));
 
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Name");
+        result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 
     [Fact]
-    public void Validate_WithNameOver100Characters_HasErrorOnName()
+    public void Validate_WithNameOverMaxLength_HasErrorOnName()
     {
-        var name = new string('a', 101);
+        var name = new string('a', AdsChannelAggregate.MaxNameLength + 1);
 
-        var result = _sut.Validate(new CreateAdsChannelInputDto(name, true));
+        var result = _sut.TestValidate(new CreateAdsChannelInputDto(name, true));
 
-        result.IsValid.ShouldBeFalse();
-        result.Errors.ShouldContain(e => e.PropertyName == "Name");
+        result.ShouldHaveValidationErrorFor(x => x.Name);
     }
 
     [Fact]
     public void Validate_WithNameAtMaxLength_ReturnsValid()
     {
-        var name = new string('a', 100);
+        var name = new string('a', AdsChannelAggregate.MaxNameLength);
 
-        var result = _sut.Validate(new CreateAdsChannelInputDto(name, true));
+        var result = _sut.TestValidate(new CreateAdsChannelInputDto(name, true));
 
-        result.IsValid.ShouldBeTrue();
+        result.ShouldNotHaveValidationErrorFor(x => x.Name);
     }
 }

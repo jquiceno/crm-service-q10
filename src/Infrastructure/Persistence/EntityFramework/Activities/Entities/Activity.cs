@@ -5,7 +5,7 @@ namespace Infrastructure.Persistence.EntityFramework.Activities.Entities;
 /// domain types. This is what the <c>DbSet</c> maps — the aggregate never touches EF; the
 /// translation in both directions lives in the repository mapper.
 /// </summary>
-internal sealed class ActivityEntity
+internal sealed class Activity
 {
     public int Id { get; set; }
 

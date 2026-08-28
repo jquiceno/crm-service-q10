@@ -3,7 +3,7 @@ using Shared.Results;
 
 namespace ServiceInfo.Application.Ports;
 
-public interface IGetServiceInfoPort
+public interface IGetServiceInfoUseCase
 {
     Task<Result<GetServiceInfoOutputDto>> ExecuteAsync(CancellationToken cancellationToken = default);
 }

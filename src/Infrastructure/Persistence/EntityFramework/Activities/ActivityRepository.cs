@@ -1,8 +1,9 @@
 using Activities.Domain.Aggregates;
 using Activities.Domain.Errors;
-using Activities.Domain.Filters;
+using Activities.Domain.Queries;
 using Activities.Domain.Models;
 using Activities.Domain.Repositories;
+using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.Activities.Entities;
 using Infrastructure.Persistence.EntityFramework.Activities.Mappers;
 using Infrastructure.Persistence.EntityFramework.Common;
@@ -13,33 +14,34 @@ using Shared.Results;
 
 namespace Infrastructure.Persistence.EntityFramework.Activities;
 
-/// <summary>EF Core persistence for the <see cref="Activity"/> aggregate.</summary>
+/// <summary>EF Core persistence for the <see cref="ActivityAggregate"/>.</summary>
 /// <remarks>
 /// Can't inherit <see cref="RepositoryBaseEF{TAggregate, TId}"/>: it assumes the aggregate is what
-/// EF maps, but here <see cref="ActivityEntity"/> is (F2.2), translated via
+/// EF maps, but here <see cref="Activity"/> is (F2.2), translated via
 /// <see cref="ActivityRepositoryMapper"/>.
 /// <para>
-/// Nothing here writes: every mutation only stages work in the change tracker, and the unit of
-/// work commits it in its own step. The generated identity still reaches the aggregate — see
-/// <see cref="StampIdOnceSaved"/>.
+/// Two write members with deliberately different contracts: <see cref="CreateAsync"/> confirms its
+/// own <c>INSERT</c>, because the caller needs the identity the database generates, and
+/// <see cref="AddAsync"/> only queues, for a write that has to join a larger transaction. Neither
+/// is a substitute for the other.
 /// </para>
 /// </remarks>
-public sealed class ActivityRepositoryAdapter(
+public sealed class ActivityRepository(
     ApplicationDbContext context,
-    ILoggerPort<ActivityRepositoryAdapter> logger) : IActivityRepository
+    ILoggerPort<ActivityRepository> logger) : IActivityRepository
 {
-    private const string Origin = nameof(ActivityRepositoryAdapter);
+    private const string Origin = nameof(ActivityRepository);
 
-    private DbSet<ActivityEntity> DbSet => context.Activities;
+    private DbSet<Activity> DbSet => context.Activities;
 
-    public async Task<Result<Activity>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result<ActivityAggregate>> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         try
         {
             var entity = await DbSet.FindAsync([id], cancellationToken).ConfigureAwait(false);
             return entity is null
                 ? ActivityErrors.NotFound(id) with { Origin = Origin }
-                : Result<Activity>.Success(ActivityRepositoryMapper.ToDomain(entity));
+                : Result<ActivityAggregate>.Success(ActivityRepositoryMapper.ToDomain(entity));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -63,7 +65,7 @@ public sealed class ActivityRepositoryAdapter(
         }
     }
 
-    public async Task<PagedResult<Activity>> GetAllAsync(
+    public async Task<PagedResult<ActivityAggregate>> GetAllAsync(
         PageQuery page, CancellationToken cancellationToken = default)
     {
         try
@@ -77,13 +79,60 @@ public sealed class ActivityRepositoryAdapter(
         }
     }
 
-    public async Task<Result> AddAsync(Activity aggregate, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Inserts the activity and returns it carrying the identity the database generated.
+    /// </summary>
+    /// <remarks>
+    /// Confirms its own <c>INSERT</c> instead of leaving it queued for the unit of work, which is
+    /// the template's answer for exactly this case: the caller needs the <c>IDENTITY</c>, and that
+    /// value does not exist until the row does. A caller that persists through here does not
+    /// commit afterwards — there is nothing left to commit.
+    /// <para>
+    /// It also lets the insert classify its own constraint failures, which is what turns a foreign
+    /// key against a deal that vanished mid-request into a conflict instead of a bare 500.
+    /// </para>
+    /// </remarks>
+    public async Task<Result<ActivityAggregate>> CreateAsync(
+        ActivityAggregate aggregate, CancellationToken cancellationToken = default)
     {
         try
         {
-            var entity = ActivityRepositoryMapper.ToEntity(aggregate);
+            var entity = ActivityRepositoryMapper.ToDocument(aggregate);
             await DbSet.AddAsync(entity, cancellationToken).ConfigureAwait(false);
-            StampIdOnceSaved(aggregate, entity);
+            await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            // The IDENTITY is populated by SaveChanges; the aggregate is what the caller holds.
+            aggregate.AssignId(entity.Id);
+            return aggregate;
+        }
+        catch (DbUpdateException ex)
+        {
+            logger.Error(ex, "Database error inserting Activity");
+            return SqlServerErrorClassifier.Classify(ex, Origin);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.Error(ex, "Error inserting Activity");
+            return PersistenceErrors.Failure(Origin);
+        }
+    }
+
+    /// <summary>
+    /// Queues the insert for the unit of work, as <c>IRootRepository</c> defines it. It exists for
+    /// a write that has to join a larger transaction; the creation flow uses
+    /// <see cref="CreateAsync"/>, because it needs the generated identity back.
+    /// </summary>
+    /// <remarks>
+    /// The aggregate that comes out of a commit here keeps <c>Id</c> at 0: the aggregate is not
+    /// what EF tracks — <see cref="Activity"/> is — so nothing carries the identity back. A future
+    /// caller that needs it must read it from <see cref="CreateAsync"/> instead.
+    /// </remarks>
+    public async Task<Result> AddAsync(ActivityAggregate aggregate, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var entity = ActivityRepositoryMapper.ToDocument(aggregate);
+            await DbSet.AddAsync(entity, cancellationToken).ConfigureAwait(false);
 
             return Result.Success();
         }
@@ -95,46 +144,6 @@ public sealed class ActivityRepositoryAdapter(
     }
 
     /// <summary>
-    /// Copies the generated identity onto the aggregate once the unit of work commits.
-    /// </summary>
-    /// <remarks>
-    /// The aggregate is not what EF tracks — <see cref="ActivityEntity"/> is — so nothing would
-    /// carry the <c>IDENTITY</c> back on its own. Hooking <see cref="DbContext.SavedChanges"/> is
-    /// what lets <see cref="AddAsync"/> stay a pure "add to the unit of work": the row is written
-    /// when whoever owns the transaction commits, and until then a failure leaves nothing behind
-    /// for the caller to duplicate on a retry.
-    /// <para>
-    /// <b>Why not the template's <c>CreateAsync</c>.</b> <c>docs/plantilla/repositorio.md</c>
-    /// answers this same problem — a use case that needs the database-generated identity — by
-    /// letting the repository save inside <c>CreateAsync</c> and dropping the unit of work
-    /// altogether. That is what this adapter did until a review caught the cost: with the write
-    /// already committed, a later failure is reported to the client as a 500 over a row that does
-    /// exist, and nothing else can ever join the same transaction. The trade was made knowingly —
-    /// atomicity over following the template here — so please don't "fix" it back without
-    /// revisiting that.
-    /// </para>
-    /// <para>
-    /// The handler ignores a save that did not include its row (the identity would still be 0) and
-    /// stays subscribed for the one that does. Once it fires it unsubscribes, and since the context
-    /// is registered with <c>AddDbContext</c> — scoped, not pooled — a commit that never happens
-    /// simply takes the subscription with it at the end of the request.
-    /// </para>
-    /// </remarks>
-    private void StampIdOnceSaved(Activity aggregate, ActivityEntity entity)
-    {
-        void OnSaved(object? sender, SavedChangesEventArgs args)
-        {
-            if (entity.Id == 0)
-                return;
-
-            context.SavedChanges -= OnSaved;
-            aggregate.AssignId(entity.Id);
-        }
-
-        context.SavedChanges += OnSaved;
-    }
-
-    /// <summary>
     /// Full-column overwrite; no update flow exists yet. A real one must copy changed columns
     /// selectively instead (DEC-6), not reuse this as-is.
     /// </summary>
@@ -143,11 +152,11 @@ public sealed class ActivityRepositoryAdapter(
     /// only staged by <see cref="AddAsync"/> — identity still 0 — makes EF read the default key as
     /// a second insert, not as the same row.
     /// </remarks>
-    public Result Update(Activity aggregate)
+    public Result Update(ActivityAggregate aggregate)
     {
         try
         {
-            var entity = ActivityRepositoryMapper.ToEntity(aggregate);
+            var entity = ActivityRepositoryMapper.ToDocument(aggregate);
             entity.Id = aggregate.Id;
             DbSet.Update(entity);
             return Result.Success();
@@ -241,8 +250,8 @@ public sealed class ActivityRepositoryAdapter(
     }
 
     /// <summary>Count+page tail of <see cref="GetAllAsync"/>.</summary>
-    private static async Task<PagedResult<Activity>> PageAsync(
-        IQueryable<ActivityEntity> query, PageQuery page, CancellationToken cancellationToken)
+    private static async Task<PagedResult<ActivityAggregate>> PageAsync(
+        IQueryable<Activity> query, PageQuery page, CancellationToken cancellationToken)
     {
         var result = await query
             .GroupBy(_ => 1)
@@ -258,9 +267,9 @@ public sealed class ActivityRepositoryAdapter(
             .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
 
         if (result is null)
-            return PagedResult<Activity>.Success([], 0);
+            return PagedResult<ActivityAggregate>.Success([], 0);
 
-        IReadOnlyList<Activity> activities = [.. result.Items.Select(ActivityRepositoryMapper.ToDomain)];
-        return PagedResult<Activity>.Success(activities, result.Total);
+        IReadOnlyList<ActivityAggregate> activities = [.. result.Items.Select(ActivityRepositoryMapper.ToDomain)];
+        return PagedResult<ActivityAggregate>.Success(activities, result.Total);
     }
 }

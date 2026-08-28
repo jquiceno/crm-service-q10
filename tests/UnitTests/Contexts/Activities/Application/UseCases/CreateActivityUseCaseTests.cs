@@ -5,6 +5,7 @@ using Activities.Domain.Enums;
 using Activities.Domain.Errors;
 using Activities.Domain.Models;
 using Activities.Domain.Repositories;
+using Activities.Domain.ValueObjects;
 using NSubstitute;
 using Shared.Application.Ports;
 using Shared.Results;
@@ -29,7 +30,6 @@ public sealed class CreateActivityUseCaseTests
     private readonly IActivityRepository _repository = Substitute.For<IActivityRepository>();
     private readonly IDealReader _dealReader = Substitute.For<IDealReader>();
     private readonly IAdvisorReader _advisorReader = Substitute.For<IAdvisorReader>();
-    private readonly IUnitOfWorkPort _unitOfWork = Substitute.For<IUnitOfWorkPort>();
     private readonly TimeProvider _clock = Substitute.For<TimeProvider>();
 
     public CreateActivityUseCaseTests()
@@ -38,25 +38,26 @@ public sealed class CreateActivityUseCaseTests
             .Returns(AdvisorCode);
         _dealReader.GetDealContextAsync(DealId, Arg.Any<CancellationToken>())
             .Returns(new DealContext(Exists: true, OpportunityId, OpportunityArchived: false));
-        _repository.AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Success());
-        _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(Result.Success());
+
+        // CreateAsync hands back the very aggregate it persisted, carrying its new identity.
+        _repository.CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>())
+            .Returns(call => Result<ActivityAggregate>.Success(call.Arg<ActivityAggregate>()));
+
         _clock.GetUtcNow().Returns(new DateTimeOffset(Now));
     }
 
     private CreateActivityUseCase Sut =>
-        new(_repository, _dealReader, _advisorReader, _unitOfWork, _clock);
+        new(_repository, _dealReader, _advisorReader, _clock);
 
     // --- Happy paths -------------------------------------------------------------------------
 
     [Fact]
-    public async Task ExecuteAsync_SchedulesAnActivity_AndCommitsInItsOwnStep()
+    public async Task ExecuteAsync_SchedulesAnActivity()
     {
         var result = await Sut.ExecuteAsync(Scheduled());
 
         result.IsSuccess.ShouldBeTrue();
-        await _repository.Received(1).AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+        await _repository.Received(1).CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -262,7 +263,7 @@ public sealed class CreateActivityUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
         result.Error.Message.ShouldContain(AdvisorIdentification);
-        await _repository.DidNotReceive().AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -276,7 +277,7 @@ public sealed class CreateActivityUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
         result.Error.Message.ShouldContain(DealId.ToString());
-        await _repository.DidNotReceive().AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -310,40 +311,57 @@ public sealed class CreateActivityUseCaseTests
 
         result.IsFailure.ShouldBeTrue();
         await _dealReader.Received(1).GetDealContextAsync(DealId, Arg.Any<CancellationToken>());
-        await _repository.DidNotReceive().AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>());
     }
 
     // --- Persistence failures ----------------------------------------------------------------
 
+    /// <summary>
+    /// The use case does not replace the origin of a failure it did not cause: rewriting it would
+    /// make the log name this class for something that broke in the repository.
+    /// </summary>
     [Fact]
-    public async Task ExecuteAsync_WhenAddFails_DoesNotCommit()
+    public async Task ExecuteAsync_WhenTheInsertFails_PropagatesTheRepositoryErrorUntouched()
     {
-        _repository.AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>())
-            .Returns(Result.Failure(new DomainError("Persistence failure.", ErrorType.Internal)));
+        _repository.CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ActivityAggregate>.Failure(
+                new DomainError("Persistence failure.", ErrorType.Internal)
+                {
+                    Origin = "ActivityRepository",
+                    Context = ActivityErrors.Context,
+                }));
 
         var result = await Sut.ExecuteAsync(Scheduled());
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.Context.ShouldBe(ActivityErrors.Context);
-        result.Error.Origin.ShouldBe(nameof(CreateActivityUseCase));
-        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
+        result.Error.Message.ShouldBe("Persistence failure.");
+        result.Error.Origin.ShouldBe("ActivityRepository", "the use case does not replace the origin of the failure");
     }
 
     /// <summary>
-    /// The commit is the only write, so its failure means the activity was not recorded — the
-    /// caller can retry on it without duplicating anything.
+    /// The response carries nothing but the identity, and the identity exists only after the
+    /// insert — so the activity that comes back from the repository is the one to answer with,
+    /// never the one that went in.
     /// </summary>
     [Fact]
-    public async Task ExecuteAsync_WhenTheCommitFails_PropagatesTheError()
+    public async Task ExecuteAsync_AnswersWithTheIdentityTheRepositoryAssigned()
     {
-        _unitOfWork.CommitAsync(Arg.Any<CancellationToken>())
-            .Returns(Result.Failure(new DomainError("Commit failure.", ErrorType.Internal)));
+        const int generatedId = 380996;
+
+        // A different instance on purpose: if the stub stamped the very aggregate it received,
+        // answering with the wrong one would look identical here.
+        var persisted = ActivityAggregate.Schedule(
+            DealId, OpportunityId, ActivityType.Call, Description.Create("persisted").Value,
+            Now.AddDays(1), PersonCode.Create(AdvisorCode).Value, PersonCode.Create(AdvisorCode).Value).Value;
+        persisted.AssignId(generatedId);
+
+        _repository.CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>())
+            .Returns(Result<ActivityAggregate>.Success(persisted));
 
         var result = await Sut.ExecuteAsync(Scheduled());
 
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Message.ShouldBe("Commit failure.");
-        result.Error.Origin.ShouldBe(nameof(CreateActivityUseCase));
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Id.ShouldBe(generatedId);
     }
 
     // --- Helpers -----------------------------------------------------------------------------
@@ -372,13 +390,13 @@ public sealed class CreateActivityUseCaseTests
             OutcomeType: outcomeType,
             DueAt: null);
 
-    private async Task<Activity> CapturePersistedAsync(CreateActivityInputDto input)
+    private async Task<ActivityAggregate> CapturePersistedAsync(CreateActivityInputDto input)
     {
         var result = await Sut.ExecuteAsync(input).ConfigureAwait(true);
         result.IsSuccess.ShouldBeTrue();
 
-        return (Activity)_repository.ReceivedCalls()
-            .Single(call => call.GetMethodInfo().Name == nameof(IActivityRepository.AddAsync))
+        return (ActivityAggregate)_repository.ReceivedCalls()
+            .Single(call => call.GetMethodInfo().Name == nameof(IActivityRepository.CreateAsync))
             .GetArguments()[0]!;
     }
 
@@ -393,7 +411,7 @@ public sealed class CreateActivityUseCaseTests
         result.Error.Context.ShouldBe(ActivityErrors.Context);
         result.Error.Origin.ShouldBe(nameof(CreateActivityUseCase));
         await _repository.DidNotReceive()
-            .AddAsync(Arg.Any<Activity>(), Arg.Any<CancellationToken>())
+            .CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>())
             .ConfigureAwait(true);
     }
 

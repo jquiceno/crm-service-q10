@@ -16,14 +16,14 @@ public sealed class ActivityRepositoryMapperTests
     private static PersonCode Creator => PersonCode.Create("creator-01").Value;
 
     [Fact]
-    public void ToEntity_FromACompletedCall_WritesTheRawLegacyColumns()
+    public void ToDocument_FromACompletedCall_WritesTheRawLegacyColumns()
     {
-        var aggregate = Activity.RegisterCompleted(
+        var aggregate = ActivityAggregate.RegisterCompleted(
             1200, 845, ActivityType.Call, Outcome.Create("answered").Value,
             OutcomeType.ForCall(CallOutcome.Contacted).Value, dueAt: null,
             Advisor, Creator, Now).Value;
 
-        var entity = ActivityRepositoryMapper.ToEntity(aggregate);
+        var entity = ActivityRepositoryMapper.ToDocument(aggregate);
 
         entity.Type.ShouldBe("1");
         entity.OutcomeCode.ShouldBe("6");
@@ -37,13 +37,13 @@ public sealed class ActivityRepositoryMapperTests
     }
 
     [Fact]
-    public void ToDomain_RoundTripsWhatToEntityWrites()
+    public void ToDomain_RoundTripsWhatToDocumentWrites()
     {
-        var aggregate = Activity.Schedule(
+        var aggregate = ActivityAggregate.Schedule(
             1200, 845, ActivityType.Meeting, Description.Create("meet the applicant").Value,
             Now.AddDays(1), Advisor, Creator).Value;
 
-        var entity = ActivityRepositoryMapper.ToEntity(aggregate);
+        var entity = ActivityRepositoryMapper.ToDocument(aggregate);
         entity.Id = 42;
         var rebuilt = ActivityRepositoryMapper.ToDomain(entity);
 
@@ -65,7 +65,7 @@ public sealed class ActivityRepositoryMapperTests
     [Fact]
     public void ToDomain_OfAMigratedHistoricRow_ReadsScheduledWithNulls()
     {
-        var entity = new ActivityEntity
+        var entity = new Activity
         {
             Id = 7,
             DealId = 1200,
@@ -84,12 +84,12 @@ public sealed class ActivityRepositoryMapperTests
     }
 
     [Fact]
-    public void ToEntity_AfterToDomain_IsLossyByDesign_SoUpdatesMustNeverCopyItBlindly()
+    public void ToDocument_AfterToDomain_IsLossyByDesign_SoUpdatesMustNeverCopyItBlindly()
     {
         // The domain does not carry stray outcome codes, historic NULL bits, nor the identity,
         // so the repository (F2.4) must copy changed columns selectively on updates: a blanket
-        // ToEntity copy over a tracked row would erase/normalize legacy data (DEC-6).
-        var strayCodeRow = new ActivityEntity
+        // ToDocument copy over a tracked row would erase/normalize legacy data (DEC-6).
+        var strayCodeRow = new Activity
         {
             Id = 7,
             DealId = 1200,
@@ -101,9 +101,9 @@ public sealed class ActivityRepositoryMapperTests
             CreatedById = "legacy",
         };
 
-        var copy = ActivityRepositoryMapper.ToEntity(ActivityRepositoryMapper.ToDomain(strayCodeRow));
+        var copy = ActivityRepositoryMapper.ToDocument(ActivityRepositoryMapper.ToDomain(strayCodeRow));
 
-        copy.Id.ShouldBe(0, "ToEntity builds INSERT rows; the identity never travels back");
+        copy.Id.ShouldBe(0, "ToDocument builds INSERT rows; the identity never travels back");
         copy.OutcomeCode.ShouldBeNull("a stray code on a type without a catalogue is discarded");
         copy.IsCompleted.ShouldBe(false, "historic NULL bits come back as real booleans");
         copy.IsCancelled.ShouldBe(false, "historic NULL bits come back as real booleans");
@@ -112,7 +112,7 @@ public sealed class ActivityRepositoryMapperTests
     [Fact]
     public void ToDomain_WithAnUnknownTypeChar_FailsExplicitly()
     {
-        var entity = new ActivityEntity { Type = "9", CreatedAt = Now, CreatedById = "x" };
+        var entity = new Activity { Type = "9", CreatedAt = Now, CreatedById = "x" };
 
         var exception = Should.Throw<InvalidOperationException>(
             () => ActivityRepositoryMapper.ToDomain(entity));
@@ -125,7 +125,7 @@ public sealed class ActivityRepositoryMapperTests
     public void ToDomain_WithAnUnknownOutcomeChar_FailsExplicitly()
     {
         // '4' is the hole of the legacy call catalogue.
-        var entity = new ActivityEntity
+        var entity = new Activity
         {
             Type = "1",
             OutcomeCode = "4",

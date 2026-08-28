@@ -73,10 +73,12 @@ public sealed class ActivitiesController(
     [EndpointDescription(
         "Records an activity against a deal. A scheduled activity carries a description and a due "
         + "date; a completed one carries an outcome, and an outcome type when it is a call or a "
-        + "meeting. An unknown deal or advisor answers 404; an archived opportunity, 400.")]
+        + "meeting. An unknown deal or advisor answers 404; an archived opportunity, 400; a deal "
+        + "that stops existing between the check and the insert, 409.")]
     [ProducesResponseType(typeof(ApiSuccessResponse<CreateActivityOutputDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     public async Task<HttpCreatedResult<CreateActivityOutputDto>> CreateActivity(
         [FromBody] CreateActivityInputDto input,

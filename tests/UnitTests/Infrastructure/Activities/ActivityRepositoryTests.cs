@@ -1,6 +1,6 @@
 using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
-using Activities.Domain.Filters;
+using Activities.Domain.Queries;
 using Activities.Domain.ValueObjects;
 using Infrastructure.Persistence.EntityFramework;
 using Infrastructure.Persistence.EntityFramework.Activities;
@@ -15,7 +15,7 @@ using Xunit;
 
 namespace UnitTests.Infrastructure.Activities;
 
-public sealed class ActivityRepositoryAdapterTests
+public sealed class ActivityRepositoryTests
 {
     private static PersonCode Advisor => PersonCode.Create("advisor-01").Value;
     private static PersonCode Creator => PersonCode.Create("creator-01").Value;
@@ -23,10 +23,10 @@ public sealed class ActivityRepositoryAdapterTests
     private static ApplicationDbContext CreateContext(string dbName) =>
         new(new DbContextOptionsBuilder<ApplicationDbContext>().UseInMemoryDatabase(dbName).Options);
 
-    private static ILoggerPort<ActivityRepositoryAdapter> Logger() =>
-        Substitute.For<ILoggerPort<ActivityRepositoryAdapter>>();
+    private static ILoggerPort<ActivityRepository> Logger() =>
+        Substitute.For<ILoggerPort<ActivityRepository>>();
 
-    private static ActivityEntity NewEntity(int id, int dealId, int? opportunityId = null) => new()
+    private static Activity NewEntity(int id, int dealId, int? opportunityId = null) => new()
     {
         Id = id,
         DealId = dealId,
@@ -36,8 +36,8 @@ public sealed class ActivityRepositoryAdapterTests
         CreatedById = "creator-01",
     };
 
-    private static Activity NewActivity(int dealId) =>
-        Activity.Schedule(
+    private static ActivityAggregate NewActivity(int dealId) =>
+        ActivityAggregate.Schedule(
             dealId, null, ActivityType.Call, Description.Create("call back").Value,
             DateTime.UtcNow.AddDays(1), Advisor, Creator).Value;
 
@@ -47,9 +47,9 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task GetByIdAsync_WhenExists_ReturnsTheMappedActivity()
     {
         using var context = CreateContext(nameof(GetByIdAsync_WhenExists_ReturnsTheMappedActivity));
-        context.Set<ActivityEntity>().Add(NewEntity(1, 1200));
+        context.Set<Activity>().Add(NewEntity(1, 1200));
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.GetByIdAsync(1);
 
@@ -61,7 +61,7 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task GetByIdAsync_WhenNotFound_ReturnsTheDomainNotFoundError()
     {
         using var context = CreateContext(nameof(GetByIdAsync_WhenNotFound_ReturnsTheDomainNotFoundError));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.GetByIdAsync(999);
 
@@ -75,7 +75,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(GetByIdAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.GetByIdAsync(1);
@@ -91,9 +91,9 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task ExistsAsync_WhenTheActivityExists_ReturnsTrue()
     {
         using var context = CreateContext(nameof(ExistsAsync_WhenTheActivityExists_ReturnsTrue));
-        context.Set<ActivityEntity>().Add(NewEntity(1, 1200));
+        context.Set<Activity>().Add(NewEntity(1, 1200));
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         (await sut.ExistsAsync(1)).Value.ShouldBeTrue();
     }
@@ -102,7 +102,7 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task ExistsAsync_WithAnUnknownId_ReturnsFalse()
     {
         using var context = CreateContext(nameof(ExistsAsync_WithAnUnknownId_ReturnsFalse));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         (await sut.ExistsAsync(404)).Value.ShouldBeFalse();
     }
@@ -112,7 +112,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(ExistsAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.ExistsAsync(1);
@@ -128,7 +128,7 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task GetAllAsync_WhenEmpty_ReturnsEmptyPagedResult()
     {
         using var context = CreateContext(nameof(GetAllAsync_WhenEmpty_ReturnsEmptyPagedResult));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.GetAllAsync(new PageQuery(0, 10));
 
@@ -141,9 +141,9 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task GetAllAsync_WhenMultipleExist_PagesOrderedById()
     {
         using var context = CreateContext(nameof(GetAllAsync_WhenMultipleExist_PagesOrderedById));
-        context.Set<ActivityEntity>().AddRange(NewEntity(3, 1200), NewEntity(1, 1200), NewEntity(2, 1200));
+        context.Set<Activity>().AddRange(NewEntity(3, 1200), NewEntity(1, 1200), NewEntity(2, 1200));
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var firstPage = await sut.GetAllAsync(new PageQuery(0, 2));
         var secondPage = await sut.GetAllAsync(new PageQuery(1, 2));
@@ -158,7 +158,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(GetAllAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.GetAllAsync(new PageQuery(0, 10));
@@ -168,39 +168,54 @@ public sealed class ActivityRepositoryAdapterTests
         logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
     }
 
+    // ── CreateAsync ───────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task CreateAsync_WhenValid_WritesTheRowAndReturnsItWithTheGeneratedId()
+    {
+        using var context = CreateContext(nameof(CreateAsync_WhenValid_WritesTheRowAndReturnsItWithTheGeneratedId));
+        var sut = new ActivityRepository(context, Logger());
+
+        var result = await sut.CreateAsync(NewActivity(1200));
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Id.ShouldBeGreaterThan(0, "the identity only exists once the row does");
+        (await context.Set<Activity>().CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs()
+    {
+        var context = CreateContext(nameof(CreateAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
+        var logger = Logger();
+        var sut = new ActivityRepository(context, logger);
+        await context.DisposeAsync();
+
+        var result = await sut.CreateAsync(NewActivity(1200));
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.Internal);
+        result.Error.Origin.ShouldBe(nameof(ActivityRepository), "the repository seals its own failures");
+        logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
+    }
+
     // ── AddAsync ──────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task AddAsync_WhenValid_StagesTheRowWithoutWritingIt()
     {
         using var context = CreateContext(nameof(AddAsync_WhenValid_StagesTheRowWithoutWritingIt));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
         var activity = NewActivity(1200);
 
         var result = await sut.AddAsync(activity);
 
         result.IsSuccess.ShouldBeTrue();
 
-        // Nothing is written until the unit of work commits: that is what lets a failed commit
-        // leave no row behind for the caller to duplicate on a retry.
-        context.ChangeTracker.Entries<ActivityEntity>().Count().ShouldBe(1);
-        activity.Id.ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task AddAsync_OnceTheUnitOfWorkCommits_AssignsTheGeneratedId()
-    {
-        using var context = CreateContext(nameof(AddAsync_OnceTheUnitOfWorkCommits_AssignsTheGeneratedId));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
-        var activity = NewActivity(1200);
-
-        await sut.AddAsync(activity);
-        activity.Id.ShouldBe(0, "the id cannot exist before the row does");
-
-        await context.SaveChangesAsync();
-
-        activity.Id.ShouldBeGreaterThan(0);
-        (await context.Set<ActivityEntity>().CountAsync()).ShouldBe(1);
+        // Queued only: this is the member for a write that joins a larger transaction, so the
+        // unit of work is what decides when — and whether — the row exists.
+        context.ChangeTracker.Entries<Activity>().Count().ShouldBe(1);
+        (await context.Set<Activity>().CountAsync()).ShouldBe(0);
     }
 
     [Fact]
@@ -208,7 +223,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(AddAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.AddAsync(NewActivity(1200));
@@ -227,20 +242,21 @@ public sealed class ActivityRepositoryAdapterTests
         var activity = NewActivity(1200);
         using (var seedContext = CreateContext(dbName))
         {
-            await new ActivityRepositoryAdapter(seedContext, Logger()).AddAsync(activity);
-            await seedContext.SaveChangesAsync();
+            // Seeded with CreateAsync, not AddAsync: Update needs an aggregate that already
+            // carries its identity, or EF reads the default key as a second insert.
+            await new ActivityRepository(seedContext, Logger()).CreateAsync(activity);
         }
 
         // A fresh context, like RepositoryBaseEFTests: Update's own tracked entity would
-        // otherwise conflict with the one AddAsync already tracks for the same key.
+        // otherwise conflict with the one the insert already tracks for the same key.
         using var context = CreateContext(dbName);
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = sut.Update(activity);
         await context.SaveChangesAsync();
 
         result.IsSuccess.ShouldBeTrue();
-        (await context.Set<ActivityEntity>().CountAsync()).ShouldBe(1);
+        (await context.Set<Activity>().CountAsync()).ShouldBe(1);
     }
 
     [Fact]
@@ -248,7 +264,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(Update_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         var activity = NewActivity(1200);
         await context.DisposeAsync();
 
@@ -265,22 +281,22 @@ public sealed class ActivityRepositoryAdapterTests
     public async Task RemoveAsync_WhenTheActivityExists_MarksItForDeletion()
     {
         using var context = CreateContext(nameof(RemoveAsync_WhenTheActivityExists_MarksItForDeletion));
-        context.Set<ActivityEntity>().Add(NewEntity(1, 1200));
+        context.Set<Activity>().Add(NewEntity(1, 1200));
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.RemoveAsync(1);
         await context.SaveChangesAsync();
 
         result.IsSuccess.ShouldBeTrue();
-        (await context.Set<ActivityEntity>().CountAsync()).ShouldBe(0);
+        (await context.Set<Activity>().CountAsync()).ShouldBe(0);
     }
 
     [Fact]
     public async Task RemoveAsync_WithAnUnknownId_ReturnsTheDomainNotFoundError()
     {
         using var context = CreateContext(nameof(RemoveAsync_WithAnUnknownId_ReturnsTheDomainNotFoundError));
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.RemoveAsync(404);
 
@@ -293,7 +309,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(RemoveAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.RemoveAsync(1);
@@ -312,12 +328,12 @@ public sealed class ActivityRepositoryAdapterTests
         context.Set<Opportunity>().Add(new Opportunity { Id = 845, Name = "x", IsArchived = false });
         context.Set<Deal>().Add(new Deal { Id = 1200, OpportunityId = 845, DealStateId = 3, Name = "x" });
         context.Set<Deal>().Add(new Deal { Id = 1300, OpportunityId = 999999, DealStateId = 9, Name = "x" });
-        context.Set<ActivityEntity>().AddRange(
+        context.Set<Activity>().AddRange(
             NewEntity(1, dealId: 1200, opportunityId: 845),
             NewEntity(2, dealId: 1300), // deal's opportunity does not exist — excluded
             NewEntity(3, dealId: 777777)); // deal does not exist — excluded
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var byDeal = await sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
         var byOpportunity = await sut.SearchAsync(new ActivityFilter(null, 845, null), new PageQuery(0, 10));
@@ -335,9 +351,9 @@ public sealed class ActivityRepositoryAdapterTests
         using var context = CreateContext(nameof(SearchAsync_CarriesTheDealAndOpportunityNamesOfEachRow));
         context.Set<Opportunity>().Add(new Opportunity { Id = 845, Name = "Oportunidad", IsArchived = false });
         context.Set<Deal>().Add(new Deal { Id = 1200, OpportunityId = 845, DealStateId = 3, Name = "Negocio" });
-        context.Set<ActivityEntity>().Add(NewEntity(1, dealId: 1200, opportunityId: 845));
+        context.Set<Activity>().Add(NewEntity(1, dealId: 1200, opportunityId: 845));
         await context.SaveChangesAsync();
-        var sut = new ActivityRepositoryAdapter(context, Logger());
+        var sut = new ActivityRepository(context, Logger());
 
         var result = await sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
 
@@ -355,7 +371,7 @@ public sealed class ActivityRepositoryAdapterTests
     {
         var context = CreateContext(nameof(SearchAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs));
         var logger = Logger();
-        var sut = new ActivityRepositoryAdapter(context, logger);
+        var sut = new ActivityRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.SearchAsync(new ActivityFilter(null, null, null), new PageQuery(0, 10));

@@ -16,7 +16,7 @@ namespace Activities.Domain.Models;
 /// </para>
 /// </remarks>
 public sealed record ActivityListItem(
-    Activity Activity,
+    ActivityAggregate Activity,
     string? DealName,
     string? OpportunityName,
     string? AdvisorName,

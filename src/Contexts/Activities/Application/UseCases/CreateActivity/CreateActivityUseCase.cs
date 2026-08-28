@@ -4,7 +4,6 @@ using Activities.Domain.Aggregates;
 using Activities.Domain.Enums;
 using Activities.Domain.Errors;
 using Activities.Domain.Repositories;
-using Shared.Application.Ports;
 using Shared.Results;
 using Shared.Results.Errors;
 
@@ -32,7 +31,7 @@ namespace Activities.Application.UseCases.CreateActivity;
 /// </para>
 /// <para>
 /// The clock is <see cref="TimeProvider"/> for now, in UTC, and it only stamps <c>CompletedAt</c>:
-/// <c>CreatedAt</c> is still stamped by <c>Activity.Created()</c> with <c>DateTime.UtcNow</c>.
+/// <c>CreatedAt</c> is still stamped by <c>ActivityAggregate.Created()</c> with <c>DateTime.UtcNow</c>.
 /// Both are the institution's clock once Tarea 4 lands <c>IClockPort</c> (DEC-12) — two places to
 /// change, not one.
 /// </para>
@@ -41,7 +40,6 @@ public sealed class CreateActivityUseCase(
     IActivityRepository repository,
     IDealReader dealReader,
     IAdvisorReader advisorReader,
-    IUnitOfWorkPort unitOfWork,
     TimeProvider timeProvider) : ICreateActivityUseCase
 {
     private const string Origin = nameof(CreateActivityUseCase);
@@ -80,29 +78,25 @@ public sealed class CreateActivityUseCase(
             return Enrich(ActivityErrors.OpportunityArchived with { Value = input.DealId });
 
         var activityResult = status == ActivityStatus.Scheduled
-            ? Activity.Schedule(input.ToScheduleArgs(type, deal.OpportunityId, advisorCode))
-            : Activity.RegisterCompleted(
+            ? ActivityAggregate.Schedule(input.ToScheduleArgs(type, deal.OpportunityId, advisorCode))
+            : ActivityAggregate.RegisterCompleted(
                 input.ToCompleteArgs(type, deal.OpportunityId, advisorCode),
                 timeProvider.GetUtcNow().UtcDateTime);
 
         if (activityResult.IsFailure)
             return Enrich(activityResult.Error);
 
-        var activity = activityResult.Value;
+        // CreateAsync confirms its own insert and hands the activity back carrying the generated
+        // consecutive, so there is no unit of work to commit afterwards. Its failure travels
+        // untouched: the repository already sealed where it happened.
+        var createResult = await repository
+            .CreateAsync(activityResult.Value, cancellationToken)
+            .ConfigureAwait(false);
 
-        var addResult = await repository.AddAsync(activity, cancellationToken).ConfigureAwait(false);
-        if (addResult.IsFailure)
-            return Enrich(addResult.Error);
+        if (createResult.IsFailure)
+            return createResult.Error;
 
-        // The commit is its own explicit step, never implicit in AddAsync: this is the single
-        // point where the row is written, so a failure here means nothing was persisted and the
-        // caller can retry without duplicating the activity. The generated id lands on the
-        // aggregate as part of this commit.
-        var commitResult = await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
-        if (commitResult.IsFailure)
-            return Enrich(commitResult.Error);
-
-        return activity.ToOutputDto();
+        return createResult.Value.ToOutputDto();
     }
 
     /// <summary>
@@ -130,15 +124,20 @@ public sealed class CreateActivityUseCase(
     }
 
     /// <summary>
-    /// Stamps the error with its context and origin, and wraps a bare validation error into the
-    /// same envelope the aggregate's failures use.
+    /// Seals an error this use case originates — its own rules and the aggregate's — with the
+    /// context and origin, and wraps a bare validation error into the same envelope the
+    /// aggregate's failures use.
     /// </summary>
     /// <remarks>
-    /// Without the wrapping, the two halves of the same 400 would look different on the wire: the
-    /// error the API serializes reads only <c>DomainError.Details</c>, which a lone
-    /// <see cref="ValidationError"/> leaves empty — so its <c>Property</c> and <c>Value</c>, the
-    /// very fields the monolith adapter needs to report the offending input, would never reach the
-    /// caller.
+    /// Only for errors born here. What the repository or a reader returns travels untouched: they
+    /// already stamped where the failure happened, and rewriting it would make the log name this
+    /// class for something that broke elsewhere.
+    /// <para>
+    /// The wrapping exists because the error the API serializes reads only
+    /// <c>DomainError.Details</c>, which a lone <see cref="ValidationError"/> leaves empty — so its
+    /// <c>Property</c> and <c>Value</c>, the very fields the monolith adapter needs to report the
+    /// offending input, would never reach the caller.
+    /// </para>
     /// </remarks>
     private static DomainError Enrich(DomainError error)
     {

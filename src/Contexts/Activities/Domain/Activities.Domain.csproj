@@ -4,9 +4,13 @@
   </ItemGroup>
 
   <!-- Persistence rehydration only: the repository mapper rebuilds aggregates through the
-       internal Activity.Reconstruct and the value objects' internal Reconstruct (stored legacy
-       values are valid data even where today's creation rules would reject them — DEC-6). -->
+       internal ActivityAggregate.Reconstruct and the value objects' internal Reconstruct (stored
+       legacy values are valid data even where today's creation rules would reject them — DEC-6),
+       and stamps the generated identity through AssignId.
+       UnitTests needs the same door to fake a repository that persisted: without it a test cannot
+       tell an activity that came back with an identity from the one it sent in. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Infrastructure" />
+    <InternalsVisibleTo Include="UnitTests" />
   </ItemGroup>
 </Project>

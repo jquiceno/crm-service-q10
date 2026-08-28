@@ -18,7 +18,7 @@ public sealed class ServiceInfoController() : ControllerBase
     [EndpointSummary("Get service info")]
     [EndpointDescription("Returns basic service information: status, service name, and version.")]
     public async Task<HttpOkResult<GetServiceInfoOutputDto>> GetInfo(
-        IGetServiceInfoPort getServiceInfoPort,
+        IGetServiceInfoUseCase getServiceInfoPort,
         CancellationToken cancellationToken = default)
     {
         return await getServiceInfoPort.ExecuteAsync(cancellationToken).ConfigureAwait(false);

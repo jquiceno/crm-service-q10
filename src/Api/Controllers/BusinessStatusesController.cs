@@ -71,7 +71,7 @@ public sealed class BusinessStatusesController(
         return await createBusinessStatusUseCase.ExecuteAsync(input, cancellationToken).ConfigureAwait(false);
     }
 
-    [HttpGet("{id}")]
+    [HttpGet("{id:int}")]
     [EndpointSummary("Get business status by id")]
     [EndpointDescription("Returns the business status with the given id. An unknown id answers 404.")]
     [ProducesResponseType(typeof(ApiSuccessResponse<GetBusinessStatusByIdOutputDto>), StatusCodes.Status200OK)]

@@ -309,8 +309,17 @@ public sealed class BusinessStatusRepository(
     {
         if (!string.IsNullOrWhiteSpace(filter.Name))
         {
-            var pattern = $"%{filter.Name.Trim()}%";
-            query = query.Where(x => EF.Functions.Like(x.Name!, pattern));
+            // A partial-match filter, not a pattern the caller writes: the LIKE metacharacters
+            // '%', '_' and '[' are escaped so a name of "%" matches the literal per cent sign, not
+            // every row. The backslash is escaped first (it is the escape character declared below),
+            // otherwise it would double-escape the ones that follow.
+            var escaped = filter.Name.Trim()
+                .Replace("\\", "\\\\")
+                .Replace("%", "\\%")
+                .Replace("_", "\\_")
+                .Replace("[", "\\[");
+            var pattern = $"%{escaped}%";
+            query = query.Where(x => EF.Functions.Like(x.Name!, pattern, "\\"));
         }
 
         if (filter.IsActive.HasValue)

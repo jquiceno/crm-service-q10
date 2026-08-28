@@ -7,7 +7,7 @@ public static class CreateBusinessStatusMapping
 {
     public static Result<BusinessStatusAggregate> ToAggregate(this CreateBusinessStatusInputDto input) =>
         BusinessStatusAggregate.Create(
-            new CreateBusinessStatusArgs(input.Name, input.Percentage, input.Color, input.IsActive));
+            new CreateBusinessStatusArgs(input.Name, input.Percentage!.Value, input.Color, input.IsActive));
 
     public static CreateBusinessStatusOutputDto ToOutputDto(this BusinessStatusAggregate aggregate) =>
         new(aggregate.Id,

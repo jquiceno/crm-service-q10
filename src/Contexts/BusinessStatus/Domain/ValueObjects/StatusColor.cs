@@ -9,6 +9,13 @@ public sealed class StatusColor : ValueObject
 {
     public const int Length = 6;
 
+    /// <summary>
+    /// The shape a colour must have: <see cref="Length"/> hexadecimal characters, no '#'. It lives
+    /// here, next to the rule it describes, so the structural validators of every slice reference the
+    /// domain instead of one slice's validator reaching into another's internal constant.
+    /// </summary>
+    public const string Pattern = "^[0-9A-Fa-f]{6}$";
+
     public string Value { get; }
 
     private StatusColor(string value)

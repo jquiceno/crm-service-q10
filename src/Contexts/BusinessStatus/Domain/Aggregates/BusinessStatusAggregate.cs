@@ -62,7 +62,7 @@ public sealed class BusinessStatusAggregate : AggregateRoot<int>
         return aggregate;
     }
 
-    public Result<BusinessStatusAggregate> Update(UpdateBusinessStatusArgs args)
+    public Result Update(UpdateBusinessStatusArgs args)
     {
         var errors = new List<ValidationError>();
 
@@ -87,7 +87,9 @@ public sealed class BusinessStatusAggregate : AggregateRoot<int>
         IsActive = args.IsActive;
         SetUpdatedAt(DateTime.UtcNow);
 
-        return this;
+        // A payload-less Result: the mutation happened in place on this aggregate, so there is nothing
+        // to hand back — the caller keeps using the very instance it updated.
+        return Result.Success();
     }
 
     public Result EnsureCanBeDeleted()
@@ -132,7 +134,10 @@ public sealed class BusinessStatusAggregate : AggregateRoot<int>
             return BusinessStatusErrors.NameRequired;
 
         if (name.Trim().Length > MaxNameLength)
-            return BusinessStatusErrors.NameTooLong with { Value = name };
+            // Only the first MaxNameLength characters travel in the error Value: the offending name
+            // can be arbitrarily large and would otherwise be reflected whole into the payload and the
+            // logs. The limit itself already travels in the error's maxLength attribute.
+            return BusinessStatusErrors.NameTooLong with { Value = name.Trim()[..MaxNameLength] };
 
         return null;
     }

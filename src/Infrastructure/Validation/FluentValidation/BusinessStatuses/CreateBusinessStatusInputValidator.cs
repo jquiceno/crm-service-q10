@@ -13,8 +13,6 @@ namespace Infrastructure.Validation.FluentValidation.BusinessStatuses;
 public sealed class CreateBusinessStatusInputValidator
     : AbstractValidator<CreateBusinessStatusInputDto>, IStructuralValidator<CreateBusinessStatusInputDto>
 {
-    internal const string ColorPattern = "^[0-9A-Fa-f]{6}$";
-
     public CreateBusinessStatusInputValidator()
     {
         RuleFor(x => x.Name)
@@ -24,11 +22,13 @@ public sealed class CreateBusinessStatusInputValidator
             .WithMessage($"Business status name must not exceed {BusinessStatusAggregate.MaxNameLength} characters.");
 
         RuleFor(x => x.Percentage)
+            .NotNull()
+            .WithMessage("Percentage is required.")
             .InclusiveBetween(BusinessStatusAggregate.MinPercentage, BusinessStatusAggregate.MaxPercentage)
             .WithMessage($"Percentage must be between {BusinessStatusAggregate.MinPercentage} and {BusinessStatusAggregate.MaxPercentage}.");
 
         RuleFor(x => x.Color)
-            .Matches(ColorPattern)
+            .Matches(StatusColor.Pattern)
             .WithMessage($"Color must be {StatusColor.Length} hexadecimal characters without '#'.")
             .When(x => !string.IsNullOrWhiteSpace(x.Color));
     }

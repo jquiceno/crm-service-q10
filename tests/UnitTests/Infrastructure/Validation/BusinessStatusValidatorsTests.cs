@@ -18,14 +18,14 @@ public sealed class BusinessStatusValidatorsTests
 
     private static CreateBusinessStatusInputDto CreateInput(
         string? name = "Negotiation",
-        decimal percentage = 50m,
+        decimal? percentage = 50m,
         string? color = "49ff7c",
         bool isActive = true) =>
         new(name, percentage, color, isActive);
 
     private static UpdateBusinessStatusInputDto UpdateInput(
         string? name = "Negotiation",
-        decimal percentage = 50m,
+        decimal? percentage = 50m,
         string? color = "49ff7c",
         bool isActive = true) =>
         new(name, percentage, color, isActive);
@@ -99,6 +99,19 @@ public sealed class BusinessStatusValidatorsTests
         var result = _createValidator.Validate(CreateInput(percentage: 50.5m));
 
         result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void CreateValidator_WithoutPercentage_HasNotNullErrorOnPercentage()
+    {
+        // An omitted percentage deserializes to null and must fail against its own property here,
+        // not bind to 0 and draw the misleading terminal-percentage error from the domain.
+        var result = _createValidator.Validate(CreateInput(percentage: null));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e =>
+            e.PropertyName == nameof(CreateBusinessStatusInputDto.Percentage)
+            && e.ErrorMessage == "Percentage is required.");
     }
 
     [Theory]
@@ -195,6 +208,19 @@ public sealed class BusinessStatusValidatorsTests
         var result = _updateValidator.Validate(UpdateInput(percentage: 50.5m));
 
         result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void UpdateValidator_WithoutPercentage_HasNotNullErrorOnPercentage()
+    {
+        // The PUT requires the percentage explicitly (R-12): an omitted field is a NotNull failure
+        // against its own property, never a silent bind to 0.
+        var result = _updateValidator.Validate(UpdateInput(percentage: null));
+
+        result.IsValid.ShouldBeFalse();
+        result.Errors.ShouldContain(e =>
+            e.PropertyName == nameof(UpdateBusinessStatusInputDto.Percentage)
+            && e.ErrorMessage == "Percentage is required.");
     }
 
     [Theory]

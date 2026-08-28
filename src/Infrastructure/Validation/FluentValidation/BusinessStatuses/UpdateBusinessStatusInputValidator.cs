@@ -23,11 +23,13 @@ public sealed class UpdateBusinessStatusInputValidator
             .WithMessage($"Business status name must not exceed {BusinessStatusAggregate.MaxNameLength} characters.");
 
         RuleFor(x => x.Percentage)
+            .NotNull()
+            .WithMessage("Percentage is required.")
             .InclusiveBetween(BusinessStatusAggregate.MinPercentage, BusinessStatusAggregate.MaxPercentage)
             .WithMessage($"Percentage must be between {BusinessStatusAggregate.MinPercentage} and {BusinessStatusAggregate.MaxPercentage}.");
 
         RuleFor(x => x.Color)
-            .Matches(CreateBusinessStatusInputValidator.ColorPattern)
+            .Matches(StatusColor.Pattern)
             .WithMessage($"Color must be {StatusColor.Length} hexadecimal characters without '#'.")
             .When(x => !string.IsNullOrWhiteSpace(x.Color));
     }

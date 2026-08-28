@@ -263,6 +263,26 @@ public sealed class BusinessStatusRepositoryTests
     }
 
     [Fact]
+    public async Task GetAsync_FilteringByAName_TreatsLikeWildcardsAsLiterals()
+    {
+        // A partial-match filter, not a pattern: a '%' in the name must match the literal per cent
+        // sign, not stand in for any run of characters. Without escaping, "50%" would also match
+        // "5010 done".
+        var database = nameof(GetAsync_FilteringByAName_TreatsLikeWildcardsAsLiterals);
+        await SeedAsync(
+            database,
+            Row(1, name: "50% done", percentage: 10m),
+            Row(2, name: "5010 done", percentage: 20m));
+        using var context = CreateContext(database);
+
+        var result = await NewRepository(context)
+            .GetAsync(new BusinessStatusFilter("50%", IsActive: null, BusinessStatusKind.All), FirstPage);
+
+        result.Items.Select(x => x.Id).ShouldBe([1]);
+        result.TotalCount.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task GetAsync_WithABlankName_AppliesNoNameFilter()
     {
         var database = nameof(GetAsync_WithABlankName_AppliesNoNameFilter);

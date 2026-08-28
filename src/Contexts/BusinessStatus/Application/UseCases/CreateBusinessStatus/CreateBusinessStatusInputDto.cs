@@ -5,14 +5,17 @@ namespace BusinessStatus.Application.UseCases.CreateBusinessStatus;
 /// <summary>
 /// Request body of <c>POST /business-statuses</c>. <c>Name</c> is nullable on purpose so the
 /// structural validator reports the failure against its own property instead of the deserializer
-/// failing first, and <c>Percentage</c> stays decimal so the aggregate can answer
-/// <c>PercentageMustBeInteger</c> as a domain error rather than model binding rejecting it.
+/// failing first, and <c>Percentage</c> is a nullable decimal for the same reason: an omitted field
+/// deserializes to <c>null</c> and the validator answers <c>NotNull</c> against its own property,
+/// instead of binding to <c>0</c> and drawing a misleading terminal-percentage error from the domain.
+/// It stays decimal — not int — so the aggregate can still answer <c>PercentageMustBeInteger</c> as a
+/// domain error rather than model binding rejecting a non-integer first.
 /// </summary>
 public sealed record CreateBusinessStatusInputDto(
     [property: Description("Business status name. Required, maximum 200 characters.")]
     string? Name,
-    [property: Description("Progress percentage of the business status. A whole number strictly between 0 and 100: both limits are reserved for the terminal statuses (Lost and Won) and cannot be assigned by this service.")]
-    decimal Percentage,
+    [property: Description("Progress percentage of the business status. Required. A whole number strictly between 0 and 100: both limits are reserved for the terminal statuses (Lost and Won) and cannot be assigned by this service.")]
+    decimal? Percentage,
     [property: Description("Stage colour as 6 hexadecimal characters without '#', for example '49ff7c'. Optional: omit it or send null to store no colour.")]
     string? Color = null,
     [property: Description("Whether the business status is active. Defaults to true when omitted.")]

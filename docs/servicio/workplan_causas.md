@@ -764,13 +764,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F3.4] Create UpdateLossReason use case
-`id: F3.4 · depende_de: F2.7 · tarea: T9 (Brayan) · estado: pending`
+`id: F3.4 · depende_de: F2.7 · tarea: T9 (Brayan) · estado: done`
 - Objetivo: la actualización.
 - Fuente: D5 · `casos-de-uso.md`
 - Archivos: `src/Contexts/LossReason/Application/UseCases/UpdateLossReason/{…}.cs` (5 archivos)
 - Detalle: cargar con `GetByIdAsync` → `aggregate.Update(input.ToUpdateArgs())` → `repository.Update(aggregate)` → `unitOfWork.CommitAsync(...)`. **El agregado se modifica, no se reemplaza.** Los errores del agregado se sellan con `Context`/`Origin`; los del repositorio y el Unit of Work se propagan tal cual.
 - Hecho cuando: el error de un repositorio que falla llega al llamador con el `Origin` del repositorio intacto.
-- Verificar: `dotnet build Service.slnx -c Release`
+- Verificar: `dotnet build Service.slnx -c Release` — **ejecutado el 2026-08-21: exit code 0, 0 errores**
 
 #### [F3.5] Create DeleteLossReason use case
 `id: F3.5 · depende_de: F2.7, F2.6 · tarea: T10 (Juan Camilo) · estado: done`
@@ -814,13 +814,13 @@ El client en el monolito, el feature flag y el orden de corte son de `03-flujos.
 - Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 3 pasan** (384 en total en la suite)
 
 #### [F3.9] Unit tests for UpdateLossReason
-`id: F3.9 · depende_de: F3.4 · tarea: T9 (Brayan) · estado: pending`
+`id: F3.9 · depende_de: F3.4 · tarea: T9 (Brayan) · estado: done`
 - Objetivo: cubrir la actualización.
 - Fuente: D4 · `testing.md`
 - Archivos: `tests/UnitTests/Contexts/LossReason/Application/UpdateLossReasonUseCaseTests.cs`
 - Detalle: casos: input válido → `Update` + `CommitAsync` recibidos una vez; id inexistente → `NotFound` sin llegar a `CommitAsync`; **nombre inválido → falla en el agregado y no se persiste** (D4); fallo del commit → `Origin` del Unit of Work propagado.
 - Hecho cuando: los 4 casos pasan.
-- Verificar: `dotnet test tests/UnitTests -c Release`
+- Verificar: `dotnet test tests/UnitTests -c Release` — **ejecutado el 2026-08-21: los 4 pasan** (385 en total en la suite)
 
 #### [F3.10] Unit tests for DeleteLossReason
 `id: F3.10 · depende_de: F3.5 · tarea: T10 (Juan Camilo) · estado: done`

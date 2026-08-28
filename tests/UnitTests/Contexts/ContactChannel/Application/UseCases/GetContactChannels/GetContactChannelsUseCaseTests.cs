@@ -30,7 +30,7 @@ public sealed class GetContactChannelsUseCaseTests
             ContactChannelAggregate.Reconstruct(id: 2, name: "Feria", isActive: false));
 
         var result = await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, SearchName: null), new PageQuery(0, 10));
+            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, Search: null), new PageQuery(0, 10));
 
         result.IsSuccess.ShouldBeTrue();
         result.TotalCount.ShouldBe(2);
@@ -68,7 +68,7 @@ public sealed class GetContactChannelsUseCaseTests
 
         await CreateUseCase()
             .ExecuteAsync(
-                new GetContactChannelsInputDto(IsActive: null, SearchName: null),
+                new GetContactChannelsInputDto(IsActive: null, Search: null),
                 page,
                 cancellation.Token);
 
@@ -86,7 +86,7 @@ public sealed class GetContactChannelsUseCaseTests
             .Returns(PagedResult<ContactChannelAggregate>.Success([], 0));
 
         var result = await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, SearchName: null), new PageQuery(0, 10));
+            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, Search: null), new PageQuery(0, 10));
 
         result.IsSuccess.ShouldBeTrue();
         result.Items.ShouldBeEmpty();
@@ -103,7 +103,7 @@ public sealed class GetContactChannelsUseCaseTests
                 42));
 
         var result = await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, SearchName: null), new PageQuery(0, 1));
+            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, Search: null), new PageQuery(0, 1));
 
         result.Items.Count.ShouldBe(1);
         result.TotalCount.ShouldBe(42);
@@ -118,7 +118,7 @@ public sealed class GetContactChannelsUseCaseTests
             .Returns(PagedResult<ContactChannelAggregate>.Failure(repositoryError));
 
         var result = await CreateUseCase()
-            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, SearchName: null), new PageQuery(0, 10));
+            .ExecuteAsync(new GetContactChannelsInputDto(IsActive: null, Search: null), new PageQuery(0, 10));
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Internal);

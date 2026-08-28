@@ -84,6 +84,7 @@ public sealed class GetAdsChannelsEndpointTests : IntegrationTestBase
 
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
         body!.Error.Type.ShouldBe("VALIDATION");
+        body.Error.Code.ShouldBe("HTTP.VALIDATION");
         body.StatusCode.ShouldBe(400);
     }
 

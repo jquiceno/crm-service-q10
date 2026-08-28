@@ -47,6 +47,7 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
 
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
         body!.Error.Type.ShouldBe("NOT_FOUND");
+        body.Error.Code.ShouldBe("HTTP.NOT_FOUND");
         body.StatusCode.ShouldBe(404);
     }
 
@@ -95,6 +96,7 @@ public sealed class DeleteAdsChannelEndpointTests : IntegrationTestBase
 
             var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
             body!.Error.Type.ShouldBe("CONFLICT");
+            body.Error.Code.ShouldBe("HTTP.CONFLICT");
             body.StatusCode.ShouldBe(409);
         }
         finally

@@ -49,6 +49,7 @@ public sealed class CreateAdsChannelEndpointTests : IntegrationTestBase
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
         body!.Error.Type.ShouldBe("CONFLICT");
         body.Error.Code.ShouldBe("HTTP.CONFLICT");
+        body.StatusCode.ShouldBe(409);
     }
 
     [Fact]
@@ -63,5 +64,6 @@ public sealed class CreateAdsChannelEndpointTests : IntegrationTestBase
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
         body!.Error.Type.ShouldBe("VALIDATION");
         body.Error.Code.ShouldBe("HTTP.VALIDATION");
+        body.StatusCode.ShouldBe(400);
     }
 }

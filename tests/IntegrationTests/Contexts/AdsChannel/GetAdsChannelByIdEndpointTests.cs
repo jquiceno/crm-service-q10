@@ -45,6 +45,7 @@ public sealed class GetAdsChannelByIdEndpointTests : IntegrationTestBase
 
         var body = await response.Content.ReadFromJsonAsync<ApiErrorResponse>(JsonSerializerOptions.Web);
         body!.Error.Type.ShouldBe("NOT_FOUND");
+        body.Error.Code.ShouldBe("HTTP.NOT_FOUND");
         body.StatusCode.ShouldBe(404);
     }
 

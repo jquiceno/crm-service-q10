@@ -14,6 +14,8 @@ El servicio dispone de dos niveles de caché complementarios:
     * [ConfigureCache (registro y política base)](#configurecache-registro-y-pol%C3%ADtica-base)
     * [UseCacheMiddleware (pipeline)](#usecachemiddleware-pipeline)
     * [\[OutputCache\]](#outputcache)
+    * [Cómo se arma la clave de caché](#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9)
+    * [Qué se cachea sin declarar nada](#qu%C3%A9-se-cachea-sin-declarar-nada)
     * [\[OutputCacheInvalidate\]](#outputcacheinvalidate)
   * [Configuración](#configuraci%C3%B3n)
   * [Cómo habilitar caché en un endpoint](#c%C3%B3mo-habilitar-cach%C3%A9-en-un-endpoint)
@@ -45,7 +47,7 @@ El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCor
 
 Principios:
 
-* **Opt-in por endpoint** con `[OutputCache]` en el método del controlador.
+* **TTL y tags por endpoint** con `[OutputCache]` en el método del controlador. El atributo ajusta la caché; no la activa: la política base aplica a todo endpoint que pase por el middleware (ver [Qué se cachea sin declarar nada](#qu%C3%A9-se-cachea-sin-declarar-nada)).
 * **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Entity-Code", "Accept-Language")` en la política base.
 * **Invalidación por etiquetas (tags)**: los `GET` se etiquetan con `Tags = [...]` y las mutaciones usan el filtro `[OutputCacheInvalidate("tag")]` que llama a `IOutputCacheStore.EvictByTagAsync` tras una respuesta exitosa para invalidar esas llaves de caché.
 
@@ -60,10 +62,14 @@ src/
 │   ├── Program.cs                               ← .ConfigureCache(..) + .UseCacheMiddleware()
 │   ├── DependencyInjection/
 │   │   └── OutputCacheExtensions.cs             ← ConfigureCache + UseCacheMiddleware
-│   ├── Filters/
-│   │   └── OutputCacheInvalidateAttribute.cs    ← IActionFilter que llama EvictByTagAsync
 │   └── Controllers/
 │       └── *Controller.cs                       ← [OutputCache] y [OutputCacheInvalidate]
+│
+├── Shared/
+│   └── Infrastructure/
+│       └── Presentation/
+│           └── Filters/
+│               └── OutputCacheInvalidateAttribute.cs  ← IAsyncActionFilter que llama EvictByTagAsync
 │
 └── Infrastructure/
     └── Settings/
@@ -85,7 +91,7 @@ Método de extensión que lee `CacheSettings`, lo registra en `IOptions<CacheSet
 services.ConfigureCache(builder.Configuration);
 ```
 
-Cuando `Enabled = false`, no se registra el servicio y los atributos `[OutputCache]` se ignoran silenciosamente. `DefaultExpirationTimeSpan` se usa cuando un endpoint no declara `Duration` en su atributo.
+Cuando `Enabled = false`, no se registra el servicio y los atributos `[OutputCache]` se ignoran silenciosamente. `DefaultExpirationTimeSpan` se aplica siempre que la respuesta se cachee sin un `Duration` explícito: tanto en endpoints sin `[OutputCache]` como en los que lo declaran sin esa propiedad.
 
 #### UseCacheMiddleware (pipeline)
 
@@ -112,25 +118,77 @@ public Task<IActionResult> GetAll(...) { ... }
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `Duration` | `int` (s) | TTL en segundos. |
+| `Duration` | `int` | **TTL en segundos.** El framework lo convierte con `TimeSpan.FromSeconds(Duration)`: `60` ⇒ 1 minuto, `3600` ⇒ 1 hora, `86400` ⇒ 1 día. Si no se declara, aplica `Cache:DefaultTtlSeconds`. |
 | `Tags`    | `string[]` | Etiquetas para invalidación con `EvictByTagAsync`. |
-| `VaryByHeaderNames` | `string[]` | Añade headers a la clave (complementa la política base). |
-| `VaryByQueryKeys` | `string[]` | Restringe qué claves de query string varían la clave (`["*"]` = todas). |
-| `VaryByRouteValueNames` | `string[]` | Varía por valores de ruta. |
+| `VaryByHeaderNames` | `string[]` | Añade headers a la clave (se suma a los de la política base). |
+| `VaryByQueryKeys` | `string[]` | **Restringe** la clave a esas claves de query string. Sin declararlo, ya varían **todas** (ver abajo). |
+| `VaryByRouteValueNames` | `string[]` | Varía por valores de ruta. **Normalmente innecesario:** la ruta ya forma parte de la clave (ver abajo). |
 | `PolicyName` | `string` | Selecciona una política nombrada en lugar de la base. |
 | `NoStore` | `bool` | Desactiva el caché para esta acción. |
 
-Comportamiento por defecto del middleware:
+La política base se construye sobre `DefaultPolicy`, que solo permite cachear si se cumplen **todas** estas condiciones:
 
-* Solo hace caché en respuestas `GET` y `HEAD`.
-* Solo guarda en caché respuestas con status 200.
+* Método `GET` o `HEAD`.
+* Respuesta con status 200.
+* Sin header `Authorization` y sin usuario autenticado (`HttpContext.User.Identity.IsAuthenticated`).
+* Respuesta sin `Set-Cookie`.
+
+
+---
+
+#### Cómo se arma la clave de caché
+
+Desconocer esta composición lleva a declarar `VaryByRouteValueNames` de forma preventiva, cuando la ruta ya forma parte de la clave.
+
+`OutputCacheKeyProvider` compone la clave en dos bloques:
+
+**1. Clave base — siempre presente, no es configurable por atributo:**
+
+```
+{MÉTODO}·{ESQUEMA}·{HOST}·{PATHBASE}{PATH}
+```
+
+El `PATH` es la **URL ya resuelta**, es decir con los segmentos de ruta sustituidos: `GET /{RoutePrefix}/products/7d3f…` y `GET /{RoutePrefix}/products/91ab…` producen dos claves distintas **sin declarar nada**. El prefijo de servicio forma parte del path, porque se antepone a las rutas y no vía `UsePathBase`. Salvo que se active `UseCaseSensitivePaths`, el path se normaliza a mayúsculas, así que `/products` y `/Products` comparten entrada.
+
+**2. Bloque de variación — lo que aportan las políticas y el atributo:**
+
+| Marca | Origen | En esta plantilla |
+|-------|--------|-------------------|
+| `H` | Headers | `X-Entity-Code` y `Accept-Language` (política base) más los de `VaryByHeaderNames` |
+| `Q` | Query string | Con `[OutputCache]`: **todas** las claves, salvo que se declare `VaryByQueryKeys`. Sin el atributo: solo `EntityCode` |
+| `R` | Valores de ruta | Solo los declarados en `VaryByRouteValueNames` |
+| `V` | Valores personalizados | Solo con políticas custom (`VaryByValue`) |
+
+**Por qué la query varía por defecto:** `DefaultPolicy` fija `QueryKeys = "*"`. La política base lo restringe a `EntityCode`, pero el atributo `[OutputCache]` aplica `DefaultPolicy` de nuevo después de ella y restaura `"*"`. Resultado: en todo endpoint anotado varían todas las claves de query string.
+
+> **Cuidado con `VaryByQueryKeys`:** declararlo *restringe* la clave a esas claves. `[OutputCache(VaryByQueryKeys = ["pageIndex"])]` en un listado filtrado hace que dos filtros distintos compartan entrada de caché. Se declara solo cuando se quiere ignorar deliberadamente el resto de la query (p. ej. parámetros de tracking).
+
+**Cuándo aporta `VaryByRouteValueNames`:** solo cuando el valor de ruta no se refleja en el path — valores por defecto de la plantilla de ruta o inyectados por el routing. En los controllers de esta plantilla todo parámetro de ruta viene de un segmento de la URL, así que declararlo no altera la clave.
+
+
+---
+
+#### Qué se cachea sin declarar nada
+
+La caché no se habilita endpoint por endpoint. `AddBasePolicy` registra la política base para **toda** petición que llegue al middleware, y esa política se construye sobre `DefaultPolicy`, que fija `EnableOutputCaching = true`. El atributo solo ajusta TTL, tags y variación. Comportamiento verificado con `Cache:Enabled = true`:
+
+| Endpoint | Anotación | Resultado |
+|----------|-----------|-----------|
+| `GET /info` | ninguna | Se cachea `DefaultTtlSeconds` (300 s), variando por `X-Entity-Code` / `Accept-Language` |
+| `GET /products/{id}` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada `id` es una entrada, sin declarar `VaryByRouteValueNames` |
+| `GET /list?filter=x` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada valor de `filter` es una entrada, sin declarar `VaryByQueryKeys` |
+| cualquiera, con header `Authorization` | cualquiera | No se cachea: ni lectura ni escritura de la entrada |
+
+> **Efecto sobre la invalidación.** Una respuesta cacheada por la política base se guarda **sin tags**, y `EvictByTagAsync` solo borra por tag: esa entrada queda fuera del alcance de `[OutputCacheInvalidate]` y sirve datos obsoletos hasta que expire su TTL. Toda lectura debe declarar `[OutputCache(Tags = [...])]` para poder invalidarse, o `[OutputCache(NoStore = true)]` para quedar excluida. Omitir el atributo no deja el endpoint fuera de la caché.
+
+> **Respuestas autenticadas.** Si las peticiones llegan con header `Authorization`, el L1 no almacena nada, aunque el endpoint declare `[OutputCache]`. La comprobación es sobre el header crudo, así que aplica aunque el pipeline no tenga `UseAuthentication`. Cachearlas exige registrar la política base con `AddBasePolicy(build, excludeDefaultPolicy: true)` y reconstruir las reglas necesarias — con la clave variando por identidad, o se sirven datos de un usuario a otro.
 
 
 ---
 
 #### `[OutputCacheInvalidate]`
 
-**Ruta:** `src/Api/Filters/OutputCacheInvalidateAttribute.cs`
+**Ruta:** `src/Shared/Infrastructure/Presentation/Filters/OutputCacheInvalidateAttribute.cs` (namespace `Shared.Presentation.Filters`)
 
 El framework no trae un atributo de invalidación; solo expone la API `IOutputCacheStore.EvictByTagAsync(tag, ct)`. Este filtro la envuelve.
 
@@ -139,7 +197,7 @@ El framework no trae un atributo de invalidación; solo expone la API `IOutputCa
 * el handler no lanzó excepción, y
 * el status code final es `< 400`.
 
-`**AllowMultiple = true**` permite invalidar varios tags desde un solo endpoint (ver [múltiples recursos](#m%C3%BAltiples-recursos)).
+`AllowMultiple = true` permite invalidar varios tags desde un solo endpoint (ver [múltiples recursos](#m%C3%BAltiples-recursos)).
 
 
 ---
@@ -166,7 +224,9 @@ public sealed class CacheSettings
 }
 ```
 
-| Propiedad | Tipo | Valor por defecto | Descripción |
+La columna es el valor que toma la propiedad **si la clave no está en la configuración**, no el que trae la plantilla: su `appsettings.json` distribuye `Enabled` en `true`.
+
+| Propiedad | Tipo | Sin la clave | Descripción |
 |-----------|------|-------------------|-------------|
 | `Enabled` | `bool` | `false`           | Activa o desactiva OutputCaching (L1). Si es `false`, el middleware no se registra. |
 | `L2Enabled` | `bool` | `false`         | Activa la caché L2 de aplicación (cache-aside). Requiere `ConnectionString`. |
@@ -175,13 +235,13 @@ public sealed class CacheSettings
 
 #### appsettings
 
-**`appsettings.json`**:
+Valores que trae `appsettings.json` en la plantilla:
 
 ```json
 {
     "Cache": {
         "Enabled": true,
-        "L2Enabled": true,
+        "L2Enabled": false,
         "DefaultTtlSeconds": 300,
         "ConnectionString": ""
     }
@@ -223,28 +283,43 @@ public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
 }
 ```
 
-> La política base de caché varía por tenant y headers, **no** por los parámetros de filtro de la query. Un listado filtrado que se cachee con esa política serviría el resultado de un filtro para otro: en esos endpoints se declara `[OutputCache(NoStore = true)]` para excluirlos explícitamente.
+> La clave incluye el path, todas las claves de query (`filter`, `pageIndex`, `pageSize`…) y los headers de la política base, así que cada combinación de filtro y página es una entrada distinta. Conviene dimensionarlo: un filtro de alta cardinalidad genera muchas entradas con baja tasa de acierto, y ahí suele convenir `[OutputCache(NoStore = true)]` o cachear en L2 la consulta subyacente.
 
 #### Por ruta (resource por id)
 
+No hace falta `VaryByRouteValueNames`: el `{id}` ya forma parte del path y, por tanto, de la clave base.
+
 ```csharp
 [HttpGet("{id}")]
-[OutputCache(
-    Duration = 120,
-    Tags = ["products"],
-    VaryByRouteValueNames = ["id"])]
+[OutputCache(Duration = 120, Tags = ["products"])]
 public Task<IActionResult> GetById(Guid id, ...) { ... }
 ```
 
-#### Ignorando tenant/locale (datos globales)
+#### Datos globales (compartidos entre tenants)
 
-Crear una política nombrada en `Program.cs`:
+`ConfigureCache` registra una política nombrada `Global`, que un endpoint selecciona con `PolicyName`:
+
+```csharp
+options.AddPolicy("Global", p => { });
+```
+
+> **Tal como está registrada, `Global` no elimina la variación por tenant ni por locale.** Las políticas base se aplican antes que la del endpoint: cuando corre la nombrada, `SetVaryByHeader` ya dejó `X-Entity-Code` y `Accept-Language` en la clave, y una política vacía no los quita. Comprobado: un endpoint con `PolicyName = "Global"` sigue generando una entrada por tenant, igual que uno sin `PolicyName`.
+
+Para ignorar esos headers, la política nombrada debe reasignarlos con un array vacío — `VaryByHeaderPolicy` lo interpreta como "no variar por headers" y sobrescribe lo que fijó la política base:
+
+```csharp
+options.AddPolicy("Global", p => p.SetVaryByHeader([]));
+```
+
+Con esa corrección, el endpoint la selecciona así:
 
 ```csharp
 [HttpGet("config")]
 [OutputCache(PolicyName = "Global", Duration = 3600, Tags = ["config"])]
 public Task<IActionResult> GetConfig(...) { ... }
 ```
+
+Solo para datos idénticos en todos los tenants. Aplicarla a datos dependientes del tenant expone los de uno a los demás.
 
 
 ---
@@ -301,29 +376,17 @@ La política base varía la clave por dos headers:
 
 Si ambos headers están ausentes, la respuesta se guarda como "sin tenant / sin locale" y se comparte entre todas las peticiones.
 
+Para el tenant enviado por query string, la política base declara `SetVaryByQuery("EntityCode")`. Esa restricción solo rige en endpoints sin `[OutputCache]`; en los anotados, el atributo restaura la variación por toda la query. En ambos casos `EntityCode` queda en la clave.
+
 
 ---
 
 ### Pruebas
 
-```
-tests/ServiceTemplate.Tests/Api/
-├── Doubles/
-│   ├── CountingGetAllProductsUseCase.cs         ← decorator singleton que cuenta ejecuciones
-│   └── FakeOutputCacheStore.cs                  ← IOutputCacheStore espía para tests unitarios
-├── TestWebApplicationFactory.cs                 ← factory con cache habilitado y use case decorado
-├── OutputCacheTests.cs                          ← tests de integración: hit, vary, round-trip
-└── OutputCacheInvalidateAttributeTests.cs       ← tests unitarios del filtro de invalidación
-```
+* **L1** — `OutputCacheInvalidateAttributeTests` (unit): ejecuta el filtro de invalidación directamente sobre un `ActionExecutingContext` construido a mano, sin levantar el pipeline HTTP. Cubre la invalidación por tag, el caso sin status code explícito (asume 200 e invalida) y la omisión cuando la acción falla.
+* **L2** — `CacheKeyTests` fija el formato canónico de las llaves; `DistributedCacheExtensionsTests` verifica la elección Redis vs. NoOp; `NoOpCacheStoreTests`, `RedisCacheStoreTests` y `RedisCacheStoreEdgeCaseTests` cubren los stores y su degradación; `RedisCacheStoreIntegrationTests` corre contra Redis real (`tests/IntegrationTests/Caching/`).
 
-* **Integración** (`OutputCacheTests`): usa `TestWebApplicationFactory` con un decorator que cuenta ejecuciones del caso de uso. Prueba hit/miss, variación por tenant/locale, y round-trip GET→POST→GET.
-* **Unitarias** (`OutputCacheInvalidateAttributeTests`): ejecuta el filtro directamente con un `FakeOutputCacheStore`, sin levantar el pipeline HTTP. Prueba evicción por tag, skip on error, múltiples tags.
-
-#### Ejecutar
-
-```bash
-dotnet test
-```
+La estructura de los proyectos de test, cómo correrlos y sus prerrequisitos están en [testing.md](testing.md).
 
 
 ---
@@ -350,7 +413,7 @@ El `InstanceName` usado como prefijo de las llaves de Redis se deriva de `Servic
 El paquete ya está declarado en `src/Api/Api.csproj`:
 
 ```xml
-<PackageReference Include="Microsoft.AspNetCore.OutputCaching.StackExchangeRedis" Version="8.0.*" />
+<PackageReference Include="Microsoft.AspNetCore.OutputCaching.StackExchangeRedis" Version="10.0.*" />
 ```
 
 El registro de `AddStackExchangeRedisOutputCache` reemplaza `IOutputCacheStore`. El resto del código (atributos, filtros, políticas) no cambia.
@@ -595,7 +658,7 @@ Cache__ConnectionString=localhost:6379
 > **Atención:** cachear agregados de dominio directamente puede causar problemas.
 >
 > * Los agregados cacheados vuelven como objetos **detached** (sin tracking de EF Core). Si se pasan a `repository.Update(...)`, pueden generar inconsistencias o excepciones de tracking.
-> * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lanze una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
+> * Muchos agregados tienen constructores privados y no pueden ser deserializados por `System.Text.Json`. Cachearlos directamente provoca que cada cache hit lance una excepción que se traga como `Warning`, degradando silenciosamente a un 0 % de hit rate efectivo.
 >
 > **Preferencia:** cachear un **snapshot serializable** en lugar del agregado y reconstruir el agregado al leer del caché. Un buen candidato de snapshot es un tipo **plano y sin propiedades de navegación ni proxies de lazy-loading** (una entidad de EF Core con constructor público sin parámetros, o un `record` simple): `System.Text.Json` lo (de)serializa sin configuración adicional. El ejemplo real más abajo cachea directamente un `record` porque los datos son configuración de infraestructura, no un agregado de dominio.
 

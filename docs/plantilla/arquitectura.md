@@ -30,7 +30,7 @@ src/
 ├── Api/                              # Presentación (ASP.NET Core)
 │   ├── Controllers/                  # Endpoints HTTP
 │   ├── DependencyInjection/          # Registro de servicios por contexto
-│   ├── Filters/                      # ValidateRequestFilter, OutputCacheInvalidateAttribute
+│   ├── Filters/                      # ValidateRequestFilter
 │   ├── Results/                      # HttpOkResult, HttpCreatedResult, HttpNoContentResult, HttpOkPagedResult
 │   ├── Responses/                    # Estructura uniforme de respuesta API
 │   ├── Middleware/                   # GlobalExceptionMiddleware, RequestLoggingMiddleware

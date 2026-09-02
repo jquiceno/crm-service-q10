@@ -194,7 +194,7 @@ public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
 }
 ```
 
-No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` es opcional y solo aplica a lecturas; ver [cache.md](cache.md) para la invalidación por tags.
+No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` solo aplica a lecturas y su `Duration` está en **segundos**; omitirlo no deja el endpoint fuera de la caché, solo sin tags con los que invalidarlo. No se declara `VaryByRouteValueNames = ["id"]`: el `{id}` ya forma parte del path y por tanto de la clave — ver [cómo se arma la clave](cache.md#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9) y la invalidación por tags en [cache.md](cache.md).
 
 ### 5.5 Consultar una lista paginada (GET → 200 OK)
 
@@ -221,13 +221,15 @@ public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
 
 `[FromQuery]` se usa dos veces con DTOs distintos: uno con los filtros propios del contexto (`GetProductsInputDto`) y otro genérico de paginación (`PageQueryInputDto`, ver [repositorio.md](repositorio.md#paginación)). `HttpOkPagedResult<T>` envuelve el `PagedResult<T>` en `{ data: { items, totalCount }, statusCode }`.
 
-**Lecturas que no se deben cachear.** La política base de output cache varía por tenant y headers, **no** por los parámetros de filtro de la query. En un listado filtrado eso significaría servir el resultado de un filtro para otro, así que ese endpoint se excluye explícitamente:
+**Lecturas que no se deben cachear.** En un endpoint anotado con `[OutputCache]`, la clave incluye todas las claves de query string, así que cada combinación de filtro y página es una entrada propia. El riesgo no es servir un filtro por otro, sino la cardinalidad: un filtro libre genera muchas entradas con tasa de acierto casi nula. Cuando eso ocurre —o cuando los datos cambian demasiado rápido— el endpoint se excluye explícitamente:
 
 ```csharp
 [HttpGet]
-[OutputCache(NoStore = true)]   // los datos cambian demasiado / el filtro no participa de la clave
+[OutputCache(NoStore = true)]   // los datos cambian demasiado / demasiadas combinaciones de filtro
 [ValidateRequest]
 ```
+
+La exclusión debe ser explícita: la política base aplica a todo endpoint que pase por el middleware, anotado o no.
 
 ### 5.6 Sub-recurso / relación anidada (Link/Unlink)
 

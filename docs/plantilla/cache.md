@@ -114,13 +114,13 @@ Atributo estándar de ASP.NET Core. Se coloca sobre el método del controlador.
 
 ```csharp
 [HttpGet]
-[OutputCache(Duration = 60, Tags = ["products"])]
+[OutputCache(Duration = 3600, Tags = ["products"])]
 public Task<IActionResult> GetAll(...) { ... }
 ```
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `Duration` | `int` | **TTL en segundos.** El framework lo convierte con `TimeSpan.FromSeconds(Duration)`: `60` ⇒ 1 minuto, `3600` ⇒ 1 hora, `86400` ⇒ 1 día. Si no se declara, aplica `Cache:DefaultTtlSeconds`. |
+| `Duration` | `int` | **TTL en segundos.** Valor por defecto de la plantilla: **`3600` (1 hora)** — ver [Qué duración declarar](#qu%C3%A9-duraci%C3%B3n-declarar). El framework lo convierte con `TimeSpan.FromSeconds(Duration)`: `3600` ⇒ 1 hora, `86400` ⇒ 1 día. Si no se declara, aplica `Cache:DefaultTtlSeconds`. |
 | `Tags`    | `string[]` | Etiquetas para invalidación con `EvictByTagAsync`. |
 | `VaryByHeaderNames` | `string[]` | Añade headers a la clave (se suma a los de la política base). |
 | `VaryByQueryKeys` | `string[]` | **Restringe** la clave a esas claves de query string. Sin declararlo, ya varían **todas** (ver abajo). |
@@ -189,8 +189,8 @@ Sin esa bandera, `DefaultPolicy` fijaría `EnableOutputCaching = true` para toda
 |----------|-----------|-----------|
 | cualquier `GET` de controlador | ninguna | **No se cachea** |
 | `GET /health/live`, `/health/ready` | ninguna (minimal API) | **No se cachean** |
-| `GET /products/{id}` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada `id` es una entrada, sin declarar `VaryByRouteValueNames` |
-| `GET /list?filter=x` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada valor de `filter` es una entrada, sin declarar `VaryByQueryKeys` |
+| `GET /products/{id}` | `[OutputCache(Duration = …)]` | Se cachea; cada `id` es una entrada, sin declarar `VaryByRouteValueNames` |
+| `GET /list?filter=x` | `[OutputCache(Duration = …)]` | Se cachea; cada valor de `filter` es una entrada, sin declarar `VaryByQueryKeys` |
 | cualquiera, con header `Authorization` | cualquiera | No se cachea: ni lectura ni escritura de la entrada |
 
 Un endpoint anotado sigue heredando las reglas de variación de la política base: su clave varía por `X-Entity-Code` y `Accept-Language` aunque no declare `VaryByHeaderNames`.
@@ -282,13 +282,14 @@ Cache__ConnectionString=localhost:6379
 
 #### Caso básico
 
-El caso de uso se inyecta por el constructor del controller y el tag se declara una vez como constante, para que la lectura y su invalidación no puedan desalinearse:
+El caso de uso se inyecta por el constructor del controller. El tag y la duración se declaran una vez como constantes: el tag para que la lectura y su invalidación no puedan desalinearse, y la duración para no repetir el número en cada action ni dejar dudas sobre su unidad.
 
 ```csharp
 private const string CacheTag = "products";
+private const int CacheDurationSeconds = 3600;
 
 [HttpGet]
-[OutputCache(Duration = 60, Tags = [CacheTag])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
     [FromQuery] GetProductsInputDto filter,
     [FromQuery] PageQueryInputDto pagination,
@@ -309,9 +310,13 @@ No hace falta `VaryByRouteValueNames`: el `{id}` ya forma parte del path y, por 
 
 ```csharp
 [HttpGet("{id}")]
-[OutputCache(Duration = 120, Tags = ["products"])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public Task<IActionResult> GetById(Guid id, ...) { ... }
 ```
+
+#### Qué duración declarar
+
+**La duración de cada endpoint la decide el supervisor de la implementación del servicio (Es un GAP de implementación en caso de tener cache).**
 
 #### Datos globales (compartidos entre tenants)
 

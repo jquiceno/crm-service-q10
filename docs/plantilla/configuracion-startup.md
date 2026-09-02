@@ -156,5 +156,5 @@ services.AddOptions<MisSettings>()
 | `src/Api/HostedServices/TenantResolverStartupProbe.cs` | Sonda de reachability del tenant-resolver al arranque |
 | `src/Infrastructure/Extensions/SentryExtensions.cs` | Valida `Sentry:Dsn` |
 | `src/Infrastructure/Extensions/SerilogExtensions.cs` | Valida presencia de la sección `ServiceInfo` |
-| `src/Infrastructure/Extensions/OutputCacheExtensions.cs` | Registra `CacheSettings` con `ValidateOnStart()` |
+| `src/Api/DependencyInjection/OutputCacheExtensions.cs` | Registra `CacheSettings` con `ValidateOnStart()` |
 | `src/Infrastructure/Settings/` | Clases POCO de configuración con sus atributos de validación |

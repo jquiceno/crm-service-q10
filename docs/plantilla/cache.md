@@ -15,7 +15,7 @@ El servicio dispone de dos niveles de caché complementarios:
     * [UseCacheMiddleware (pipeline)](#usecachemiddleware-pipeline)
     * [\[OutputCache\]](#outputcache)
     * [Cómo se arma la clave de caché](#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9)
-    * [Qué se cachea sin declarar nada](#qu%C3%A9-se-cachea-sin-declarar-nada)
+    * [Qué se cachea y qué no](#qu%C3%A9-se-cachea-y-qu%C3%A9-no)
     * [\[OutputCacheInvalidate\]](#outputcacheinvalidate)
   * [Configuración](#configuraci%C3%B3n)
   * [Cómo habilitar caché en un endpoint](#c%C3%B3mo-habilitar-cach%C3%A9-en-un-endpoint)
@@ -47,7 +47,7 @@ El caché HTTP se apoya en **ASP.NET Core Output Caching** (`Microsoft.AspNetCor
 
 Principios:
 
-* **TTL y tags por endpoint** con `[OutputCache]` en el método del controlador. El atributo ajusta la caché; no la activa: la política base aplica a todo endpoint que pase por el middleware (ver [Qué se cachea sin declarar nada](#qu%C3%A9-se-cachea-sin-declarar-nada)).
+* **Opt-in por endpoint** con `[OutputCache]` en el método del controlador: sin el atributo no se cachea (ver [Qué se cachea y qué no](#qu%C3%A9-se-cachea-y-qu%C3%A9-no)). La política base solo aporta las reglas de variación, que los endpoints anotados heredan.
 * **Aislamiento por tenant y locale** vía `SetVaryByHeader("X-Entity-Code", "Accept-Language")` en la política base.
 * **Invalidación por etiquetas (tags)**: los `GET` se etiquetan con `Tags = [...]` y las mutaciones usan el filtro `[OutputCacheInvalidate("tag")]` que llama a `IOutputCacheStore.EvictByTagAsync` tras una respuesta exitosa para invalidar esas llaves de caché.
 
@@ -91,7 +91,7 @@ Método de extensión que lee `CacheSettings`, lo registra en `IOptions<CacheSet
 services.ConfigureCache(builder.Configuration);
 ```
 
-Cuando `Enabled = false`, no se registra el servicio y los atributos `[OutputCache]` se ignoran silenciosamente. `DefaultExpirationTimeSpan` se aplica siempre que la respuesta se cachee sin un `Duration` explícito: tanto en endpoints sin `[OutputCache]` como en los que lo declaran sin esa propiedad.
+Cuando `Enabled = false`, no se registra el servicio y los atributos `[OutputCache]` se ignoran silenciosamente. `DefaultExpirationTimeSpan` se aplica cuando un endpoint declara `[OutputCache]` sin la propiedad `Duration`.
 
 #### UseCacheMiddleware (pipeline)
 
@@ -102,6 +102,8 @@ app.UseCacheMiddleware();
 ```
 
 Así el toggle `Cache:Enabled` controla **tanto el registro del servicio como el middleware** desde un único punto.
+
+**Orden en el pipeline.** Va después de `UseCors`, como exige la documentación de ASP.NET Core. Si el servicio incorpora autenticación, `UseCacheMiddleware()` debe quedar **después** de `UseAuthentication` y `UseAuthorization`: en caso contrario el middleware puede servir contenido cacheado para usuarios no autorizados a usuarios que sí lo están.
 
 
 ---
@@ -155,33 +157,49 @@ El `PATH` es la **URL ya resuelta**, es decir con los segmentos de ruta sustitui
 | Marca | Origen | En esta plantilla |
 |-------|--------|-------------------|
 | `H` | Headers | `X-Entity-Code` y `Accept-Language` (política base) más los de `VaryByHeaderNames` |
-| `Q` | Query string | Con `[OutputCache]`: **todas** las claves, salvo que se declare `VaryByQueryKeys`. Sin el atributo: solo `EntityCode` |
+| `Q` | Query string | **Todas** las claves, salvo que se declare `VaryByQueryKeys` |
 | `R` | Valores de ruta | Solo los declarados en `VaryByRouteValueNames` |
 | `V` | Valores personalizados | Solo con políticas custom (`VaryByValue`) |
 
 **Por qué la query varía por defecto:** `DefaultPolicy` fija `QueryKeys = "*"`. La política base lo restringe a `EntityCode`, pero el atributo `[OutputCache]` aplica `DefaultPolicy` de nuevo después de ella y restaura `"*"`. Resultado: en todo endpoint anotado varían todas las claves de query string.
 
 > **Cuidado con `VaryByQueryKeys`:** declararlo *restringe* la clave a esas claves. `[OutputCache(VaryByQueryKeys = ["pageIndex"])]` en un listado filtrado hace que dos filtros distintos compartan entrada de caché. Se declara solo cuando se quiere ignorar deliberadamente el resto de la query (p. ej. parámetros de tracking).
+>
+> También desplaza el `EntityCode` de la política base: al declararlo, esa clave deja de participar en la variación salvo que se incluya en la lista. El aislamiento por tenant sigue cubierto por el header `X-Entity-Code`, pero si un cliente identifica el tenant **solo** por query string, hay que declarar `EntityCode` junto a las demás.
 
 **Cuándo aporta `VaryByRouteValueNames`:** solo cuando el valor de ruta no se refleja en el path — valores por defecto de la plantilla de ruta o inyectados por el routing. En los controllers de esta plantilla todo parámetro de ruta viene de un segmento de la URL, así que declararlo no altera la clave.
 
 
 ---
 
-#### Qué se cachea sin declarar nada
+#### Qué se cachea y qué no
 
-La caché no se habilita endpoint por endpoint. `AddBasePolicy` registra la política base para **toda** petición que llegue al middleware, y esa política se construye sobre `DefaultPolicy`, que fija `EnableOutputCaching = true`. El atributo solo ajusta TTL, tags y variación. Comportamiento verificado con `Cache:Enabled = true`:
+La caché es **opt-in**: solo se almacena la respuesta de un endpoint que declare `[OutputCache]`. Eso lo consigue el `excludeDefaultPolicy: true` de `ConfigureCache`, que deja a la política base aportando únicamente las reglas de variación:
+
+```csharp
+options.AddBasePolicy(policy => policy
+    .SetVaryByHeader("X-Entity-Code", "Accept-Language")
+    .SetVaryByQuery("EntityCode"),
+    excludeDefaultPolicy: true);
+```
+
+Sin esa bandera, `DefaultPolicy` fijaría `EnableOutputCaching = true` para toda petición que llegue al middleware, y se cachearían endpoints que nunca lo pidieron. Comportamiento verificado con `Cache:Enabled = true`:
 
 | Endpoint | Anotación | Resultado |
 |----------|-----------|-----------|
-| `GET /info` | ninguna | Se cachea `DefaultTtlSeconds` (300 s), variando por `X-Entity-Code` / `Accept-Language` |
+| cualquier `GET` de controlador | ninguna | **No se cachea** |
+| `GET /health/live`, `/health/ready` | ninguna (minimal API) | **No se cachean** |
 | `GET /products/{id}` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada `id` es una entrada, sin declarar `VaryByRouteValueNames` |
 | `GET /list?filter=x` | `[OutputCache(Duration = 60)]` | Se cachea 60 s; cada valor de `filter` es una entrada, sin declarar `VaryByQueryKeys` |
 | cualquiera, con header `Authorization` | cualquiera | No se cachea: ni lectura ni escritura de la entrada |
 
-> **Efecto sobre la invalidación.** Una respuesta cacheada por la política base se guarda **sin tags**, y `EvictByTagAsync` solo borra por tag: esa entrada queda fuera del alcance de `[OutputCacheInvalidate]` y sirve datos obsoletos hasta que expire su TTL. Toda lectura debe declarar `[OutputCache(Tags = [...])]` para poder invalidarse, o `[OutputCache(NoStore = true)]` para quedar excluida. Omitir el atributo no deja el endpoint fuera de la caché.
+Un endpoint anotado sigue heredando las reglas de variación de la política base: su clave varía por `X-Entity-Code` y `Accept-Language` aunque no declare `VaryByHeaderNames`.
 
-> **Respuestas autenticadas.** Si las peticiones llegan con header `Authorization`, el L1 no almacena nada, aunque el endpoint declare `[OutputCache]`. La comprobación es sobre el header crudo, así que aplica aunque el pipeline no tenga `UseAuthentication`. Cachearlas exige registrar la política base con `AddBasePolicy(build, excludeDefaultPolicy: true)` y reconstruir las reglas necesarias — con la clave variando por identidad, o se sirven datos de un usuario a otro.
+> **Por qué importa la bandera.** Output Caching es caché de servidor y no interpreta las cabeceras HTTP de caché, así que el `Cache-Control: no-store` que emiten los health checks no lo protege. Con la política base habilitando la caché, `/health/ready` seguía respondiendo `200 Healthy` durante `DefaultTtlSeconds` después de que el servicio dejara de estarlo — y el fallo era asimétrico, porque un `503` nunca se almacena y solo se cachean respuestas 200. Lo mismo aplicaba a `/info`, que reportaba `status: ok` desde una entrada guardada.
+
+> **Toda lectura cacheada necesita tags.** Una entrada guardada sin `Tags` no se puede invalidar: `EvictByTagAsync` solo borra por tag, así que quedaría fuera del alcance de `[OutputCacheInvalidate]` hasta que expire su TTL. Al declarar `[OutputCache]`, declarar también `Tags = [...]`.
+
+> **Respuestas autenticadas.** Si las peticiones llegan con header `Authorization`, el L1 no almacena nada, aunque el endpoint declare `[OutputCache]`: el atributo reintroduce `DefaultPolicy`, que lo impide. La comprobación es sobre el header crudo, así que aplica aunque el pipeline no tenga `UseAuthentication`. Cachear respuestas autenticadas exigiría una política propia que no pase por `DefaultPolicy`, con la clave variando por identidad, o se sirven datos de un usuario a otro.
 
 
 ---
@@ -376,7 +394,7 @@ La política base varía la clave por dos headers:
 
 Si ambos headers están ausentes, la respuesta se guarda como "sin tenant / sin locale" y se comparte entre todas las peticiones.
 
-Para el tenant enviado por query string, la política base declara `SetVaryByQuery("EntityCode")`. Esa restricción solo rige en endpoints sin `[OutputCache]`; en los anotados, el atributo restaura la variación por toda la query. En ambos casos `EntityCode` queda en la clave.
+Para el tenant enviado por query string, la política base declara `SetVaryByQuery("EntityCode")`. En un endpoint anotado el atributo restaura la variación por toda la query, que ya incluye `EntityCode`, así que el tenant queda en la clave por cualquiera de las dos vías.
 
 
 ---

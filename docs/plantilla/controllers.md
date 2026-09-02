@@ -194,7 +194,7 @@ public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
 }
 ```
 
-No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` solo aplica a lecturas y su `Duration` está en **segundos**; omitirlo no deja el endpoint fuera de la caché, solo sin tags con los que invalidarlo. No se declara `VaryByRouteValueNames = ["id"]`: el `{id}` ya forma parte del path y por tanto de la clave — ver [cómo se arma la clave](cache.md#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9) y la invalidación por tags en [cache.md](cache.md).
+No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` solo aplica a lecturas y su `Duration` está en **segundos**; la caché es opt-in, así que sin el atributo el endpoint no se cachea. No se declara `VaryByRouteValueNames = ["id"]`: el `{id}` ya forma parte del path y por tanto de la clave — ver [cómo se arma la clave](cache.md#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9) y la invalidación por tags en [cache.md](cache.md).
 
 ### 5.5 Consultar una lista paginada (GET → 200 OK)
 
@@ -229,7 +229,7 @@ public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
 [ValidateRequest]
 ```
 
-La exclusión debe ser explícita: la política base aplica a todo endpoint que pase por el middleware, anotado o no.
+`NoStore = true` deja constancia de la decisión; omitir el atributo produce el mismo efecto, ya que la caché es opt-in.
 
 ### 5.6 Sub-recurso / relación anidada (Link/Unlink)
 

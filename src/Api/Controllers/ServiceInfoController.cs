@@ -16,6 +16,7 @@ public sealed class ServiceInfoController(
 {
     [HttpGet]
     [ProducesResponseType(typeof(ApiSuccessResponse<GetServiceInfoOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [EndpointSummary("Get service info")]
     [EndpointDescription("Returns basic service information: status, service name, and version.")]
     public async Task<HttpOkResult<GetServiceInfoOutputDto>> GetInfo(

@@ -114,7 +114,7 @@ Dos puntos que no son evidentes en el árbol:
 
 Todos los documentos de esta carpeta usan `Product` (`Name: string`, `Price: decimal`) como contexto de ejemplo para mostrar los patrones implementados — es el mismo contexto en `casos-de-uso.md`, `contextos.md`, `controllers.md`, `repositorio.md` y `puertos-y-adaptadores.md`. Es un ejemplo de documentación: no existe en el código de la plantilla.
 
-El único contexto que la plantilla trae en `src/` es `ServiceInfo`, un contexto liviano de solo lectura (sin `Domain/`) que expone el endpoint de información del servicio. Los ejemplos con nombres reales (`AcademicProgram`, `Audit`) provienen de servicios ya implementados sobre esta plantilla y se citan cuando ilustran una decisión concreta.
+El único contexto que la plantilla trae en `src/` es `ServiceInfo`, un contexto liviano de solo lectura que expone el endpoint de información del servicio. Su proyecto `Domain/` existe y está referenciado por `ServiceInfo.Application`, pero solo como andamiaje: las carpetas (`Aggregates/`, `Entities/`, `Enums/`, `Errors/`, `ValueObjects/`) están vacías con `.gitkeep`, porque los datos que expone vienen de configuración y no hay invariantes que modelar. Los ejemplos con nombres reales (`AcademicProgram`, `Audit`) provienen de servicios ya implementados sobre esta plantilla y se citan cuando ilustran una decisión concreta.
 
 
 ---

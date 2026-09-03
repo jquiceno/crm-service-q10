@@ -131,7 +131,16 @@ El parámetro se llama `cancellationToken` (no `ct`) y se declara al final de la
 
 No capturar `Exception` sin un filtro `when` que acote los tipos esperados o preserve la cancelación. La regla `CA1031` se aplica con severidad `warning` (`.globalconfig`) y la solución no contiene supresiones de esta regla.
 
-La captura de `Exception` con filtro se restringe a los límites de infraestructura —repositorios, adaptadores, clientes HTTP y caché—, donde traduce fallos técnicos al patrón `Result`.
+La captura de `Exception` con filtro se restringe a los límites de infraestructura y del host, y cada uno tiene una salida definida:
+
+| Límite | Ejemplos | Qué hace con la excepción |
+|--------|----------|---------------------------|
+| Persistencia y clientes HTTP | `RepositoryBaseEF`, `UnitOfWorkAdapter`, `TenantResolverServiceClient` | La traduce al patrón `Result` (`PersistenceErrors.Failure(Origin)`, `InternalError`) |
+| Caché | `RedisCacheStore` | Registra un `Warning` y degrada: la lectura devuelve `null` y la escritura se omite |
+| Host / presentación | `ValidateRequestFilter` | La descarta y continúa con la validación de `ModelState` |
+| Host / presentación | `TenantResolverStartupProbe` | La envuelve en `InvalidOperationException` para abortar el arranque |
+
+En todos los casos el filtro `when` es obligatorio: acota los tipos esperados (`ex is JsonException or IOException or NotSupportedException`) o deja pasar la cancelación (`ex is not OperationCanceledException`).
 
 El manejo de excepciones no controladas corresponde a `GlobalExceptionHandler` (`src/Shared/Infrastructure/Presentation/Middleware/GlobalExceptionHandler.cs`), registrado mediante `AddExceptionHandler<GlobalExceptionHandler>()` en `src/Api/DependencyInjection/ErrorHandlingServiceExtensions.cs`. Al implementar `IExceptionHandler`, recibe la excepción como parámetro en lugar de capturarla, por lo que no requiere un bloque catch-all ni supresión alguna.
 

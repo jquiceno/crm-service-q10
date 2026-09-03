@@ -42,7 +42,7 @@ src/
 │   └── Domain/
 │       └── ValueObjects/
 │           ├── ValueObject.cs          ← clase base abstracta
-│           └── Address.cs              ← VO compartido entre contextos
+│           └── DateRange.cs            ← VO compartido entre contextos
 │
 └── Contexts/
     └── <Contexto>/

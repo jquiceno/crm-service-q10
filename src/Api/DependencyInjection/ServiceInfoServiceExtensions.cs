@@ -8,7 +8,7 @@ public static class ServiceInfoServiceExtensions
 {
     public static IServiceCollection AddServiceInfoServices(this IServiceCollection services)
     {
-        services.AddSingleton<IGetServiceInfoPort, GetServiceInfoUseCase>();
+        services.AddSingleton<IGetServiceInfoUseCase, GetServiceInfoUseCase>();
         services.AddSingleton<IServiceInfoPort, ServiceInfoAdapter>();
 
         return services;

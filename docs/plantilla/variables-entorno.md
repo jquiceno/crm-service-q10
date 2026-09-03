@@ -154,7 +154,9 @@ k8s/
 │   ├── external-secret.yaml        # Lee de Secrets Manager → crea k8s Secret
 │   ├── deployment.yaml             # 2 réplicas, resources, probes
 │   ├── service.yaml                # ClusterIP en puerto 80 → 8080
-│   └── hpa.yaml                    # CPU 70%, Memory 80%, max 10 réplicas
+│   ├── ingress.yaml                # ALB interno compartido; path = RoutePrefix
+│   ├── hpa.yaml                    # CPU 70%, Memory 80%, max 10 réplicas
+│   └── pdb.yaml                    # minAvailable 1
 └── overlays/
     ├── dev/kustomization.yaml      # 1 réplica, min HPA 1, tag dev-latest
     ├── qa/kustomization.yaml       # 2 réplicas, min HPA 2, tag qa-latest

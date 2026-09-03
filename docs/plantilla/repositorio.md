@@ -12,8 +12,8 @@ src/
 ├── Shared/
 │   ├── Domain/
 │   │   ├── Interfaces/           # IRootRepository, IAggregateRoot
-│   │   ├── Result/               # Result<T>, PagedResult<T>
 │   │   └── Pagination/           # PageQuery
+│   ├── Results/                  # Result<T>, PagedResult<T>
 │   └── Application/
 │       ├── Ports/                # IUnitOfWorkPort
 │       └── Dtos/                 # PageQueryInputDto

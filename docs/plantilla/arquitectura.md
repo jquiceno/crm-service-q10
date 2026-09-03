@@ -30,25 +30,36 @@ src/
 ├── Api/                              # Presentación (ASP.NET Core)
 │   ├── Controllers/                  # Endpoints HTTP
 │   ├── DependencyInjection/          # Registro de servicios por contexto
-│   ├── Filters/                      # ValidateRequestFilter, OutputCacheInvalidateAttribute
-│   ├── Results/                      # HttpOkResult, HttpCreatedResult, HttpNoContentResult, HttpOkPagedResult
-│   ├── Responses/                    # Estructura uniforme de respuesta API
-│   ├── Middleware/                   # GlobalExceptionMiddleware, RequestLoggingMiddleware
-│   ├── Mapping/                      # ErrorType → HTTP status code
-│   └── Attributes/                   # [ValidateRequest]
+│   ├── Filters/                      # ValidateRequestFilter
+│   ├── HostedServices/               # TenantResolverStartupProbe
+│   ├── Middleware/                   # RequestLoggingMiddleware, TenantMiddleware
+│   └── Session/                      # TenantContext, ITenantConnectionInitializer
 │
 ├── Shared/
 │   ├── Domain/                       # Primitivos reutilizables entre contextos
 │   │   ├── Aggregates/               # AggregateRoot<TId> con CreatedAt / UpdatedAt
 │   │   ├── Entities/                 # Entity<TId> (Id + igualdad)
-│   │   ├── ValueObjects/             # ValueObject (base abstracta), Address
+│   │   ├── ValueObjects/             # ValueObject (base abstracta), DateRange
 │   │   ├── Interfaces/               # IRootRepository<TAggregate, TId>, IAggregateRoot
-│   │   ├── Result/                   # Result<T>, PagedResult<T>
-│   │   ├── Errors/                   # DomainError, ValidationError, ErrorType, SharedErrors
+│   │   ├── Errors/                   # DateRangeErrors
 │   │   └── Pagination/               # PageQuery
-│   └── Application/
-│       ├── Ports/                    # IUnitOfWorkPort, ILoggerPort<T>, IRequestValidatorPort<T> — compartidos
-│       └── Dtos/                     # PageQueryInputDto, AddressInputDto/OutputDto
+│   ├── Results/                      # Result<T>, PagedResult<T>
+│   │   └── Errors/                   # DomainError, ValidationError, ErrorType, SharedErrors
+│   ├── Application/
+│   │   ├── Ports/                    # IUnitOfWorkPort, ILoggerPort<T>, IRequestValidatorPort<T>, ICacheStore
+│   │   ├── Caching/                  # CacheKey
+│   │   ├── Interfaces/               # ILogProperties
+│   │   └── Dtos/                     # PageQueryInputDto
+│   └── Infrastructure/
+│       ├── Presentation/
+│       │   ├── Attributes/           # [ValidateRequest]
+│       │   ├── Filters/              # ModelStateValidationAdapter, OutputCacheInvalidateAttribute
+│       │   ├── Mapping/              # ErrorType → HTTP status code
+│       │   ├── Middleware/           # GlobalExceptionHandler
+│       │   ├── Responses/            # Estructura uniforme de respuesta API
+│       │   ├── Results/              # HttpOkResult, HttpCreatedResult, HttpNoContentResult, HttpOkPagedResult
+│       │   └── Routing/              # GlobalRoutePrefixConvention, RoutePrefixConfig, KebabCaseParameterTransformer
+│       └── MasterAccess/             # TenantResolverServiceClient, AesConnectionStringDecryptor
 │
 ├── Contexts/                         # Bounded Contexts — uno por dominio de negocio
 │   └── {Contexto}/
@@ -83,9 +94,12 @@ src/
     │           ├── Entities/         # entidad de persistencia (fila de la tabla)
     │           ├── Configurations/   # IEntityTypeConfiguration<T>
     │           └── Mappers/          # {Aggregate}RepositoryMapper (Aggregate ↔ entidad)
+    ├── Caching/                      # RedisCacheStore, NoOpCacheStore, DistributedCacheExtensions
     ├── Extensions/                   # SerilogExtensions, SentryExtensions, EfCorePersistenceExtensions
+    ├── Logging/                      # FlatJsonFormatter, ActivityEnricher, LogContextExtensions
+    ├── Observability/                # TraceHeaders
     ├── Settings/                     # POCOs de configuración tipada
-    └── Logging/                      # FlatJsonFormatter, ActivityEnricher, LogContextExtensions
+    └── Validation/FluentValidation/  # IStructuralValidator<T> y los validadores
 ```
 
 Dos puntos que no son evidentes en el árbol:

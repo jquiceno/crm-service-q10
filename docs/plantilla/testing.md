@@ -8,6 +8,7 @@ tests/
 └── IntegrationTests/
     ├── Infrastructure/    # ApiFactory, fixtures y helpers compartidos — y también tests
     ├── ServiceInfo/       # Tests de endpoints, agrupados por contexto
+    ├── Routing/           # RoutePrefixTests
     └── Caching/           # Tests de los adaptadores de caché contra Redis
 ```
 

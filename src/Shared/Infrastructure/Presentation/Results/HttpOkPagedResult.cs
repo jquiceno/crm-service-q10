@@ -31,4 +31,4 @@ public sealed class HttpOkPagedResult<T>(PagedResult<T> result) : IActionResult
     }
 }
 
-internal sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);
+public sealed record PagedPayload<T>(IReadOnlyList<T> Items, int TotalCount);

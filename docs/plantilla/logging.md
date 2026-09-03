@@ -241,7 +241,7 @@ public async Task<IActionResult> Create([FromBody] CreateProductInputDto input, 
         var result = await useCase.ExecuteAsync(input, cancellationToken);
 
         if (result.IsFailure)
-            return BadRequest(new { error = result.Error.Description });
+            return BadRequest(new { error = result.Error.Message });
 
         return Created(string.Empty, result.Value);
     }
@@ -285,7 +285,7 @@ new Dictionary<string, object?>
 
 | Método | Uso |
 |--------|-----|
-| `PushLogProperties(dictionary)` | Contexto de negocio desde un controller |
+| `PushLogProperties(dictionary)` | Contexto de negocio desde un controller — vive en `src/Api/Middleware/HttpContextLogExtensions.cs` |
 | `PushHttpProperties(httpProperties)` | Datos HTTP estructurados (uso interno del middleware) |
 | `PushFlatProperties(iLogProperties)` | Implementaciones de `ILogProperties` (uso interno) |
 

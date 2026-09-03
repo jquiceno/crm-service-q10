@@ -42,7 +42,7 @@ src/
 │   └── Domain/
 │       └── ValueObjects/
 │           ├── ValueObject.cs          ← clase base abstracta
-│           └── Address.cs              ← VO compartido entre contextos
+│           └── DateRange.cs            ← VO compartido entre contextos
 │
 └── Contexts/
     └── <Contexto>/
@@ -71,13 +71,15 @@ HTTP Request
      ├─▶ Price.Create(price)
      │        falla → acumula ValidationError
      │
-     ├─▶ Address.Create(street, city, zipCode)    [si aplica]
-     │        falla → acumula ValidationError con Children
+     ├─▶ DateRange.Create(availableFrom, availableTo)    [si aplica]
+     │        falla → acumula ValidationError (plano: un mensaje por regla)
      │
      │  alguno falla → DomainError.FromValidationDomainErrors(errors)
      ▼
 [AggregateRoot]  ProductAggregate — el agregado ES la entidad, ya validado y listo para persistir
 ```
+
+El único VO que trae la plantilla, `DateRange`, devuelve errores planos: un `ValidationError` por regla incumplida. Un VO compuesto puede en cambio anidar los errores de sus campos internos en `ValidationError.Children`, y `DomainError.FromValidationDomainErrors` traslada esa jerarquía al árbol de `Details` de la respuesta — ver [validaciones.md](validaciones.md) y el campo `Children` en [errores-dominio.md](errores-dominio.md).
 
 
 ---

@@ -426,7 +426,7 @@ public sealed class GetProductByIdUseCase(IProductRepository repository) : IGetP
 [HttpGet("{id}")]
 [ProducesResponseType(typeof(ApiSuccessResponse<GetProductByIdOutputDto>), StatusCodes.Status200OK)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-[OutputCache(Duration = 60, Tags = [CacheTag])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
     [FromRoute] Guid id,
     CancellationToken cancellationToken = default)
@@ -503,7 +503,7 @@ public sealed class GetProductsUseCase(IProductRepository repository) : IGetProd
 [ValidateRequest]
 [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetProductsOutputDto>>), StatusCodes.Status200OK)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-[OutputCache(Duration = 60, Tags = [CacheTag])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
     [FromQuery] GetProductsInputDto filter,
     [FromQuery] PageQueryInputDto pagination,

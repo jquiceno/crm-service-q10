@@ -44,9 +44,12 @@ public static class OutputCacheExtensions
         {
             options.DefaultExpirationTimeSpan = TimeSpan.FromSeconds(settings.DefaultTtlSeconds);
 
+            // excludeDefaultPolicy: the base policy contributes the vary-by rules but must NOT
+            // enable caching on its own
             options.AddBasePolicy(policy => policy
                 .SetVaryByHeader("X-Entity-Code", "Accept-Language")
-                .SetVaryByQuery("EntityCode"));
+                .SetVaryByQuery("EntityCode"),
+                excludeDefaultPolicy: true);
             options.AddPolicy("Global", p => { });
         });
 

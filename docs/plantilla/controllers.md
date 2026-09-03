@@ -46,6 +46,7 @@ public sealed class ProductsController(
     IDeleteProductUseCase deleteProductUseCase) : ControllerBase
 {
     private const string CacheTag = "products";
+    private const int CacheDurationSeconds = 3600;
     // …actions…
 }
 ```
@@ -54,7 +55,7 @@ Convenciones que se ven en ese encabezado:
 
 - `[Route("[controller]")]` — la ruta (relativa) sale del nombre del controller, no se escribe a mano. Solo se escribe literal cuando el recurso no coincide con el nombre de la clase (`[Route("logs")]`, o una ruta anidada). El **prefijo de servicio** (`RoutePrefix`) lo antepone `GlobalRoutePrefixConvention` — no se repite en cada `[Route]`. Cuando el recurso raíz coincide con el prefijo, el controller usa `[Route("")]` para no duplicarlo. Nunca uses una ruta absoluta (empieza por `/` o `~/`), ni en el `[Route]` del controller ni en un verbo (`[HttpGet("/algo")]`): escaparía del prefijo, y la convención lo detecta en ambos niveles y aborta el arranque.
 - `[Tags("…")]` **a nivel de controller**, no repetido en cada action: todas las actions de un controller pertenecen al mismo grupo de OpenAPI.
-- El tag de caché se declara como `private const string CacheTag` y se reutiliza en `[OutputCache]` y `[OutputCacheInvalidate]`, para que lectura e invalidación no puedan desalinearse.
+- El tag de caché se declara como `private const string CacheTag` y se reutiliza en `[OutputCache]` y `[OutputCacheInvalidate]`, para que lectura e invalidación no puedan desalinearse. La duración va en `private const int CacheDurationSeconds`, cuyo valor por defecto es `3600` (1 hora) — el criterio para subirlo o bajarlo está en [cache.md](cache.md#qu%C3%A9-duraci%C3%B3n-declarar).
 - Los parámetros del constructor se nombran `{casoDeUso}UseCase`.
 
 El otro mecanismo clave es que `Result<T>`, `Result` y `PagedResult<T>` tienen **conversiones implícitas** hacia `HttpOkResult<T>` / `HttpCreatedResult<T>` / `HttpNoContentResult` / `HttpOkPagedResult<T>`. Por eso una action puede retornar directamente lo que el caso de uso devuelve, sin traducir el resultado a mano:
@@ -185,7 +186,7 @@ public async Task<HttpNoContentResult> DeleteProduct(
 [ProducesResponseType(typeof(ApiSuccessResponse<GetProductByIdOutputDto>), StatusCodes.Status200OK)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-[OutputCache(Duration = 60, Tags = [CacheTag])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
     [FromRoute] Guid id,
     CancellationToken cancellationToken = default)
@@ -194,7 +195,7 @@ public async Task<HttpOkResult<GetProductByIdOutputDto>> GetProductById(
 }
 ```
 
-No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` es opcional y solo aplica a lecturas; ver [cache.md](cache.md) para la invalidación por tags.
+No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo un `id` de ruta. `[OutputCache]` solo aplica a lecturas y su `Duration` está en **segundos**; la caché es opt-in, así que sin el atributo el endpoint no se cachea. No se declara `VaryByRouteValueNames = ["id"]`: el `{id}` ya forma parte del path y por tanto de la clave — ver [cómo se arma la clave](cache.md#c%C3%B3mo-se-arma-la-clave-de-cach%C3%A9) y la invalidación por tags en [cache.md](cache.md).
 
 ### 5.5 Consultar una lista paginada (GET → 200 OK)
 
@@ -206,7 +207,7 @@ No lleva `[ValidateRequest]` porque no hay DTO de entrada que validar — solo u
 [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetProductsOutputDto>>), StatusCodes.Status200OK)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
 [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-[OutputCache(Duration = 60, Tags = [CacheTag])]
+[OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
 public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
     [FromQuery] GetProductsInputDto filter,
     [FromQuery] PageQueryInputDto pagination,
@@ -221,13 +222,15 @@ public async Task<HttpOkPagedResult<GetProductsOutputDto>> GetProducts(
 
 `[FromQuery]` se usa dos veces con DTOs distintos: uno con los filtros propios del contexto (`GetProductsInputDto`) y otro genérico de paginación (`PageQueryInputDto`, ver [repositorio.md](repositorio.md#paginación)). `HttpOkPagedResult<T>` envuelve el `PagedResult<T>` en `{ data: { items, totalCount }, statusCode }`.
 
-**Lecturas que no se deben cachear.** La política base de output cache varía por tenant y headers, **no** por los parámetros de filtro de la query. En un listado filtrado eso significaría servir el resultado de un filtro para otro, así que ese endpoint se excluye explícitamente:
+**Lecturas que no se deben cachear.** En un endpoint anotado con `[OutputCache]`, la clave incluye todas las claves de query string, así que cada combinación de filtro y página es una entrada propia. El riesgo no es servir un filtro por otro, sino la cardinalidad: un filtro libre genera muchas entradas con tasa de acierto casi nula. Cuando eso ocurre —o cuando los datos cambian demasiado rápido— el endpoint se excluye explícitamente:
 
 ```csharp
 [HttpGet]
-[OutputCache(NoStore = true)]   // los datos cambian demasiado / el filtro no participa de la clave
+[OutputCache(NoStore = true)]   // los datos cambian demasiado / demasiadas combinaciones de filtro
 [ValidateRequest]
 ```
+
+`NoStore = true` deja constancia de la decisión; omitir el atributo produce el mismo efecto, ya que la caché es opt-in.
 
 ### 5.6 Sub-recurso / relación anidada (Link/Unlink)
 
@@ -244,6 +247,7 @@ public sealed class ProductCategoriesController(
     IUnlinkProductCategoryUseCase unlinkProductCategoryUseCase) : ControllerBase
 {
     private const string CacheTag = "products";
+    private const int CacheDurationSeconds = 3600;
 
     [HttpPost("{categoryId}")]
     [EndpointSummary("Link category to product")]

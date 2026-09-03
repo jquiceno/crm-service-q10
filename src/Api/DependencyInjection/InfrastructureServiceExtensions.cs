@@ -86,5 +86,5 @@ public static class InfrastructureServiceExtensions
         services.AddDistributedCache(configuration);
 
         return services;
-    }-
+    }
 }

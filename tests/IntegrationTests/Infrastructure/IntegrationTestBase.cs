@@ -1,4 +1,5 @@
 using Infrastructure.Persistence.EntityFramework;
+using IntegrationTests.Caching;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Shared.Presentation.Routing;
@@ -18,10 +19,10 @@ public abstract class IntegrationTestBase : IAsyncLifetime, IAsyncDisposable
     protected IServiceProvider Services => _factory.Services;
     protected string RoutePrefix => _factory.Services.GetRequiredService<IConfiguration>().GetRoutePrefix();
 
-    protected IntegrationTestBase(SqlServerContainerFixture fixture)
+    protected IntegrationTestBase(SqlServerContainerFixture fixture, RedisContainerFixture cache)
     {
         _fixture = fixture;
-        _factory = new ApiFactory(fixture.ConnectionString);
+        _factory = new ApiFactory(fixture.ConnectionString, cache.ConnectionString);
         Client = _factory.CreateClient();
     }
 

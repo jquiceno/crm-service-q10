@@ -1,4 +1,5 @@
 using System.Linq;
+using IntegrationTests.Caching;
 using IntegrationTests.Infrastructure;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +11,7 @@ namespace IntegrationTests.Routing;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class RoutePrefixTests : IntegrationTestBase
 {
-    public RoutePrefixTests(SqlServerContainerFixture fixture) : base(fixture) { }
+    public RoutePrefixTests(SqlServerContainerFixture fixture, RedisContainerFixture cache) : base(fixture, cache) { }
 
     [Fact]
     public void EveryRegisteredEndpoint_IsUnderTheRoutePrefix()

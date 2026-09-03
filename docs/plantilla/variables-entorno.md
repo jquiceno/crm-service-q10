@@ -295,11 +295,11 @@ dotnet user-secrets init --project src/Api
 dotnet user-secrets set --project src/Api "Sentry__Dsn" "https://..."
 ```
 
-Por defecto la multitenencia queda **apagada** en local (`TenantResolverService:Enabled=false`
-en `appsettings.json`), y el servicio arranca con base en memoria. Para probar contra un
-tenant-resolver real hacen falta **cuatro** cosas además del toggle, y el arranque aborta con un
-error explícito si falta cualquiera: la URL del resolver, la clave de cifrado, y la caché L2
-prendida **con** su connection string.
+La multitenencia es **obligatoria**: no hay modo single-tenant ni base en memoria, así que sin
+tenant-resolver el arranque aborta con un error explícito (`AddInfrastructureServices`). Correr el
+servicio en local exige entonces **cuatro** cosas además del toggle, y falta cualquiera y no
+arranca: la URL del resolver, la clave de cifrado, y la caché L2 prendida **con** su connection
+string. `Enabled` y `L2Enabled` ya vienen en `true` en `appsettings.json`; lo demás son secretos.
 
 ```bash
 dotnet user-secrets set --project src/Api "TenantResolverService:Enabled" "true"

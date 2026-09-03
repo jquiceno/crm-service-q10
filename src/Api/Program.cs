@@ -16,8 +16,6 @@ builder.Host.AddSerilog(builder.Configuration);
 
 builder.Configuration.AddTenantResolverEnvironmentAliases();
 
-var multitenancyEnabled = builder.Configuration.IsMultitenancyEnabled();
-
 var routePrefix = builder.Configuration.GetRoutePrefix();
 if (string.IsNullOrEmpty(routePrefix))
     throw new InvalidOperationException(
@@ -27,8 +25,8 @@ if (string.IsNullOrEmpty(routePrefix))
 builder.Services
     .AddApiSettings(builder.Configuration)
     .AddApplicationServices()
-    .AddInfrastructureServices(builder.Configuration, multitenancyEnabled)
-    .AddSessionServices(builder.Configuration, multitenancyEnabled)
+    .AddInfrastructureServices(builder.Configuration)
+    .AddSessionServices(builder.Configuration)
     .ConfigureCache(builder.Configuration)
     .AddCorsPolicy(builder.Configuration)
     .AddApiErrorHandling()
@@ -55,7 +53,7 @@ app.Use(async (context, next) =>
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseCors(CorsExtensions.CorsPolicyName);
 
-app.UseTenantResolution(multitenancyEnabled);
+app.UseTenantResolution();
 
 app.UseCacheMiddleware();
 

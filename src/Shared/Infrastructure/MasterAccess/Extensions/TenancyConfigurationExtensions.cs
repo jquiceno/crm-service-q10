@@ -18,9 +18,9 @@ public static class TenancyConfigurationExtensions
     public const string EncryptionKeyVariable = "CONNSTRING_ENCRYPTION_KEY";
 
     /// <summary>
-    /// Single source of truth for the "multitenancy enabled" flag. Evaluate once at startup and pass the
-    /// result to the registration/pipeline hooks so they can never disagree (a divergence would surface as
-    /// an opaque DI-resolution failure at runtime instead of a clear decision).
+    /// Single source of truth for the "multitenancy enabled" flag. Multitenancy is mandatory: this is read
+    /// once by <c>AddInfrastructureServices</c>, which aborts the boot when it is off (there is no
+    /// single-tenant mode and no in-memory fallback). Everything downstream can therefore assume it is on.
     /// </summary>
     public static bool IsMultitenancyEnabled(this IConfiguration configuration) =>
         configuration

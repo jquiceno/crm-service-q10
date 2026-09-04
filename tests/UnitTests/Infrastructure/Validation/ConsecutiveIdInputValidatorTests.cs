@@ -6,11 +6,11 @@ using Xunit;
 
 namespace UnitTests.Infrastructure.Validation;
 
-public sealed class SequenceIdInputValidatorTests
+public sealed class ConsecutiveIdInputValidatorTests
 {
     private const string ExpectedMessage = "Id must be greater than 0.";
 
-    private readonly SequenceIdInputValidator _sut = new();
+    private readonly ConsecutiveIdInputValidator _sut = new();
 
     [Theory]
     [InlineData(1)]
@@ -18,7 +18,7 @@ public sealed class SequenceIdInputValidatorTests
     [InlineData(int.MaxValue)]
     public void Validate_WithAPositiveId_ReturnsValid(int id)
     {
-        _sut.Validate(new SequenceIdInputDto(id)).IsValid.ShouldBeTrue();
+        _sut.Validate(new ConsecutiveIdInputDto(id)).IsValid.ShouldBeTrue();
     }
 
     [Theory]
@@ -27,22 +27,22 @@ public sealed class SequenceIdInputValidatorTests
     [InlineData(int.MinValue)]
     public void Validate_WithANonPositiveId_ReportsTheFailure(int id)
     {
-        var result = _sut.Validate(new SequenceIdInputDto(id));
+        var result = _sut.Validate(new ConsecutiveIdInputDto(id));
 
         result.IsValid.ShouldBeFalse();
-        var failure = result.Errors.Single(e => e.PropertyName == nameof(SequenceIdInputDto.Id));
+        var failure = result.Errors.Single(e => e.PropertyName == nameof(ConsecutiveIdInputDto.Id));
         failure.ErrorMessage.ShouldBe(ExpectedMessage);
     }
 
     [Fact]
     public async Task ValidateAsync_ThroughTheAdapter_ReportsTheFailureOnId()
     {
-        var adapter = new FluentRequestValidationAdapter<SequenceIdInputDto>(_sut);
+        var adapter = new FluentRequestValidationAdapter<ConsecutiveIdInputDto>(_sut);
 
-        var result = await adapter.ValidateAsync(new SequenceIdInputDto(0));
+        var result = await adapter.ValidateAsync(new ConsecutiveIdInputDto(0));
 
         result.IsFailure.ShouldBeTrue();
-        var id = result.Error.Details.Single(d => d.Property == nameof(SequenceIdInputDto.Id));
+        var id = result.Error.Details.Single(d => d.Property == nameof(ConsecutiveIdInputDto.Id));
         id.Errors.ShouldNotBeNull();
         id.Errors!.ShouldContain(ExpectedMessage);
     }

@@ -14,6 +14,12 @@ namespace Activities.Application.UseCases.CreateActivity;
 /// <c>CreatedAt</c> comes from the service's clock (§6.2, DEC-12). It stays in the contract
 /// because the monolith adapter still sends it.
 /// </para>
+/// <para>
+/// <see cref="CreatedByIdentification"/> is who actually registers the activity, when the caller
+/// knows it — the monolith's own session user, most of the time. When it is absent, the advisor
+/// fills <c>CreatedById</c> instead: the only person the service can otherwise assume registered
+/// it.
+/// </para>
 /// </remarks>
 public sealed record CreateActivityInputDto(
     [property: Description("Consecutive of the deal the activity belongs to.")]
@@ -36,4 +42,6 @@ public sealed record CreateActivityInputDto(
     [property: Description("Coded outcome, e.g. 'contacted' or 'deal-closed'. Required for a completed call or meeting.")]
     string? OutcomeType = null,
     [property: Description("When the activity is due. Required when scheduled.")]
-    DateTime? DueAt = null);
+    DateTime? DueAt = null,
+    [property: Description("Identification number of the person registering the activity. Falls back to the advisor when absent — see remarks.")]
+    string? CreatedByIdentification = null);

@@ -11,6 +11,11 @@ namespace Activities.Application.Ports;
 /// Security domain and is the caller's responsibility (DEC-17); during phase 1 the monolith
 /// adapter keeps its existing check before delegating.
 /// </para>
+/// <para>
+/// Despite the name, it resolves any person's code from an identification, with nothing
+/// advisor-specific in the implementation — <c>CreateActivityUseCase</c> reuses it to resolve
+/// <c>CreatedByIdentification</c> as well, not just the advisor.
+/// </para>
 /// </remarks>
 public interface IAdvisorReader
 {

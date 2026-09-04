@@ -67,6 +67,17 @@ public sealed class CreateActivityUseCase(
         if (advisorCode is null)
             return Enrich(ActivityErrors.AdvisorNotFound(input.AdvisorIdentification));
 
+        var createdByCode = advisorCode;
+        if (!string.IsNullOrWhiteSpace(input.CreatedByIdentification))
+        {
+            createdByCode = await advisorReader
+                .ResolveByIdentificationAsync(input.CreatedByIdentification, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (createdByCode is null)
+                return Enrich(ActivityErrors.CreatedByNotFound(input.CreatedByIdentification));
+        }
+
         var deal = await dealReader
             .GetDealContextAsync(input.DealId, cancellationToken)
             .ConfigureAwait(false);
@@ -78,9 +89,9 @@ public sealed class CreateActivityUseCase(
             return Enrich(ActivityErrors.OpportunityArchived with { Value = input.DealId });
 
         var activityResult = status == ActivityStatus.Scheduled
-            ? ActivityAggregate.Schedule(input.ToScheduleArgs(type, deal.OpportunityId, advisorCode))
+            ? ActivityAggregate.Schedule(input.ToScheduleArgs(type, deal.OpportunityId, advisorCode, createdByCode))
             : ActivityAggregate.RegisterCompleted(
-                input.ToCompleteArgs(type, deal.OpportunityId, advisorCode),
+                input.ToCompleteArgs(type, deal.OpportunityId, advisorCode, createdByCode),
                 timeProvider.GetUtcNow().UtcDateTime);
 
         if (activityResult.IsFailure)

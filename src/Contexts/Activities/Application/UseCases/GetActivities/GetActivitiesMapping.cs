@@ -26,6 +26,8 @@ public static class GetActivitiesMapping
             item.AdvisorIdentification,
             activity.CreatedAt,
             activity.DueAt,
-            activity.CompletedAt);
+            activity.CompletedAt,
+            activity.CreatedById.Value,
+            item.CreatedByName);
     }
 }

@@ -1,0 +1,22 @@
+$kind: http-request
+description: Cierra el ciclo y limpia `lossReasonId`.
+url: "{{baseUrl}}/loss-reasons/{{lossReasonId}}"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 404', function () {
+          pm.response.to.have.status(404);
+      });
+
+      pm.test('Error tipado NOT_FOUND', function () {
+          var cuerpo = pm.response.json();
+          pm.expect(cuerpo.statusCode).to.eql(404);
+          pm.expect(cuerpo.error.type).to.eql('NOT_FOUND');
+      });
+
+      pm.collectionVariables.set('lossReasonId', '');
+    language: text/javascript
+order: 15000

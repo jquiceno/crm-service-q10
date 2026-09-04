@@ -1,0 +1,14 @@
+$kind: http-request
+description: La validación del id aplica a los tres verbos con parámetro de ruta, no solo al GET. Aquí además prueba que un id inválido no llega a borrar nada.
+url: "{{baseUrl}}/loss-reasons/-5"
+method: DELETE
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400 y no borra nada', function () {
+          pm.response.to.have.status(400);
+      });
+    language: text/javascript
+order: 18000

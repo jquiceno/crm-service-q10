@@ -1,0 +1,22 @@
+$kind: http-request
+description: "`isActive` es opcional en el filtro. Omitirlo trae activas e inactivas."
+url: "{{baseUrl}}/loss-reasons?isActive=false"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+queryParams:
+  isActive: "false"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('Ninguna de las devueltas está activa', function () {
+          pm.response.json().data.items.forEach(function (x) {
+              pm.expect(x.isActive).to.be.false;
+          });
+      });
+    language: text/javascript
+order: 6000

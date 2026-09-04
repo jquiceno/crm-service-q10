@@ -1,0 +1,20 @@
+$kind: http-request
+description: El listado se cachea 3 días. Si la causa recién creada no aparece aquí, es que el `[OutputCacheInvalidate]` del POST no disparó y se está sirviendo una respuesta vieja.
+url: "{{baseUrl}}/loss-reasons"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('La causa recién creada aparece — la caché se invalidó', function () {
+          var id = Number(pm.collectionVariables.get('lossReasonId'));
+          var estan = pm.response.json().data.items.some(function (x) { return x.id === id; });
+          pm.expect(estan).to.be.true;
+      });
+    language: text/javascript
+order: 11000

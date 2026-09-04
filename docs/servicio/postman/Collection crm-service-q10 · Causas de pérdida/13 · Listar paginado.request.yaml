@@ -1,0 +1,27 @@
+$kind: http-request
+description: "`pageIndex` es base 0 y `pageSize` admite 100 como máximo. El `totalCount` es el total sin paginar, no el de la página."
+url: "{{baseUrl}}/loss-reasons?pageIndex=0&pageSize=2"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+queryParams:
+  pageIndex: "0"
+  pageSize: "2"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      var cuerpo = pm.response.json();
+
+      pm.test('Devuelve como mucho pageSize elementos', function () {
+          pm.expect(cuerpo.data.items.length).to.be.at.most(2);
+      });
+
+      pm.test('totalCount cuenta el catálogo entero, no la página', function () {
+          pm.expect(cuerpo.data.totalCount).to.be.at.least(cuerpo.data.items.length);
+      });
+    language: text/javascript
+order: 7000

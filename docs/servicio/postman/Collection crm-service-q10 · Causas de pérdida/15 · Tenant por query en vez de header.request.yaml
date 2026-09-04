@@ -1,0 +1,14 @@
+$kind: http-request
+description: El tenant viaja por header `X-Entity-Code` o por query `EntityCode`. Las dos vías tienen que funcionar; esta petición cubre la segunda.
+url: "{{baseUrl}}/loss-reasons?EntityCode={{entityCode}}"
+method: GET
+queryParams:
+  EntityCode: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200 sin header, con el tenant en la query', function () {
+          pm.response.to.have.status(200);
+      });
+    language: text/javascript
+order: 9000

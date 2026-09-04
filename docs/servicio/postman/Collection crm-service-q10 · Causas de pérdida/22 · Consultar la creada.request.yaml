@@ -1,0 +1,18 @@
+$kind: http-request
+description: Lee por id la causa que creó la 20.
+url: "{{baseUrl}}/loss-reasons/{{lossReasonId}}"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('Es la que se acaba de crear', function () {
+          pm.expect(pm.response.json().data.name).to.eql('Postman smoke test');
+      });
+    language: text/javascript
+order: 12000

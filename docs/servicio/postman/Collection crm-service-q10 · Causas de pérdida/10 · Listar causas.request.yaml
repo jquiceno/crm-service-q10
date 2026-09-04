@@ -1,0 +1,36 @@
+$kind: http-request
+description: Listado paginado. Un catálogo vacío responde 200 con la lista vacía, nunca 404.
+url: "{{baseUrl}}/loss-reasons"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      var cuerpo = pm.response.json();
+
+      pm.test('Envelope paginado: data.items y data.totalCount', function () {
+          pm.expect(cuerpo.statusCode).to.eql(200);
+          pm.expect(cuerpo.data.items).to.be.an('array');
+          pm.expect(cuerpo.data.totalCount).to.be.a('number');
+      });
+
+      pm.test('Cada causa trae id, name e isActive', function () {
+          cuerpo.data.items.forEach(function (x) {
+              pm.expect(x.id).to.be.a('number');
+              pm.expect(x.name).to.be.a('string');
+              pm.expect(x.isActive).to.be.a('boolean');
+          });
+      });
+
+      pm.test('Ordenado por nombre', function () {
+          var nombres = cuerpo.data.items.map(function (x) { return x.name; });
+          var ordenados = nombres.slice().sort(function (a, b) { return a.localeCompare(b, 'es'); });
+          pm.expect(nombres).to.eql(ordenados);
+      });
+    language: text/javascript
+order: 4000

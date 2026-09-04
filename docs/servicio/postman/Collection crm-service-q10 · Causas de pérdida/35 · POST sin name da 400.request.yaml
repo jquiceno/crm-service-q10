@@ -1,0 +1,25 @@
+$kind: http-request
+description: "`name` se declara anulable en el DTO a propósito, para que el validador reporte el error sobre su propia propiedad en vez de que el deserializador falle con un 400 genérico."
+url: "{{baseUrl}}/loss-reasons"
+method: POST
+headers:
+  X-Entity-Code: "{{entityCode}}"
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400', function () {
+          pm.response.to.have.status(400);
+      });
+
+      pm.test('El detalle señala name', function () {
+          pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include('name');
+      });
+    language: text/javascript
+order: 21000

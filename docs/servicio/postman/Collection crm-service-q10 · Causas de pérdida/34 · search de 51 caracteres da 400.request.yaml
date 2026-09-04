@@ -1,0 +1,23 @@
+$kind: http-request
+description: |-
+  51 caracteres, uno más que el límite. Buscar un texto más largo que el nombre más largo posible no puede casar con ninguna fila.
+
+  Esta petición vigila además la caché del listado: si responde 200, es que está sirviendo la respuesta cacheada de otro filtro. Ese fallo ya ocurrió una vez en este contexto y ningún unitario lo vio.
+url: "{{baseUrl}}/loss-reasons?search=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+queryParams:
+  search: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400 — un 200 sería una respuesta cacheada de otro filtro', function () {
+          pm.response.to.have.status(400);
+      });
+
+      pm.test('El mensaje nombra el límite de 50', function () {
+          pm.expect(JSON.stringify(pm.response.json())).to.include('50');
+      });
+    language: text/javascript
+order: 20000

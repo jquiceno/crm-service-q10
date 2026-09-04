@@ -1,0 +1,12 @@
+$kind: http-request
+description: No hay tenant por defecto. Sin header ni query la petición no se puede resolver contra ninguna base.
+url: "{{baseUrl}}/loss-reasons"
+method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400', function () {
+          pm.response.to.have.status(400);
+      });
+    language: text/javascript
+order: 16000

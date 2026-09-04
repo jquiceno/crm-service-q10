@@ -1,0 +1,29 @@
+$kind: http-request
+description: "`name` e `isActive` son los dos obligatorios. Omitir `isActive` es 400, no un false silencioso: ver la petición 37."
+url: "{{baseUrl}}/loss-reasons/{{lossReasonId}}"
+method: PUT
+headers:
+  X-Entity-Code: "{{entityCode}}"
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "name": "Postman smoke test (editada)",
+        "isActive": false
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      var cuerpo = pm.response.json();
+
+      pm.test('Devuelve el recurso ya actualizado', function () {
+          pm.expect(cuerpo.data.name).to.eql('Postman smoke test (editada)');
+          pm.expect(cuerpo.data.isActive).to.be.false;
+      });
+    language: text/javascript
+order: 13000

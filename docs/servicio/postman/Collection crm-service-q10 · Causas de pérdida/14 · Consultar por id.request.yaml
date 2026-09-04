@@ -1,0 +1,18 @@
+$kind: http-request
+description: Usa la variable `readOnlyId`. Si responde 404, cámbiala por un id que exista en el tenant.
+url: "{{baseUrl}}/loss-reasons/{{readOnlyId}}"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200 — un 404 significa que readOnlyId no existe', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('Devuelve la causa pedida', function () {
+          pm.expect(pm.response.json().data.id).to.eql(Number(pm.collectionVariables.get('readOnlyId')));
+      });
+    language: text/javascript
+order: 8000

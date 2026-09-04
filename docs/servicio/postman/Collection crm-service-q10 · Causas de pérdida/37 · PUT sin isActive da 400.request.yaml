@@ -1,0 +1,28 @@
+$kind: http-request
+description: |-
+  El caso que encontró la revisión. Antes de arreglarlo esto respondía 200 y **desactivaba la causa** con el false del default del CLR, sin que nadie lo hubiera pedido.
+
+  Va contra `readOnlyId`, una causa que existe: la prueba es que rebota antes de tocarla.
+url: "{{baseUrl}}/loss-reasons/{{readOnlyId}}"
+method: PUT
+headers:
+  X-Entity-Code: "{{entityCode}}"
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "name": "Solo el nombre"
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400 — un 200 aquí desactivaría la causa en silencio', function () {
+          pm.response.to.have.status(400);
+      });
+
+      pm.test('El detalle señala isActive', function () {
+          pm.expect(JSON.stringify(pm.response.json()).toLowerCase()).to.include('isactive');
+      });
+    language: text/javascript
+order: 23000

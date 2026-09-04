@@ -1,0 +1,22 @@
+$kind: http-request
+description: El límite de 50 se valida en dos capas, el validador estructural y el agregado. Cualquiera de las dos que faltara dejaría pasar esto.
+url: "{{baseUrl}}/loss-reasons"
+method: POST
+headers:
+  X-Entity-Code: "{{entityCode}}"
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400 y no crea nada', function () {
+          pm.response.to.have.status(400);
+      });
+    language: text/javascript
+order: 22000

@@ -1,0 +1,22 @@
+$kind: http-request
+description: "`search` filtra por Name que lo contenga. Es opcional y admite 50 caracteres como mucho; en blanco significa «no filtrar», no un 400."
+url: "{{baseUrl}}/loss-reasons?search=a"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+queryParams:
+  search: "a"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 200', function () {
+          pm.response.to.have.status(200);
+      });
+
+      pm.test('Todo lo devuelto contiene el término buscado', function () {
+          pm.response.json().data.items.forEach(function (x) {
+              pm.expect(x.name.toLowerCase()).to.include('a');
+          });
+      });
+    language: text/javascript
+order: 5000

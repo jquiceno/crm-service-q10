@@ -1,0 +1,35 @@
+$kind: http-request
+description: Primera del ciclo de escritura. Guarda el id asignado en `lossReasonId`, que usan las cuatro siguientes. Éxito 201 con el recurso creado, sin header Location.
+url: "{{baseUrl}}/loss-reasons"
+method: POST
+headers:
+  X-Entity-Code: "{{entityCode}}"
+  Content-Type: application/json
+body:
+  type: text
+  content: |-
+    {
+        "name": "Postman smoke test",
+        "isActive": true
+    }
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 201', function () {
+          pm.response.to.have.status(201);
+      });
+
+      var cuerpo = pm.response.json();
+
+      pm.test('Devuelve el id que asignó la base', function () {
+          pm.expect(cuerpo.data.id).to.be.a('number').and.to.be.above(0);
+          pm.expect(cuerpo.data.name).to.eql('Postman smoke test');
+          pm.expect(cuerpo.data.isActive).to.be.true;
+      });
+
+      if (pm.response.code === 201) {
+          pm.collectionVariables.set('lossReasonId', pm.response.json().data.id);
+          console.log('Causa creada: ' + pm.response.json().data.id);
+      }
+    language: text/javascript
+order: 10000

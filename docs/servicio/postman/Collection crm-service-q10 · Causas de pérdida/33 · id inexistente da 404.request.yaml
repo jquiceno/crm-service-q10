@@ -1,0 +1,18 @@
+$kind: http-request
+description: El 404 lo origina el repositorio y sale del ErrorType, no de un if en el controller.
+url: "{{baseUrl}}/loss-reasons/999999"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 404', function () {
+          pm.response.to.have.status(404);
+      });
+
+      pm.test('Error tipado NOT_FOUND', function () {
+          pm.expect(pm.response.json().error.type).to.eql('NOT_FOUND');
+      });
+    language: text/javascript
+order: 19000

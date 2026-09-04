@@ -114,15 +114,19 @@ valores: el resolver pasa a `http://host.docker.internal:8443/tenants/` y Redis 
 
 ## Colección de Postman
 
-`docs/servicio/postman/crm-service-loss-reasons.postman_collection.json`, con los 5 endpoints y sus
-casos de error. Cuatro carpetas:
+`docs/servicio/postman/Collection crm-service-q10 · Causas de pérdida/`, en el formato de directorio
+de Postman: `.resources/definition.yaml` con las variables y un `.request.yaml` por petición. Se abre
+apuntando Postman a esa carpeta; el workspace de `docs/servicio/postman/.postman/resources.yaml` ya
+la tiene registrada.
 
-| Carpeta | Qué hace |
+Son 24 peticiones numeradas por bloques:
+
+| Bloque | Qué hace |
 |---|---|
-| **0** Salud y documentación | `health/live`, `health/ready` y el documento OpenAPI |
-| **1** Lecturas | listado, filtros, paginación, consulta por id, tenant por query |
-| **2** Ciclo completo | **escribe en la base real**: crea, comprueba que la caché se invalidó, actualiza, borra y verifica el 404 |
-| **3** Errores y validaciones | sin tenant, id `0` y negativo, 404, `search` de 51, `POST` inválidos, `PUT` sin `isActive`, y el 409 del borrado en uso |
+| **0x** Salud y documentación | `health/live`, `health/ready` y el documento OpenAPI |
+| **1x** Lecturas | listado, filtros, paginación, consulta por id, tenant por query |
+| **2x** Ciclo completo | **escribe en la base real**: crea, comprueba que la caché se invalidó, actualiza, borra y verifica el 404 |
+| **3x** Errores y validaciones | sin tenant, id `0` y negativo, 404, `search` de 51, `POST` inválidos, `PUT` sin `isActive`, y el 409 del borrado en uso |
 
 Variables a revisar: `baseUrl`, `entityCode` y —solo para el 409— `inUseId`, que necesita el id de
 una causa realmente asignada a un negocio. Si se deja vacío, ese request se salta solo.
@@ -130,14 +134,11 @@ una causa realmente asignada a un negocio. Si se deja vacío, ese request se sal
 La carpeta 2 limpia lo que crea, pero escribe contra el tenant de verdad: conviene saber contra cuál
 se está corriendo. Las carpetas 0, 1 y 3 no modifican nada.
 
-Desde línea de comandos, con la app arriba:
+Verificado el 2026-09-04 contra el tenant `641690275906`: **17 peticiones y 32 aserciones en verde**
+en los bloques 0x, 1x y 3x. El 2x no se corrió, por escribir en datos reales.
 
-```powershell
-npx --yes newman run docs/servicio/postman/crm-service-loss-reasons.postman_collection.json
-```
-
-Verificado el 2026-09-04 contra el tenant `641690275906`: **17 requests y 32 aserciones en verde**
-en las carpetas 0, 1 y 3.
+Newman no lee el formato de directorio; para correrla desde línea de comandos hay que exportarla
+antes desde Postman a JSON v2.1.
 
 ## Diagnóstico
 

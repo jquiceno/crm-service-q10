@@ -1,0 +1,18 @@
+$kind: http-request
+description: 204 sin cuerpo. Deja la base como estaba antes del ciclo.
+url: "{{baseUrl}}/loss-reasons/{{lossReasonId}}"
+method: DELETE
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 204', function () {
+          pm.response.to.have.status(204);
+      });
+
+      pm.test('Sin cuerpo', function () {
+          pm.expect(pm.response.text()).to.be.empty;
+      });
+    language: text/javascript
+order: 14000

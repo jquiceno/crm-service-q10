@@ -1,0 +1,23 @@
+$kind: collection
+name: crm-service-q10 · Causas de pérdida
+description: |-
+  Los 5 endpoints del contexto `loss-reasons` y sus casos de error.
+
+  Antes de correr, la app tiene que estar arriba con su pila completa: resolver de tenants, túnel a SQL Server en el puerto 1433 y Redis. El runbook está en `docs/servicio/entorno_local.md`.
+
+  Dos cosas que se olvidan y dan error:
+
+  1. Todo cuelga del prefijo de servicio `/crm-service`. No existe `/loss-reasons` a secas.
+  2. Toda petición necesita el tenant, por header `X-Entity-Code` o por query `?EntityCode=`. Sin él es 400, no hay valor por defecto.
+
+  Las peticiones van numeradas por bloques: **0x** salud y documentación, **1x** lecturas, **2x** ciclo completo de escritura, **3x** errores y validaciones.
+
+  El bloque 2x **escribe en la base real del tenant**. Crea su propio registro, lo actualiza y lo borra, así que no deja basura, pero conviene saber contra qué tenant se está corriendo. Los bloques 0x, 1x y 3x no modifican nada.
+
+  Variables a revisar antes de empezar: `baseUrl`, `entityCode` y, solo para el 409, `inUseId`.
+variables:
+  baseUrl: http://localhost:53318/crm-service
+  entityCode: "641690275906"
+  readOnlyId: "1"
+  lossReasonId: ""
+  inUseId: ""

@@ -1,0 +1,28 @@
+$kind: http-request
+description: |-
+  Necesita `inUseId` con el id de una causa **ya asignada a un negocio** en `tbl_opo_negocios`. Hay que averiguarlo en la base; sin la variable, la petición se salta sola.
+
+  **Cuidado:** si pones ahí un id que NO esté en uso, esto lo borra de verdad en vez de devolver 409.
+url: "{{baseUrl}}/loss-reasons/{{inUseId}}"
+method: DELETE
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: beforeRequest
+    code: |-
+      if (!pm.collectionVariables.get('inUseId')) {
+          console.log('inUseId está vacío: me salto la comprobación del 409.');
+          pm.execution.skipRequest();
+      }
+    language: text/javascript
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 409', function () {
+          pm.response.to.have.status(409);
+      });
+
+      pm.test('CONFLICT, y la causa sigue viva', function () {
+          pm.expect(pm.response.json().error.type).to.eql('CONFLICT');
+      });
+    language: text/javascript
+order: 24000

@@ -1,0 +1,24 @@
+$kind: http-request
+description: "400 y no 404: un id mal formado es una petición inválida, no un recurso inexistente. Una restricción de ruta habría respondido 404 y escondido el error."
+url: "{{baseUrl}}/loss-reasons/0"
+method: GET
+headers:
+  X-Entity-Code: "{{entityCode}}"
+scripts:
+  - type: afterResponse
+    code: |-
+      pm.test('Responde 400', function () {
+          pm.response.to.have.status(400);
+      });
+
+      var cuerpo = pm.response.json();
+
+      pm.test('El detalle señala el id', function () {
+          pm.expect(cuerpo.error.type).to.eql('VALIDATION');
+          var detalle = cuerpo.error.details.find(function (x) {
+              return x.property.toLowerCase() === 'id';
+          });
+          pm.expect(detalle.errors).to.include('Id must be greater than 0.');
+      });
+    language: text/javascript
+order: 17000

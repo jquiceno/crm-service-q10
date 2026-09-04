@@ -4,6 +4,7 @@ using Infrastructure.MasterAccess.Http.Tenants;
 using Shared.Application.Ports;
 using Shared.Presentation.Mapping;
 using Shared.Presentation.Responses;
+using Shared.Presentation.Routing;
 using Shared.Results.Errors;
 
 namespace Api.Middleware;
@@ -14,11 +15,19 @@ namespace Api.Middleware;
 /// <see cref="ITenantConnectionInitializer"/> so the per-tenant <c>DbContext</c> connects to the right
 /// database. Registered only when multitenancy is enabled.
 /// </summary>
-public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMiddleware> logger)
+public sealed class TenantMiddleware(
+    RequestDelegate next,
+    ILoggerPort<TenantMiddleware> logger,
+    IConfiguration configuration)
 {
-    // Infrastructure endpoints that must answer without a tenant. "/openapi" covers both the JSON
-    // document and the Scalar UI, which is served under that same prefix — there is no /scalar route.
-    private static readonly string[] ExcludedPaths = ["/health", "/openapi", "/info"];
+    // Infrastructure endpoints that answer without a tenant, under the service prefix.
+    private readonly string[] _excludedPaths = BuildExcludedPaths(configuration);
+
+    private static string[] BuildExcludedPaths(IConfiguration configuration)
+    {
+        var basePath = RoutePrefixConfig.BasePath(configuration.GetRoutePrefix());
+        return [$"{basePath}/health", $"{basePath}/openapi", $"{basePath}/info"];
+    }
 
     public async Task InvokeAsync(
         HttpContext context,
@@ -28,7 +37,7 @@ public sealed class TenantMiddleware(RequestDelegate next, ILoggerPort<TenantMid
         var path = context.Request.Path.Value ?? string.Empty;
 
         if (HttpMethods.IsOptions(context.Request.Method)
-            || ExcludedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
+            || _excludedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
         {
             await next(context).ConfigureAwait(false);
             return;

@@ -8,6 +8,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      RoutePrefix: /crm-service
       ServiceInfo__Name: CrmService
       ServiceInfo__Version: 1.0.0
       Sentry__Enabled: "false"

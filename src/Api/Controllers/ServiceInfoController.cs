@@ -1,5 +1,5 @@
+using Shared.Presentation.Responses;
 using Shared.Presentation.Results;
-using ServiceInfo.Application.Ports;
 using ServiceInfo.Application.UseCases.GetServiceInfo;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,17 +10,18 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("info")]
-public sealed class ServiceInfoController() : ControllerBase
+[Tags("serviceinfo")]
+public sealed class ServiceInfoController(
+    IGetServiceInfoUseCase getServiceInfoUseCase) : ControllerBase
 {
     [HttpGet]
-    [Tags("serviceinfo")]
-    [ProducesResponseType(typeof(GetServiceInfoOutputDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiSuccessResponse<GetServiceInfoOutputDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [EndpointSummary("Get service info")]
     [EndpointDescription("Returns basic service information: status, service name, and version.")]
     public async Task<HttpOkResult<GetServiceInfoOutputDto>> GetInfo(
-        IGetServiceInfoPort getServiceInfoPort,
         CancellationToken cancellationToken = default)
     {
-        return await getServiceInfoPort.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        return await getServiceInfoUseCase.ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 }

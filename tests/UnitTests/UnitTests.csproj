@@ -20,6 +20,9 @@
         <PackageReference Include="NSubstitute" Version="5.*" />
         <PackageReference Include="Bogus" Version="35.*" />
         <PackageReference Include="FluentValidation" Version="12.*" />
+        <!-- EF InMemory lives here, not in Infrastructure: the app has no in-memory persistence mode.
+             These unit tests use it only as a lightweight double for DbContext plumbing. -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.*" />
     </ItemGroup>
 
     <ItemGroup>

@@ -535,15 +535,14 @@ public sealed class ContactChannelRepositoryTests
     }
 
     [Fact]
-    public async Task RemoveAsync_WithAnUnknownId_FailsAsNotFoundStampedWithTheOrigin()
+    public async Task RemoveAsync_WithAnUnknownId_SucceedsWithoutTouchingTheChangeTracker()
     {
-        using var context = CreateContext(nameof(RemoveAsync_WithAnUnknownId_FailsAsNotFoundStampedWithTheOrigin));
+        using var context = CreateContext(nameof(RemoveAsync_WithAnUnknownId_SucceedsWithoutTouchingTheChangeTracker));
 
         var result = await CreateRepository(context).RemoveAsync(404);
 
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Origin.ShouldBe(nameof(ContactChannelRepository));
+        result.IsSuccess.ShouldBeTrue("the removal is idempotent: an unknown id is not an error");
+        context.ChangeTracker.Entries<ContactChannelEntity>().ShouldBeEmpty();
     }
 
     [Fact]

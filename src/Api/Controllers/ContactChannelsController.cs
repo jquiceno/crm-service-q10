@@ -103,11 +103,10 @@ public sealed class ContactChannelsController(
     [ValidateRequest]
     [EndpointSummary("Delete contact channel")]
     [EndpointDescription(
-        "Deletes the contact channel with the given identifier. A channel referenced by an " +
-        "opportunity cannot be deleted.")]
+        "Deletes the contact channel with the given identifier. The deletion is idempotent: an unknown " +
+        "identifier answers 204 as well. A channel referenced by an opportunity cannot be deleted.")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]

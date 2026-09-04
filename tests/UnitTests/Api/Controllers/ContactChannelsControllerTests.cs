@@ -319,13 +319,26 @@ public sealed class ContactChannelsControllerTests
     }
 
     [Fact]
-    public async Task DeleteContactChannel_WithAnUnknownId_ReturnsNotFound()
+    public async Task DeleteContactChannel_WithAnUnknownId_ReturnsNoContent()
     {
-        ReturnsDelete(Result.Failure(new NotFoundError("No contact channel exists with identifier 404.")));
+        ReturnsDelete(Result.Success());
 
-        var (statusCode, _) = await ExecuteAsync(await InvokeDeleteAsync(404));
+        var statusCode = await ExecuteStatusAsync(await InvokeDeleteAsync(404));
 
-        statusCode.ShouldBe(StatusCodes.Status404NotFound);
+        statusCode.ShouldBe(
+            StatusCodes.Status204NoContent,
+            "the deletion is idempotent: the endpoint must not disclose which channels exist");
+    }
+
+    [Fact]
+    public void DeleteContactChannel_DoesNotAdvertiseANotFoundResponse()
+    {
+        var declared = typeof(ContactChannelsController)
+            .GetMethod(nameof(ContactChannelsController.DeleteContactChannel))!
+            .GetCustomAttributes<ProducesResponseTypeAttribute>()
+            .Select(a => a.StatusCode);
+
+        declared.ShouldNotContain(StatusCodes.Status404NotFound);
     }
 
     [Fact]

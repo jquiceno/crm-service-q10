@@ -172,6 +172,14 @@ public static class ActivityErrors
     public static NotFoundError AdvisorNotFound(string? identification) =>
         new($"Advisor with identification '{identification}' was not found.");
 
+    /// <summary>
+    /// No person carries that identification. Reuses <see cref="IAdvisorReader"/> because it resolves
+    /// any person's code from an identification, not just the advisor's — Fase 1 has no separate
+    /// "registrant" port (see its remarks).
+    /// </summary>
+    public static NotFoundError CreatedByNotFound(string? identification) =>
+        new($"Person with identification '{identification}' was not found.");
+
     // --- Persistence ------------------------------------------------------------------------
 
     public static NotFoundError NotFound(int id) =>

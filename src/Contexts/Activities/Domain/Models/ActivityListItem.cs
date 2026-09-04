@@ -14,10 +14,16 @@ namespace Activities.Domain.Models;
 /// Every name is nullable because the legacy columns are: an activity whose advisor is missing
 /// (migrated history, §4.1) has no person row to name.
 /// </para>
+/// <para>
+/// <see cref="CreatedByName"/> is nullable for a different reason: <c>CreatedById</c> itself is
+/// never missing (every factory requires it), but the <c>Person</c> row it points to might no
+/// longer exist.
+/// </para>
 /// </remarks>
 public sealed record ActivityListItem(
     ActivityAggregate Activity,
     string? DealName,
     string? OpportunityName,
     string? AdvisorName,
-    string? AdvisorIdentification);
+    string? AdvisorIdentification,
+    string? CreatedByName);

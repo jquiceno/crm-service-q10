@@ -22,6 +22,8 @@ public sealed class CreateActivityUseCaseTests
 {
     private const string AdvisorIdentification = "1017123456";
     private const string AdvisorCode = "advisor-01";
+    private const string CreatedByIdentification = "1019876543";
+    private const string CreatedByCode = "creator-01";
     private const int DealId = 1200;
     private const int OpportunityId = 845;
 
@@ -36,6 +38,8 @@ public sealed class CreateActivityUseCaseTests
     {
         _advisorReader.ResolveByIdentificationAsync(AdvisorIdentification, Arg.Any<CancellationToken>())
             .Returns(AdvisorCode);
+        _advisorReader.ResolveByIdentificationAsync(CreatedByIdentification, Arg.Any<CancellationToken>())
+            .Returns(CreatedByCode);
         _dealReader.GetDealContextAsync(DealId, Arg.Any<CancellationToken>())
             .Returns(new DealContext(Exists: true, OpportunityId, OpportunityArchived: false));
 
@@ -76,6 +80,41 @@ public sealed class CreateActivityUseCaseTests
 
         persisted.AdvisorId!.Value.ShouldBe(AdvisorCode);
         persisted.CreatedById.Value.ShouldBe(AdvisorCode);
+    }
+
+    /// <summary>Without a <c>CreatedByIdentification</c>, the advisor is who the aggregate is born with.</summary>
+    [Fact]
+    public async Task ExecuteAsync_WithoutACreatedByIdentification_FallsBackToTheAdvisorsCode()
+    {
+        var persisted = await CapturePersistedAsync(Scheduled() with { CreatedByIdentification = null });
+
+        persisted.CreatedById.Value.ShouldBe(AdvisorCode);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithACreatedByIdentification_ResolvesItInsteadOfTheAdvisor()
+    {
+        var persisted = await CapturePersistedAsync(
+            Scheduled() with { CreatedByIdentification = CreatedByIdentification });
+
+        persisted.AdvisorId!.Value.ShouldBe(AdvisorCode);
+        persisted.CreatedById.Value.ShouldBe(CreatedByCode);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithAnUnknownCreatedByIdentification_ReturnsNotFound()
+    {
+        const string unknownIdentification = "0000000000";
+        _advisorReader.ResolveByIdentificationAsync(unknownIdentification, Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+
+        var result = await Sut.ExecuteAsync(
+            Scheduled() with { CreatedByIdentification = unknownIdentification });
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.NotFound);
+        result.Error.Message.ShouldContain(unknownIdentification);
+        await _repository.DidNotReceive().CreateAsync(Arg.Any<ActivityAggregate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

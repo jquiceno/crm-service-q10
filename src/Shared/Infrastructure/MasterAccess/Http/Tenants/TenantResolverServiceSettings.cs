@@ -38,4 +38,11 @@ public sealed class TenantResolverServiceSettings
 
     [Required]
     public string EncryptionKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional client-environment tag forwarded as the resolver's <c>clientEnv</c> query parameter
+    /// (e.g. <c>"local"</c> so the resolver returns a connection string reachable from a developer
+    /// machine). Empty by default: no query parameter is sent.
+    /// </summary>
+    public string? ClientEnv { get; init; }
 }

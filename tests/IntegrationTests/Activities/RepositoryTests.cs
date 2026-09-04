@@ -216,11 +216,13 @@ public sealed class RepositoryTests : IAsyncLifetime
 
     [Theory]
     [MemberData(nameof(Variants))]
-    public async Task SearchAsync_ResolvesTheDealOpportunityAndAdvisorNames(string variant)
+    public async Task SearchAsync_ResolvesTheDealOpportunityAdvisorAndCreatorNames(string variant)
     {
         using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await SeedDealAsync(context, dealId: 1200, opportunityId: 845, dealStateId: 3).ConfigureAwait(true);
         await SeedPersonAsync(context, code: "advisor-01", identification: "1017123456", fullName: "Ana Pérez")
+            .ConfigureAwait(true);
+        await SeedPersonAsync(context, code: "creator-01", identification: "1019876543", fullName: "Carlos Ruiz")
             .ConfigureAwait(true);
         await SeedActivityAsync(context, dealId: 1200, opportunityId: 845, advisorId: "advisor-01")
             .ConfigureAwait(true);
@@ -233,11 +235,12 @@ public sealed class RepositoryTests : IAsyncLifetime
         item.OpportunityName.ShouldBe("Oportunidad de prueba");
         item.AdvisorName.ShouldBe("Ana Pérez");
         item.AdvisorIdentification.ShouldBe("1017123456");
+        item.CreatedByName.ShouldBe("Carlos Ruiz");
     }
 
     [Theory]
     [MemberData(nameof(Variants))]
-    public async Task SearchAsync_WithoutAnAdvisor_StillReturnsTheRow(string variant)
+    public async Task SearchAsync_WithoutAnAdvisorOrACreatorPersonRow_StillReturnsTheRow(string variant)
     {
         using var context = ActivitySchemaVariants.CreateContext(_fixture, variant);
         await SeedDealAsync(context, dealId: 1200, opportunityId: 845, dealStateId: 3).ConfigureAwait(true);
@@ -250,6 +253,9 @@ public sealed class RepositoryTests : IAsyncLifetime
         item.Activity.AdvisorId.ShouldBeNull();
         item.AdvisorName.ShouldBeNull();
         item.AdvisorIdentification.ShouldBeNull();
+        // CreatedById itself is never null (SeedActivityAsync always sets it), but no Person
+        // row exists for "creator-01" here — the LEFT JOIN just leaves the name unresolved.
+        item.CreatedByName.ShouldBeNull();
         item.DealName.ShouldBe("Negocio de prueba");
     }
 

@@ -361,9 +361,28 @@ public sealed class ActivityRepositoryTests
         item.DealName.ShouldBe("Negocio");
         item.OpportunityName.ShouldBe("Oportunidad");
 
-        // The advisor is left-joined: a row without one is still returned, unnamed.
+        // The advisor is left-joined: a row without one is still returned, unnamed. The creator
+        // (NewEntity always sets one) is left-joined the same way, and no Person row for it is
+        // seeded here either.
         item.AdvisorName.ShouldBeNull();
         item.AdvisorIdentification.ShouldBeNull();
+        item.CreatedByName.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task SearchAsync_ResolvesTheCreatorNameThroughItsOwnLeftJoin()
+    {
+        using var context = CreateContext(nameof(SearchAsync_ResolvesTheCreatorNameThroughItsOwnLeftJoin));
+        context.Set<Opportunity>().Add(new Opportunity { Id = 845, Name = "x", IsArchived = false });
+        context.Set<Deal>().Add(new Deal { Id = 1200, OpportunityId = 845, DealStateId = 3, Name = "x" });
+        context.Set<Person>().Add(new Person { Code = "creator-01", FullName = "Carlos Ruiz" });
+        context.Set<Activity>().Add(NewEntity(1, dealId: 1200, opportunityId: 845));
+        await context.SaveChangesAsync();
+        var sut = new ActivityRepository(context, Logger());
+
+        var result = await sut.SearchAsync(new ActivityFilter(1200, null, null), new PageQuery(0, 10));
+
+        result.Items.ShouldHaveSingleItem().CreatedByName.ShouldBe("Carlos Ruiz");
     }
 
     [Fact]

@@ -60,7 +60,7 @@ public sealed class GetActivitiesUseCaseTests
             new DateTime(2026, 8, 1, 10, 20, 0, DateTimeKind.Utc)).Value;
 
         SearchReturns(PagedResult<ActivityListItem>.Success(
-            [new ActivityListItem(activity, "Negocio", "Oportunidad", "Ana Pérez", "1017123456")], 128));
+            [new ActivityListItem(activity, "Negocio", "Oportunidad", "Ana Pérez", "1017123456", "Carlos Ruiz")], 128));
 
         var result = await Sut.ExecuteAsync(new GetActivitiesInputDto(1200, null, null), new PageQuery(0, 30));
 
@@ -82,6 +82,8 @@ public sealed class GetActivitiesUseCaseTests
         dto.AdvisorIdentification.ShouldBe("1017123456");
         dto.CompletedAt.ShouldBe(new DateTime(2026, 8, 1, 10, 20, 0, DateTimeKind.Utc));
         dto.DueAt.ShouldBeNull();
+        dto.CreatedById.ShouldBe("advisor-01");
+        dto.CreatedByName.ShouldBe("Carlos Ruiz");
     }
 
     [Fact]
@@ -93,7 +95,7 @@ public sealed class GetActivitiesUseCaseTests
             PersonCode.Create("advisor-01").Value, PersonCode.Create("advisor-01").Value).Value;
 
         SearchReturns(PagedResult<ActivityListItem>.Success(
-            [new ActivityListItem(activity, null, null, null, null)], 1));
+            [new ActivityListItem(activity, null, null, null, null, null)], 1));
 
         var dto = (await Sut.ExecuteAsync(new GetActivitiesInputDto(1200, null, null), new PageQuery(0, 30)))
             .Items.ShouldHaveSingleItem();

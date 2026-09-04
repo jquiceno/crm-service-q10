@@ -192,7 +192,9 @@ public sealed class ActivityRepository(
         try
         {
             // Deal and opportunity are inner-joined (legacy SP parity: a row without them is not
-            // returned); the advisor is left-joined, since migrated history has none (§4.1).
+            // returned); the advisor and the creator are left-joined, since either Person row may
+            // not exist — migrated history has no advisor (§4.1), and a creator's row can vanish
+            // just as well.
             var query =
                 from activity in DbSet.AsNoTracking()
                 join deal in context.Set<Deal>().AsNoTracking() on activity.DealId equals deal.Id
@@ -201,7 +203,10 @@ public sealed class ActivityRepository(
                 join person in context.Set<Person>().AsNoTracking()
                     on activity.AdvisorId equals person.Code into advisors
                 from advisor in advisors.DefaultIfEmpty()
-                select new { activity, deal, opportunity, advisor };
+                join creatorPerson in context.Set<Person>().AsNoTracking()
+                    on activity.CreatedById equals creatorPerson.Code into creators
+                from creator in creators.DefaultIfEmpty()
+                select new { activity, deal, opportunity, advisor, creator };
 
             if (filter.DealId.HasValue)
                 query = query.Where(row => row.activity.DealId == filter.DealId.Value);
@@ -237,7 +242,8 @@ public sealed class ActivityRepository(
                     row.deal.Name,
                     row.opportunity.Name,
                     row.advisor?.FullName,
-                    row.advisor?.Identification)),
+                    row.advisor?.Identification,
+                    row.creator?.FullName)),
             ];
 
             return PagedResult<ActivityListItem>.Success(items, result.Total);

@@ -43,4 +43,8 @@ public sealed record GetActivitiesOutputDto(
     [property: Description("When the activity is due. Only scheduled activities carry one.")]
     DateTime? DueAt,
     [property: Description("When the activity was completed.")]
-    DateTime? CompletedAt);
+    DateTime? CompletedAt,
+    [property: Description("Person code of whoever registered the activity.")]
+    string? CreatedById,
+    [property: Description("Full name of whoever registered the activity. Null if that person no longer exists.")]
+    string? CreatedByName);

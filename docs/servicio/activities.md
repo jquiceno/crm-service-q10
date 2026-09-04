@@ -41,7 +41,9 @@ consulta listaría todas las actividades de la institución.
 
 Una fila cuyo negocio —o cuya oportunidad— ya no existe **no** se devuelve: es el mismo `INNER JOIN`
 doble del procedimiento legado. El asesor, en cambio, va por `LEFT JOIN`: la historia migrada no
-tiene asesor y esas filas sí se devuelven, sin nombre.
+tiene asesor y esas filas sí se devuelven, sin nombre. Quien registró la actividad
+(`createdById`/`createdByName`) va por el mismo `LEFT JOIN`, por la misma razón: la persona referenciada
+podría ya no existir.
 
 ### `POST /activities`
 
@@ -56,6 +58,7 @@ tiene asesor y esas filas sí se devuelven, sin nombre.
 | `outcome` | string | condicional | obligatorio si `completed`, prohibido si `scheduled`; ≤ 2000 | API (longitud) + Dominio |
 | `outcomeType` | string | condicional | obligatorio si `completed` y el tipo es `call` o `meeting` | Dominio |
 | `dueAt` | datetime | condicional | obligatoria si `scheduled` | Dominio |
+| `createdByIdentification` | string | condicional | si no se manda, se usa el asesor; si se manda, la persona debe existir | Application (existencia) |
 
 Reglas que conviene conocer antes de integrarse:
 
@@ -69,6 +72,9 @@ Reglas que conviene conocer antes de integrarse:
   adaptador del monolito conserva su verificación antes de delegar.
 - **El servicio no escribe fuera de su tabla.** Ni `opo_fecha_ultimo_registro` ni la auditoría: el
   adaptador del monolito los sigue escribiendo, con su mecanismo actual.
+- **Quien registra la actividad es información no verificada**, igual que `advisorIdentification`:
+  el servicio no comprueba que quien llama realmente sea esa persona (autenticación, GAP-P10, sigue
+  sin resolver).
 
 ### Errores
 
@@ -76,7 +82,7 @@ Forma única, la del template: `{ "error": { "type", "code", "message", "details
 
 | Error | `type` | HTTP |
 |---|---|---|
-| `DealNotFound`, `AdvisorNotFound` | `NOT_FOUND` | 404 |
+| `DealNotFound`, `AdvisorNotFound`, `CreatedByNotFound` | `NOT_FOUND` | 404 |
 | Todo lo que rechaza el caso de uso o el agregado: `OpportunityArchived`, `InvalidActivityStatus`, `StatusNotCreatable`, `InvalidActivityType`, `TypeNotWritable`, `NoteCannotBeScheduled`, `DescriptionRequired`, `DueDateRequired`, `OutcomeRequired`, `OutcomeTypeRequired`, `OutcomeNotAllowedWhenScheduled`, … | `DOMAIN_VALIDATION` | 400 |
 | Forma inválida del request y falta de filtro en el `GET` (los rechaza el filtro de validación, antes del caso de uso) | `VALIDATION` | 400 |
 | Fallo de persistencia | `INTERNAL` | 500 |

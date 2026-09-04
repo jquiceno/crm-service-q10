@@ -56,7 +56,7 @@ public sealed class LossReasonsControllerTests
     }
 
     [Fact]
-    public void GetLossReasons_VariesTheCacheByEveryQueryParameterItBinds()
+    public void GetLossReasons_DoesNotRestrictTheCacheKeyToASubsetOfTheQuery()
     {
         var cache = typeof(LossReasonsController)
             .GetMethod(nameof(LossReasonsController.GetLossReasons))!
@@ -64,18 +64,13 @@ public sealed class LossReasonsControllerTests
             .Cast<OutputCacheAttribute>()
             .Single();
 
-        // Every bound query parameter must be in the key, plus EntityCode, which is the query-side
-        // tenant channel. A parameter missing here is R8: the listing serves the result of one
-        // filter for another, or of one tenant for another, answering 200 with no error anywhere.
-        // Renaming a DTO property without touching the attribute is exactly how that regresses.
-        // Query lookups are case-insensitive, so only the set of names matters.
-        var expected = typeof(GetLossReasonsInputDto).GetProperties().Select(p => p.Name)
-            .Concat(typeof(PageQueryInputDto).GetProperties().Select(p => p.Name))
-            .Append("EntityCode")
-            .Select(name => name.ToLowerInvariant());
-
-        cache.VaryByQueryKeys!.Select(key => key.ToLowerInvariant())
-            .ShouldBe(expected, ignoreOrder: true);
+        // An annotated endpoint already varies by the whole query string: the attribute reapplies
+        // DefaultPolicy after the base policy and restores QueryKeys = "*" (cache.md, "Cómo se arma
+        // la clave de caché"). Declaring VaryByQueryKeys *restricts* the key to the listed names,
+        // which is R8: a filter left out of the list makes the listing serve the result of one
+        // search for another, answering 200 with no error anywhere. It happened on this branch when
+        // the filter was renamed to Search and the list still said "name".
+        cache.VaryByQueryKeys.ShouldBeNull();
         cache.Tags.ShouldBe(["loss-reasons"]);
         cache.Duration.ShouldBe(3 * 24 * 60 * 60);
     }

@@ -43,14 +43,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiSuccessResponse<PagedPayload<GetLossReasonsOutputDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
-    // VaryByQueryKeys complements the base policy instead of replacing it, which is what PolicyName
-    // would do. The filter keys are what keeps the listing from serving the result of one filter for
-    // another; EntityCode is repeated from the base because it is the query-side tenant channel and
-    // the key list must not narrow it away.
-    [OutputCache(
-        Duration = CacheDurationSeconds,
-        Tags = [CacheTag],
-        VaryByQueryKeys = ["EntityCode", "search", "isActive", "pageIndex", "pageSize"])]
+    [OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
     public async Task<HttpOkPagedResult<GetLossReasonsOutputDto>> GetLossReasons(
         [FromQuery] GetLossReasonsInputDto filter,
         [FromQuery] PageQueryInputDto pagination,

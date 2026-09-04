@@ -29,15 +29,12 @@ public sealed class LossReasonsController(
 {
     private const string CacheTag = "loss-reasons";
 
-    // Loss reasons are an administrative catalog that changes rarely, and every write invalidates
-    // CacheTag, so a stale read can only last until the next mutation. One minute, the duration
-    // controllers.md uses for both read shapes.
-    private const int CacheDurationSeconds = 60;
+    private const int CacheDurationSeconds = 3 * 24 * 60 * 60;
 
-    // The route id travels as IdInputDto, not as a bare int: ValidateRequestFilter skips simple
-    // types, so a validator over an int would never run. Wrapped, IdInputValidator applies and the
-    // three actions that take an id carry [ValidateRequest]. A route constraint would answer 404
-    // instead, hiding a malformed id as a missing resource.
+    // The route id travels as ConsecutiveIdInputDto, not as a bare int: ValidateRequestFilter skips
+    // simple types, so a validator over an int would never run. Wrapped, ConsecutiveIdInputValidator
+    // applies and the three actions that take an id carry [ValidateRequest]. A route constraint would
+    // answer 404 instead, hiding a malformed id as a missing resource.
 
     [HttpGet]
     [ValidateRequest]
@@ -75,7 +72,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
     public async Task<HttpOkResult<GetLossReasonByIdOutputDto>> GetLossReasonById(
-        [FromRoute] IdInputDto route,
+        [FromRoute] ConsecutiveIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await getLossReasonByIdUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
@@ -106,7 +103,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpOkResult<UpdateLossReasonOutputDto>> UpdateLossReason(
-        [FromRoute] IdInputDto route,
+        [FromRoute] ConsecutiveIdInputDto route,
         [FromBody] UpdateLossReasonInputDto input,
         CancellationToken cancellationToken = default)
     {
@@ -124,7 +121,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpNoContentResult> DeleteLossReason(
-        [FromRoute] IdInputDto route,
+        [FromRoute] ConsecutiveIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await deleteLossReasonUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);

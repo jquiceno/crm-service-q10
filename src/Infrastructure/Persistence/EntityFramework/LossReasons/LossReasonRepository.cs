@@ -1,9 +1,11 @@
+using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Infrastructure.Persistence.EntityFramework.LossReasons.Mappers;
 using LossReason.Domain.Aggregates;
 using LossReason.Domain.Errors;
 using LossReason.Domain.Queries;
 using LossReason.Domain.Repositories;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Domain.Pagination;
@@ -175,6 +177,13 @@ public sealed class LossReasonRepository(
                 .ConfigureAwait(false);
 
             return Result.Success();
+        }
+        catch (SqlException ex)
+        {
+            // The DELETE no longer passes through the unit of work, so the 547 of a race lost
+            // against a deal that took the reason has to be classified here to stay a 409 (§6.5).
+            logger.Error(ex, "Error removing loss reason with id {Id}", id);
+            return SqlServerErrorClassifier.Classify(ex, Origin);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

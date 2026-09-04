@@ -22,6 +22,19 @@ public sealed class TenantResolverServiceClient(
 
     private readonly TenantResolverServiceSettings _settings = options.Value;
 
+    // "?clientEnv=<env>" when the setting is present, empty otherwise. Built once: it comes from
+    // configuration, so it is fixed for the life of the process.
+    private readonly string _clientEnvQuery = string.IsNullOrWhiteSpace(options.Value.ClientEnv)
+        ? string.Empty
+        : "?clientEnv=" + Uri.EscapeDataString(options.Value.ClientEnv.Trim());
+
+    // The resolver answers a different connection string per clientEnv, so the environment has to be part
+    // of the cache key. Without it, two processes sharing a Redis under the same InstanceName -- a developer
+    // machine and a deployed instance, say -- would serve each other's connection string from L2.
+    private readonly string _cacheResource = string.IsNullOrWhiteSpace(options.Value.ClientEnv)
+        ? "tenant"
+        : "tenant-" + options.Value.ClientEnv.Trim();
+
     public async Task<Result<TenantInfo>> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(code))
@@ -32,14 +45,14 @@ public sealed class TenantResolverServiceClient(
 
         try
         {
-            var key = CacheKey.For("masteraccess").Resource("tenant", code);
+            var key = CacheKey.For("masteraccess").Resource(_cacheResource, code);
 
             var cached = await cache.GetAsync<TenantInfoResponse>(key, cancellationToken).ConfigureAwait(false);
             if (cached is not null)
                 return Decrypt(cached);
 
             using var response = await httpClient
-                .GetAsync(Uri.EscapeDataString(code), cancellationToken)
+                .GetAsync(Uri.EscapeDataString(code) + _clientEnvQuery, cancellationToken)
                 .ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)

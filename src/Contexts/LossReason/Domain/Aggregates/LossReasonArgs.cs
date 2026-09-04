@@ -4,4 +4,4 @@ namespace LossReason.Domain.Aggregates;
 // silently becoming false: the invariant lives in Create(), not in the CLR default.
 public sealed record CreateLossReasonArgs(string? Name, bool? IsActive);
 
-public sealed record UpdateLossReasonArgs(string? Name, bool IsActive);
+public sealed record UpdateLossReasonArgs(string? Name, bool? IsActive);

@@ -45,7 +45,10 @@ public sealed class TenantResolverServiceClientTests : IDisposable
             Substitute.For<ILoggerPort<AesConnectionStringDecryptor>>());
 
     private TenantResolverServiceClient CreateSut(
-        StubHandler handler, ICacheStore? cache = null, IConnectionStringDecryptor? decryptor = null)
+        StubHandler handler,
+        ICacheStore? cache = null,
+        IConnectionStringDecryptor? decryptor = null,
+        string clientEnv = "")
     {
         // HttpClient owns the handler (disposeHandler defaults to true), so disposing the
         // client disposes the StubHandler too.
@@ -55,7 +58,7 @@ public sealed class TenantResolverServiceClientTests : IDisposable
             client,
             cache ?? new JsonRoundTripCacheStore(),
             decryptor ?? CreateDecryptor(),
-            Options.Create(new TenantResolverServiceSettings { BaseUrl = BaseUrl }),
+            Options.Create(new TenantResolverServiceSettings { BaseUrl = BaseUrl, ClientEnv = clientEnv }),
             Substitute.For<ILoggerPort<TenantResolverServiceClient>>());
     }
 
@@ -175,6 +178,47 @@ public sealed class TenantResolverServiceClientTests : IDisposable
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Validation);
         handler.CallCount.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_WithClientEnv_SendsItAsAQueryParameter()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, OkBody(AesTestCrypto.Encrypt(PlainConnectionString))));
+        var sut = CreateSut(handler, clientEnv: "local");
+
+        await sut.GetByCodeAsync("641690275906");
+
+        // The resolver picks the connection string from this parameter, so the whole point of running
+        // against a developer machine is that it arrives.
+        handler.LastRequest!.RequestUri!.ToString()
+            .ShouldBe(BaseUrl + "641690275906?clientEnv=local");
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_WithoutClientEnv_SendsNoQueryString()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, OkBody(AesTestCrypto.Encrypt(PlainConnectionString))));
+        var sut = CreateSut(handler);
+
+        await sut.GetByCodeAsync("641690275906");
+
+        // Deployed environments send nothing and let the resolver answer with its own default; an
+        // accidental "?clientEnv=" would be a value, not an absence.
+        handler.LastRequest!.RequestUri!.Query.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task GetByCodeAsync_WithDifferentClientEnv_DoesNotReuseTheCachedEntry()
+    {
+        var cache = new JsonRoundTripCacheStore();
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, OkBody(AesTestCrypto.Encrypt(PlainConnectionString))));
+
+        await CreateSut(handler, cache, clientEnv: "local").GetByCodeAsync("acme");
+        await CreateSut(handler, cache).GetByCodeAsync("acme");
+
+        // Each clientEnv gets its own connection string, so they must not share a cache entry: two
+        // processes on the same Redis would otherwise hand each other the wrong database.
+        handler.CallCount.ShouldBe(2);
     }
 
     [Fact]

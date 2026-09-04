@@ -443,3 +443,7 @@ override.tf.json
 *_override.tf.json
 .terraformrc
 terraform.rc
+
+# Local development secrets and machine-specific configuration
+.env
+.env.local

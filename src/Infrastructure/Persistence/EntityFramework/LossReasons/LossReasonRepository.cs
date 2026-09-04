@@ -167,15 +167,12 @@ public sealed class LossReasonRepository(
     {
         try
         {
-            // Tracked on purpose: the delete is staged here and committed by the unit of work.
-            var document = await _lossReasons
-                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            // A single DELETE, without loading the row first: existence is not checked here. An id
+            // that is not there affects zero rows, which is a success — the delete is idempotent.
+            await _lossReasons
+                .Where(x => x.Id == id)
+                .ExecuteDeleteAsync(cancellationToken)
                 .ConfigureAwait(false);
-
-            if (document is null)
-                return LossReasonErrors.NotFound(id) with { Origin = Origin };
-
-            _lossReasons.Remove(document);
 
             return Result.Success();
         }

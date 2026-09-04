@@ -333,40 +333,14 @@ public sealed class LossReasonRepositoryTests
         ShouldBePersistenceFailure(result);
     }
 
+    // What RemoveAsync does to the row is covered by the integration tests: it issues a single
+    // DELETE through ExecuteDeleteAsync, which the in-memory provider does not implement. Only
+    // its failure branch is reachable here.
     [Fact]
-    public async Task RemoveAsync_WithExistingRow_StagesTheDeleteForTheUnitOfWork()
-    {
-        using var context = await CreateSeededContextAsync(
-            nameof(RemoveAsync_WithExistingRow_StagesTheDeleteForTheUnitOfWork),
-            LossReasonRow(7, "Precio", isActive: true));
-        var repository = CreateRepository(context);
-
-        var result = await repository.RemoveAsync(7);
-
-        result.IsSuccess.ShouldBeTrue();
-        context.ChangeTracker.Entries<LossReasonDocument>()
-            .ShouldHaveSingleItem().State.ShouldBe(EntityState.Deleted);
-        await context.SaveChangesAsync();
-        (await context.LossReasons.CountAsync()).ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task RemoveAsync_WithMissingRow_ReturnsNotFoundStampedWithItsOrigin()
-    {
-        using var context = CreateContext(nameof(RemoveAsync_WithMissingRow_ReturnsNotFoundStampedWithItsOrigin));
-
-        var result = await CreateRepository(context).RemoveAsync(404);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Origin.ShouldBe(Origin);
-    }
-
-    [Fact]
-    public async Task RemoveAsync_WhenTheLookupFails_ReturnsPersistenceFailure()
+    public async Task RemoveAsync_WhenTheDeleteFails_ReturnsPersistenceFailure()
     {
         var result = await ExecuteAgainstDisposedContextAsync(
-            nameof(RemoveAsync_WhenTheLookupFails_ReturnsPersistenceFailure),
+            nameof(RemoveAsync_WhenTheDeleteFails_ReturnsPersistenceFailure),
             repository => repository.RemoveAsync(7));
 
         ShouldBePersistenceFailure(result);

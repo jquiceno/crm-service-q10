@@ -516,13 +516,14 @@ public sealed class ContactChannelRepositoryTests
     }
 
     [Fact]
-    public async Task RemoveAsync_WhenTheRowExists_MarksItForDeletion()
+    public async Task RemoveAsync_IsReachableOnlyThroughTheRootContractAndMarksTheRowForDeletion()
     {
-        const string dbName = nameof(RemoveAsync_WhenTheRowExists_MarksItForDeletion);
+        const string dbName = nameof(RemoveAsync_IsReachableOnlyThroughTheRootContractAndMarksTheRowForDeletion);
         await SeedAsync(dbName, Row(7, "WhatsApp", true));
         using var context = CreateContext(dbName);
+        var sut = (IRootRepository<ContactChannelAggregate, int>)CreateRepository(context);
 
-        var result = await CreateRepository(context).RemoveAsync(7);
+        var result = await sut.RemoveAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
 
@@ -538,8 +539,9 @@ public sealed class ContactChannelRepositoryTests
     public async Task RemoveAsync_WithAnUnknownId_FailsAsNotFoundStampedWithTheOrigin()
     {
         using var context = CreateContext(nameof(RemoveAsync_WithAnUnknownId_FailsAsNotFoundStampedWithTheOrigin));
+        var sut = (IRootRepository<ContactChannelAggregate, int>)CreateRepository(context);
 
-        var result = await CreateRepository(context).RemoveAsync(404);
+        var result = await sut.RemoveAsync(404);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.NotFound);
@@ -551,7 +553,7 @@ public sealed class ContactChannelRepositoryTests
     {
         var context = CreateContext(nameof(RemoveAsync_WhenThePersistenceFails_ReturnsInternalErrorAndLogs));
         var logger = Substitute.For<ILoggerPort<ContactChannelRepository>>();
-        var sut = CreateRepository(context, logger);
+        var sut = (IRootRepository<ContactChannelAggregate, int>)CreateRepository(context, logger);
         await context.DisposeAsync();
 
         var result = await sut.RemoveAsync(7);

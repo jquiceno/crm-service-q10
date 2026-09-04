@@ -169,7 +169,9 @@ public sealed class ContactChannelRepository(
         }
     }
 
-    public async Task<Result> RemoveAsync(int id, CancellationToken cancellationToken = default)
+    async Task<Result> IRootRepository<ContactChannelAggregate, int>.RemoveAsync(
+        int id,
+        CancellationToken cancellationToken)
     {
         try
         {

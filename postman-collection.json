@@ -1,0 +1,318 @@
+{
+  "info": {
+    "name": "AdsChannels API",
+    "description": "Endpoints del contexto AdsChannel (crm-service), organizados por tipo de petición.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:58483", "type": "string" },
+    { "key": "entityCode", "value": "<ENTITY_CODE>", "type": "string" },
+    { "key": "adsChannelId", "value": "1", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "GET",
+      "item": [
+        {
+          "name": "List - Sin filtros",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"]
+            }
+          }
+        },
+        {
+          "name": "List - Filtro por nombre",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels?nameContains=Web",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"],
+              "query": [{ "key": "nameContains", "value": "Web" }]
+            }
+          }
+        },
+        {
+          "name": "List - Filtro por estado activo",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels?isActive=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"],
+              "query": [{ "key": "isActive", "value": "false" }]
+            }
+          }
+        },
+        {
+          "name": "List - Paginación",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels?pageIndex=0&pageSize=1",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"],
+              "query": [
+                { "key": "pageIndex", "value": "0" },
+                { "key": "pageSize", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List - 400 pageSize fuera de rango",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels?pageSize=101",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"],
+              "query": [{ "key": "pageSize", "value": "101" }]
+            }
+          }
+        },
+        {
+          "name": "GetById - 200 existente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/{{adsChannelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "{{adsChannelId}}"]
+            }
+          }
+        },
+        {
+          "name": "GetById - 404 inexistente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "999999"]
+            }
+          }
+        },
+        {
+          "name": "Health - Ready",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            }
+          }
+        },
+        {
+          "name": "Health - Live",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/live",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "live"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "POST",
+      "item": [
+        {
+          "name": "Create - 201 válido",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Google Ads\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"]
+            }
+          }
+        },
+        {
+          "name": "Create - 409 nombre duplicado",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Google Ads\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"]
+            }
+          }
+        },
+        {
+          "name": "Create - 400 nombre vacío",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PUT",
+      "item": [
+        {
+          "name": "Update - 200 válido",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Google Ads Renombrado\",\n  \"isActive\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/{{adsChannelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "{{adsChannelId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update - 404 inexistente",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cualquiera\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "999999"]
+            }
+          }
+        },
+        {
+          "name": "Update - 409 nombre duplicado",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"<nombre de otro canal existente>\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/{{adsChannelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "{{adsChannelId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update - 400 nombre vacío",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-Entity-Code", "value": "{{entityCode}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"isActive\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/{{adsChannelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "{{adsChannelId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "DELETE",
+      "item": [
+        {
+          "name": "Delete - 204 válido",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/{{adsChannelId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "{{adsChannelId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete - 404 inexistente",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "999999"]
+            }
+          }
+        },
+        {
+          "name": "Delete - 409 referenciado por Oportunidad (FK)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "X-Entity-Code", "value": "{{entityCode}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/ads-channels/<id_referenciado>",
+              "host": ["{{baseUrl}}"],
+              "path": ["ads-channels", "<id_referenciado>"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

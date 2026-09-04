@@ -447,3 +447,6 @@ terraform.rc
 # Local development secrets and machine-specific configuration
 .env
 .env.local
+
+# Personal notes: anything *.local.md stays on the machine that wrote it
+*.local.md

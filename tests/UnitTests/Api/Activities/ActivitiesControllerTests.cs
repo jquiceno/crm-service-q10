@@ -98,6 +98,7 @@ public sealed class ActivitiesControllerTests
     [Theory]
     [InlineData(nameof(ActivityErrors.DealNotFound), StatusCodes.Status404NotFound, "NOT_FOUND")]
     [InlineData(nameof(ActivityErrors.AdvisorNotFound), StatusCodes.Status404NotFound, "NOT_FOUND")]
+    [InlineData(nameof(ActivityErrors.CreatedByNotFound), StatusCodes.Status404NotFound, "NOT_FOUND")]
     [InlineData(nameof(ActivityErrors.OpportunityArchived), StatusCodes.Status400BadRequest, "DOMAIN_VALIDATION")]
     [InlineData(nameof(ActivityErrors.InvalidActivityStatus), StatusCodes.Status400BadRequest, "DOMAIN_VALIDATION")]
     [InlineData(nameof(ActivityErrors.StatusNotCreatable), StatusCodes.Status400BadRequest, "DOMAIN_VALIDATION")]
@@ -155,6 +156,7 @@ public sealed class ActivitiesControllerTests
     {
         nameof(ActivityErrors.DealNotFound) => ActivityErrors.DealNotFound(1200),
         nameof(ActivityErrors.AdvisorNotFound) => ActivityErrors.AdvisorNotFound("1017123456"),
+        nameof(ActivityErrors.CreatedByNotFound) => ActivityErrors.CreatedByNotFound("1017123456"),
         _ => DomainError.FromValidationDomainErrors([ValidationErrorNamed(name)]),
     };
 
@@ -180,7 +182,7 @@ public sealed class ActivitiesControllerTests
         new(id, 1200, "Negocio", 845, "Oportunidad", "call", "completed", null, "Se contactó",
             "contacted", "advisor-01", "Ana Pérez", "1017123456",
             new DateTime(2026, 8, 1, 10, 15, 0, DateTimeKind.Utc), null,
-            new DateTime(2026, 8, 1, 10, 20, 0, DateTimeKind.Utc));
+            new DateTime(2026, 8, 1, 10, 20, 0, DateTimeKind.Utc), "advisor-01", "Ana Pérez");
 
     private static CreateActivityInputDto Input() =>
         new(1200, "scheduled", "call", "1017123456", DateTime.UtcNow, "Llamar", null, null,

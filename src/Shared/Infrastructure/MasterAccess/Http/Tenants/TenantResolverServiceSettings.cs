@@ -38,4 +38,12 @@ public sealed class TenantResolverServiceSettings
 
     [Required]
     public string EncryptionKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional client-environment tag appended as the <c>clientEnv</c> query parameter on every
+    /// tenant-lookup request (e.g. local mock resolvers that route to a different underlying database
+    /// per environment). Omitted from the request entirely when null/empty, so existing deployments
+    /// that never set this are unaffected.
+    /// </summary>
+    public string? ClientEnv { get; init; }
 }

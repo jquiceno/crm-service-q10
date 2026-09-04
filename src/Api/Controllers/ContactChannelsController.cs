@@ -1,3 +1,4 @@
+using ContactChannel.Application.Shared;
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
@@ -57,7 +58,7 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Tags = [CacheTag], Duration = 259200)]
     public async Task<HttpOkResult<GetContactChannelByIdOutputDto>> GetContactChannelById(
-        [FromRoute] ResourceIdInputDto route,
+        [FromRoute] ContactChannelIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await getContactChannelByIdUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
@@ -90,7 +91,7 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpOkResult<UpdateContactChannelOutputDto>> UpdateContactChannel(
-        [FromRoute] ResourceIdInputDto route,
+        [FromRoute] ContactChannelIdInputDto route,
         [FromBody] UpdateContactChannelInputDto input,
         CancellationToken cancellationToken = default)
     {
@@ -112,7 +113,7 @@ public sealed class ContactChannelsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpNoContentResult> DeleteContactChannel(
-        [FromRoute] ResourceIdInputDto route,
+        [FromRoute] ContactChannelIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await deleteContactChannelUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);

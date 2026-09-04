@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
+using ContactChannel.Application.Shared;
 using ContactChannel.Application.UseCases.CreateContactChannel;
 using ContactChannel.Application.UseCases.DeleteContactChannel;
 using ContactChannel.Application.UseCases.GetContactChannelById;
@@ -191,7 +192,7 @@ public sealed class ContactChannelsControllerTests
     }
 
     private Task<HttpOkResult<GetContactChannelByIdOutputDto>> InvokeByIdAsync(int id = 7) =>
-        CreateController().GetContactChannelById(new ResourceIdInputDto(id), CancellationToken.None);
+        CreateController().GetContactChannelById(new ContactChannelIdInputDto(id), CancellationToken.None);
 
     private void ReturnsById(Result<GetContactChannelByIdOutputDto> result) =>
         _getContactChannelByIdUseCase
@@ -272,14 +273,14 @@ public sealed class ContactChannelsControllerTests
         var action = typeof(ContactChannelsController).GetMethod(actionName)!;
 
         action.GetParameters().ShouldContain(
-            p => p.ParameterType == typeof(ResourceIdInputDto),
+            p => p.ParameterType == typeof(ContactChannelIdInputDto),
             $"{actionName} must take the identifier as a dto so FluentValidation reaches it");
         action.GetCustomAttribute<ValidateRequestAttribute>().ShouldNotBeNull(
             $"{actionName} must declare [ValidateRequest] or its validator never runs");
     }
 
     private Task<HttpNoContentResult> InvokeDeleteAsync(int id = 7) =>
-        CreateController().DeleteContactChannel(new ResourceIdInputDto(id), CancellationToken.None);
+        CreateController().DeleteContactChannel(new ContactChannelIdInputDto(id), CancellationToken.None);
 
     private void ReturnsDelete(Result result) =>
         _deleteContactChannelUseCase
@@ -408,7 +409,7 @@ public sealed class ContactChannelsControllerTests
         int id = 7,
         UpdateContactChannelInputDto? input = null) =>
         CreateController().UpdateContactChannel(
-            new ResourceIdInputDto(id),
+            new ContactChannelIdInputDto(id),
             input ?? new UpdateContactChannelInputDto("WhatsApp", IsActive: true),
             CancellationToken.None);
 

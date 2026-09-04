@@ -28,6 +28,7 @@ desarrollador: en local la multitenencia arranca apagada — ver
 |----------|-------------|------------|--------------|
 | `ASPNETCORE_ENVIRONMENT` | `Development` | `Staging`  | `Production` |
 | `ASPNETCORE_URLS` | `http://+:8080` | `http://+:8080` | `http://+:8080` |
+| `RoutePrefix` (obligatoria) | `/service-template` | `/service-template` | `/service-template` |
 | `ServiceInfo__Name` | `ServiceTemplate` | `ServiceTemplate` | `ServiceTemplate` |
 | `TenantResolverService__Enabled` | `true`      | `true`     | `true`       |
 | `TenantResolverService__TimeoutSeconds` | `15`        | `15`       | `15`         |
@@ -153,7 +154,9 @@ k8s/
 │   ├── external-secret.yaml        # Lee de Secrets Manager → crea k8s Secret
 │   ├── deployment.yaml             # 2 réplicas, resources, probes
 │   ├── service.yaml                # ClusterIP en puerto 80 → 8080
-│   └── hpa.yaml                    # CPU 70%, Memory 80%, max 10 réplicas
+│   ├── ingress.yaml                # ALB interno compartido; path = RoutePrefix
+│   ├── hpa.yaml                    # CPU 70%, Memory 80%, max 10 réplicas
+│   └── pdb.yaml                    # minAvailable 1
 └── overlays/
     ├── dev/kustomization.yaml      # 1 réplica, min HPA 1, tag dev-latest
     ├── qa/kustomization.yaml       # 2 réplicas, min HPA 2, tag qa-latest
@@ -294,11 +297,11 @@ dotnet user-secrets init --project src/Api
 dotnet user-secrets set --project src/Api "Sentry__Dsn" "https://..."
 ```
 
-Por defecto la multitenencia queda **apagada** en local (`TenantResolverService:Enabled=false`
-en `appsettings.json`), y el servicio arranca con base en memoria. Para probar contra un
-tenant-resolver real hacen falta **cuatro** cosas además del toggle, y el arranque aborta con un
-error explícito si falta cualquiera: la URL del resolver, la clave de cifrado, y la caché L2
-prendida **con** su connection string.
+La multitenencia es **obligatoria**: no hay modo single-tenant ni base en memoria, así que sin
+tenant-resolver el arranque aborta con un error explícito (`AddInfrastructureServices`). Correr el
+servicio en local exige entonces **cuatro** cosas además del toggle, y falta cualquiera y no
+arranca: la URL del resolver, la clave de cifrado, y la caché L2 prendida **con** su connection
+string. `Enabled` y `L2Enabled` ya vienen en `true` en `appsettings.json`; lo demás son secretos.
 
 ```bash
 dotnet user-secrets set --project src/Api "TenantResolverService:Enabled" "true"

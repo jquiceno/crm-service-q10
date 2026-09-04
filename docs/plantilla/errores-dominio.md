@@ -61,7 +61,7 @@ public sealed record ValidationErrorList : DomainError
 
 | Tipo | Clase | Ubicación |
 |------|-------|-----------|
-| Errores compartidos entre contextos | `SharedErrors` | `Shared.Domain.Errors` |
+| Errores compartidos entre contextos | `SharedErrors` | `src/Shared/Results/Errors/` — `Shared.Results.Errors` |
 | Errores de persistencia | `PersistenceErrors` | `Infrastructure` — `internal` |
 | Errores de un contexto específico | `{Contexto}Errors` | `Contexts/{Contexto}/Domain/Errors/` |
 
@@ -72,7 +72,7 @@ Solo contiene errores verdaderamente compartidos entre todos los contextos:
 ```csharp
 public static class SharedErrors
 {
-    public static DomainError NotFound(string entityName, Guid id);
+    public static NotFoundError NotFound(string entityName, object id);
 }
 ```
 

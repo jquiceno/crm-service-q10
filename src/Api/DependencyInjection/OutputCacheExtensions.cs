@@ -44,10 +44,16 @@ public static class OutputCacheExtensions
         {
             options.DefaultExpirationTimeSpan = TimeSpan.FromSeconds(settings.DefaultTtlSeconds);
 
+            // excludeDefaultPolicy: the base policy contributes the vary-by rules but must NOT
+            // enable caching on its own
             options.AddBasePolicy(policy => policy
                 .SetVaryByHeader("X-Entity-Code", "Accept-Language")
-                .SetVaryByQuery("EntityCode"));
-            options.AddPolicy("Global", p => { });
+                .SetVaryByQuery("EntityCode"),
+                excludeDefaultPolicy: true);
+            // An empty header array is what VaryByHeaderPolicy reads as "do not vary by headers"; an
+            // empty policy body would leave the base policy's tenant and locale headers in the key,
+            // so "Global" would not be global. Only for data that is identical across tenants.
+            options.AddPolicy("Global", p => p.SetVaryByHeader([]));
         });
 
         return services;

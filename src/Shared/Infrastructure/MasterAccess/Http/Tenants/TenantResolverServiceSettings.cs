@@ -38,4 +38,12 @@ public sealed class TenantResolverServiceSettings
 
     [Required]
     public string EncryptionKey { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Optional environment discriminator sent to the resolver as <c>?clientEnv=</c>. The resolver uses it
+    /// to decide which connection string to hand back, so a developer machine asks for <c>local</c> and gets
+    /// a connection string it can actually reach. Empty (the default) sends no query parameter at all, which
+    /// is what every deployed environment does — the resolver then answers with its own default.
+    /// </summary>
+    public string ClientEnv { get; init; } = string.Empty;
 }

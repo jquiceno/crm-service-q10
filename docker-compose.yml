@@ -1,10 +1,27 @@
 services:
+  # Mandatory: multitenancy requires an L2 cache, so the service does not boot without this.
+  # Enough on its own for `dotnet run` on the host -- bring up just this one with
+  # `docker compose up -d redis`.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # The whole service in a container. There is no local SQL Server here on purpose: the database is
+  # whatever connection string the tenant resolver returns for ?clientEnv=local.
   api:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
@@ -12,3 +29,12 @@ services:
       ServiceInfo__Name: CrmService
       ServiceInfo__Version: 1.0.0
       Sentry__Enabled: "false"
+      # A container's localhost is the container. These two override .env, which is written for a
+      # process running on the host.
+      TENANT_RESOLVER_SERVICE_URL: http://host.docker.internal:8443/tenants/
+      Cache__ConnectionString: redis:6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      redis:
+        condition: service_healthy

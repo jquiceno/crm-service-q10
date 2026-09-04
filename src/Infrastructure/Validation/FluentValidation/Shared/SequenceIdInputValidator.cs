@@ -3,10 +3,10 @@ using Shared.Application.Dtos;
 
 namespace Infrastructure.Validation.FluentValidation.Shared;
 
-public sealed class ConsecutiveIdInputValidator
-    : AbstractValidator<ConsecutiveIdInputDto>, IStructuralValidator<ConsecutiveIdInputDto>
+public sealed class SequenceIdInputValidator
+    : AbstractValidator<SequenceIdInputDto>, IStructuralValidator<SequenceIdInputDto>
 {
-    public ConsecutiveIdInputValidator()
+    public SequenceIdInputValidator()
     {
         RuleFor(x => x.Id)
             .GreaterThan(0)

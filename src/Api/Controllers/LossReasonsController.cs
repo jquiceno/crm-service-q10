@@ -31,8 +31,8 @@ public sealed class LossReasonsController(
 
     private const int CacheDurationSeconds = 3 * 24 * 60 * 60;
 
-    // The route id travels as ConsecutiveIdInputDto, not as a bare int: ValidateRequestFilter skips
-    // simple types, so a validator over an int would never run. Wrapped, ConsecutiveIdInputValidator
+    // The route id travels as SequenceIdInputDto, not as a bare int: ValidateRequestFilter skips
+    // simple types, so a validator over an int would never run. Wrapped, SequenceIdInputValidator
     // applies and the three actions that take an id carry [ValidateRequest]. A route constraint would
     // answer 404 instead, hiding a malformed id as a missing resource.
 
@@ -65,7 +65,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCache(Duration = CacheDurationSeconds, Tags = [CacheTag])]
     public async Task<HttpOkResult<GetLossReasonByIdOutputDto>> GetLossReasonById(
-        [FromRoute] ConsecutiveIdInputDto route,
+        [FromRoute] SequenceIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await getLossReasonByIdUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);
@@ -96,7 +96,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpOkResult<UpdateLossReasonOutputDto>> UpdateLossReason(
-        [FromRoute] ConsecutiveIdInputDto route,
+        [FromRoute] SequenceIdInputDto route,
         [FromBody] UpdateLossReasonInputDto input,
         CancellationToken cancellationToken = default)
     {
@@ -114,7 +114,7 @@ public sealed class LossReasonsController(
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status500InternalServerError)]
     [OutputCacheInvalidate(CacheTag)]
     public async Task<HttpNoContentResult> DeleteLossReason(
-        [FromRoute] ConsecutiveIdInputDto route,
+        [FromRoute] SequenceIdInputDto route,
         CancellationToken cancellationToken = default)
     {
         return await deleteLossReasonUseCase.ExecuteAsync(route.Id, cancellationToken).ConfigureAwait(false);

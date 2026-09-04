@@ -133,7 +133,7 @@ public sealed class LossReasonsControllerTests
         _getLossReasonById.ExecuteAsync(7, Arg.Any<CancellationToken>())
             .Returns(Result<GetLossReasonByIdOutputDto>.Success(new GetLossReasonByIdOutputDto(7, "Price", true)));
 
-        var result = await CreateSut().GetLossReasonById(new ConsecutiveIdInputDto(7), CancellationToken.None);
+        var result = await CreateSut().GetLossReasonById(new SequenceIdInputDto(7), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status200OK);
@@ -147,7 +147,7 @@ public sealed class LossReasonsControllerTests
         _getLossReasonById.ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Result<GetLossReasonByIdOutputDto>.Failure(LossReasonErrors.NotFound(7)));
 
-        var result = await CreateSut().GetLossReasonById(new ConsecutiveIdInputDto(7), CancellationToken.None);
+        var result = await CreateSut().GetLossReasonById(new SequenceIdInputDto(7), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status404NotFound);
@@ -175,7 +175,7 @@ public sealed class LossReasonsControllerTests
         _updateLossReason.ExecuteAsync(3, input, Arg.Any<CancellationToken>())
             .Returns(Result<UpdateLossReasonOutputDto>.Success(new UpdateLossReasonOutputDto(3, "High price", false)));
 
-        var result = await CreateSut().UpdateLossReason(new ConsecutiveIdInputDto(3), input, CancellationToken.None);
+        var result = await CreateSut().UpdateLossReason(new SequenceIdInputDto(3), input, CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status200OK);
@@ -190,7 +190,7 @@ public sealed class LossReasonsControllerTests
             .Returns(Result<UpdateLossReasonOutputDto>.Failure(LossReasonErrors.NotFound(3)));
 
         var result = await CreateSut().UpdateLossReason(
-            new ConsecutiveIdInputDto(3), new UpdateLossReasonInputDto("Price", IsActive: true), CancellationToken.None);
+            new SequenceIdInputDto(3), new UpdateLossReasonInputDto("Price", IsActive: true), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status404NotFound);
@@ -201,7 +201,7 @@ public sealed class LossReasonsControllerTests
     {
         _deleteLossReason.ExecuteAsync(5, Arg.Any<CancellationToken>()).Returns(Result.Success());
 
-        var result = await CreateSut().DeleteLossReason(new ConsecutiveIdInputDto(5), CancellationToken.None);
+        var result = await CreateSut().DeleteLossReason(new SequenceIdInputDto(5), CancellationToken.None);
         var (statusCode, body) = await ExecuteAsync(result);
 
         statusCode.ShouldBe(StatusCodes.Status204NoContent);
@@ -215,7 +215,7 @@ public sealed class LossReasonsControllerTests
         _deleteLossReason.ExecuteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Result.Failure(LossReasonErrors.InUse(5)));
 
-        var result = await CreateSut().DeleteLossReason(new ConsecutiveIdInputDto(5), CancellationToken.None);
+        var result = await CreateSut().DeleteLossReason(new SequenceIdInputDto(5), CancellationToken.None);
         var (statusCode, _) = await ExecuteAsync(result);
 
         // D7: the 409 is a decision of the use case, which consulted the usage reader. The controller

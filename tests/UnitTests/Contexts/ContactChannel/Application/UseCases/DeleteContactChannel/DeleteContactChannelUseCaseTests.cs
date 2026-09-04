@@ -13,19 +13,11 @@ namespace UnitTests.Contexts.ContactChannel.Application.UseCases.DeleteContactCh
 
 public sealed class DeleteContactChannelUseCaseTests
 {
-    private const string RepositoryOrigin = "ContactChannelRepository";
-
     private readonly IContactChannelRepository _repository = Substitute.For<IContactChannelRepository>();
     private readonly IContactChannelUsageReader _usageReader = Substitute.For<IContactChannelUsageReader>();
     private readonly IUnitOfWorkPort _unitOfWork = Substitute.For<IUnitOfWorkPort>();
 
-    public DeleteContactChannelUseCaseTests() => Exists(true);
-
     private DeleteContactChannelUseCase CreateUseCase() => new(_repository, _usageReader, _unitOfWork);
-
-    private void Exists(bool exists) =>
-        _repository.ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Success(exists));
 
     private void IsReferenced(bool referenced) =>
         _usageReader.IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -49,6 +41,21 @@ public sealed class DeleteContactChannelUseCaseTests
         result.IsSuccess.ShouldBeTrue();
         await _repository.Received(1).RemoveAsync(7, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithAnUnknownId_SucceedsWithoutCheckingTheExistence()
+    {
+        IsReferenced(false);
+        RemoveReturns(Result.Success());
+        CommitReturns(Result.Success());
+
+        var result = await CreateUseCase().ExecuteAsync(404);
+
+        result.IsSuccess.ShouldBeTrue(
+            "an unknown identifier must answer 204, so the endpoint never discloses what exists");
+        await _repository.DidNotReceive().ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.Received(1).RemoveAsync(404, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -105,51 +112,16 @@ public sealed class DeleteContactChannelUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithAnUnknownId_FailsAsNotFoundWithoutCheckingTheUsage()
+    public async Task ExecuteAsync_WhenTheRemovalFails_PropagatesTheErrorWithoutCommitting()
     {
-        Exists(false);
-
-        var result = await CreateUseCase().ExecuteAsync(404);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Message.ShouldContain("404");
-        result.Error.Context.ShouldBe(ContactChannelErrors.Context);
-        result.Error.Origin.ShouldBe(nameof(DeleteContactChannelUseCase));
-        await _usageReader.DidNotReceive().IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenTheExistenceCheckFails_PropagatesTheErrorAndStops()
-    {
-        _repository.ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Failure(
-                new InternalError("A persistence error occurred.") { Origin = RepositoryOrigin }));
+        IsReferenced(false);
+        RemoveReturns(new InternalError("A persistence error occurred.") { Origin = "ContactChannelRepository" });
 
         var result = await CreateUseCase().ExecuteAsync(7);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Internal);
-        result.Error.Origin.ShouldBe(RepositoryOrigin);
-        await _usageReader.DidNotReceive().IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenTheRowDisappearsAfterTheCheck_PropagatesTheNotFoundWithoutCommitting()
-    {
-        IsReferenced(false);
-        RemoveReturns(ContactChannelErrors.NotFound(404) with { Origin = RepositoryOrigin });
-
-        var result = await CreateUseCase().ExecuteAsync(404);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-        result.Error.Origin.ShouldBe(
-            RepositoryOrigin,
-            "the race is reported by the repository, not resealed by the use case");
+        result.Error.Origin.ShouldBe("ContactChannelRepository");
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 

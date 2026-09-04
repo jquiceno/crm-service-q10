@@ -178,7 +178,7 @@ public sealed class ContactChannelRepository(
                 .ConfigureAwait(false);
 
             if (document is null)
-                return ContactChannelErrors.NotFound(id) with { Origin = Origin };
+                return Result.Success();
 
             _contactChannels.Remove(document);
 

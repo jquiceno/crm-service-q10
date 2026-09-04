@@ -118,7 +118,7 @@ SerilogLoggerAdapter<T>   : ILoggerPort<T>
 ExchangeRatePricingAdapter: IProductPricingPort
 ```
 
-Ninguna flecha apunta hacia arriba: el Use Case nunca conoce `ProductRepository`, solo `IProductRepository`. La conexión entre interfaz e implementación concreta ocurre en un único lugar — la extensión de registro DI del contexto (ver [4.5 en casos-de-uso.md](casos-de-uso.md) y [4.5 más abajo](#45-extensión-de-registro-di)).
+Ninguna flecha apunta hacia arriba: el Use Case nunca conoce `ProductRepository`, solo `IProductRepository`. La conexión entre interfaz e implementación concreta ocurre en un único lugar — la extensión de registro DI del contexto (ver [5.5 más abajo](#55-extensión-de-registro-di) y [5.5 en contextos.md](contextos.md#55-registro-de-dependencias)).
 
 ---
 

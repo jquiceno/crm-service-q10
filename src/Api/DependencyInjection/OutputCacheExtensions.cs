@@ -50,10 +50,7 @@ public static class OutputCacheExtensions
                 .SetVaryByHeader("X-Entity-Code", "Accept-Language")
                 .SetVaryByQuery("EntityCode"),
                 excludeDefaultPolicy: true);
-            // An empty header array is what VaryByHeaderPolicy reads as "do not vary by headers"; an
-            // empty policy body would leave the base policy's tenant and locale headers in the key,
-            // so "Global" would not be global. Only for data that is identical across tenants.
-            options.AddPolicy("Global", p => p.SetVaryByHeader([]));
+            options.AddPolicy("Global", p => { });
         });
 
         return services;

@@ -560,4 +560,49 @@ public sealed class ContactChannelRepositoryTests
         result.Error.Type.ShouldBe(ErrorType.Internal);
         logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
     }
+
+    [Fact]
+    public async Task DeleteAsync_WhenTheRowExists_MarksItForDeletion()
+    {
+        const string dbName = nameof(DeleteAsync_WhenTheRowExists_MarksItForDeletion);
+        await SeedAsync(dbName, Row(7, "WhatsApp", true));
+        using var context = CreateContext(dbName);
+
+        var result = await CreateRepository(context).DeleteAsync(7);
+
+        result.IsSuccess.ShouldBeTrue();
+
+        var entry = context.ChangeTracker.Entries<ContactChannelEntity>().ShouldHaveSingleItem();
+        entry.State.ShouldBe(EntityState.Deleted);
+        (await context.ContactChannels.CountAsync()).ShouldBe(1);
+
+        await context.SaveChangesAsync();
+        (await context.ContactChannels.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithAnUnknownId_SucceedsWithoutTouchingTheChangeTracker()
+    {
+        using var context = CreateContext(nameof(DeleteAsync_WithAnUnknownId_SucceedsWithoutTouchingTheChangeTracker));
+
+        var result = await CreateRepository(context).DeleteAsync(404);
+
+        result.IsSuccess.ShouldBeTrue("the deletion is idempotent: an unknown id is not an error");
+        context.ChangeTracker.Entries<ContactChannelEntity>().ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenThePersistenceFails_ReturnsInternalErrorAndLogs()
+    {
+        var context = CreateContext(nameof(DeleteAsync_WhenThePersistenceFails_ReturnsInternalErrorAndLogs));
+        var logger = Substitute.For<ILoggerPort<ContactChannelRepository>>();
+        var sut = CreateRepository(context, logger);
+        await context.DisposeAsync();
+
+        var result = await sut.DeleteAsync(7);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.Type.ShouldBe(ErrorType.Internal);
+        logger.Received(1).Error(Arg.Is<Exception?>(e => e != null), Arg.Any<string>(), Arg.Any<object[]>());
+    }
 }

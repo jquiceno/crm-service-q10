@@ -16,4 +16,6 @@ public interface IContactChannelRepository : IRootRepository<ContactChannelAggre
     Task<Result<ContactChannelAggregate>> CreateAsync(
         ContactChannelAggregate aggregate,
         CancellationToken cancellationToken = default);
+
+    Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default);
 }

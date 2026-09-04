@@ -114,10 +114,10 @@ valores: el resolver pasa a `http://host.docker.internal:8443/tenants/` y Redis 
 
 ## Colección de Postman
 
-`docs/servicio/postman/Collection crm-service-q10 · Causas de pérdida/`, en el formato de directorio
-de Postman: `.resources/definition.yaml` con las variables y un `.request.yaml` por petición. Se abre
-apuntando Postman a esa carpeta; el workspace de `docs/servicio/postman/.postman/resources.yaml` ya
-la tiene registrada.
+`docs/servicio/postman/postman/collections/Collection crm-service-q10 · Causas de pérdida/`, en el
+formato de directorio de Postman: `.resources/definition.yaml` con las variables y un `.request.yaml`
+por petición. Vive dentro de `postman/collections/`, que es donde el workspace las busca; el
+`.postman/resources.yaml` de al lado la tiene registrada.
 
 Son 24 peticiones numeradas por bloques:
 

@@ -4,4 +4,4 @@ workspace:
 
 localResources:
   collections:
-    - ../Collection crm-service-q10 · Causas de pérdida
+    - ../postman/collections/Collection crm-service-q10 · Causas de pérdida

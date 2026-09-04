@@ -18,8 +18,22 @@ cualquiera de estas cuatro cosas, y lo dice con un mensaje explícito:
 | `TenantResolverService:EncryptionKey` | **`user-secrets`** — es un secreto, no va en el repo |
 | `Cache:L2Enabled` + `Cache:ConnectionString` | `appsettings.Development.json` → `localhost:6379` |
 
-**No hace falta SQL Server local.** La base de datos es la que diga la cadena de conexión que
-devuelva el resolver para `?clientEnv=local`.
+**Sí hace falta SQL Server en local.** La base de datos es la que diga la cadena de conexión que
+devuelva el resolver para `?clientEnv=local`, y esa cadena apunta a la propia máquina — de ahí el
+nombre del `clientEnv`. Verificado el 2026-09-04 contra el resolver real, para el tenant
+`641690275906`:
+
+| Campo de la cadena | Valor |
+|---|---|
+| `Server` | `tcp:127.0.0.1,1433` |
+| `Initial Catalog` | `udbzq10trabajos` |
+| `User ID` | `ClusterAWS` |
+| `Encrypt` / `TrustServerCertificate` | `True` / `True` |
+
+Es decir: **un SQL Server escuchando en `127.0.0.1:1433`, con el login `ClusterAWS` y la base
+`udbzq10trabajos` restaurada**. Sin eso el servicio arranca, resuelve el tenant y desencripta la
+cadena sin problema, pero cualquier lectura responde **500** con
+`A persistence error occurred.` y en el log aparece el timeout de conexión de `Microsoft.Data.SqlClient`.
 
 ## Puesta a punto, una sola vez
 
@@ -109,3 +123,5 @@ valores: el resolver pasa a `http://host.docker.internal:8443/tenants/` y Redis 
 | `the tenant resolver at '…/health' is not reachable` | el resolver no está arriba, o no expone `/health` |
 | `Failed to decrypt the tenant connection string` | la clave no corresponde a la que cifró la cadena |
 | 404 en `/loss-reasons` | falta el prefijo: es `/crm-service/loss-reasons` |
+| 400 sin `X-Entity-Code` ni `?EntityCode=` | falta el tenant; no hay valor por defecto |
+| 500 `A persistence error occurred.` | no hay SQL Server en `127.0.0.1:1433`, o le falta el login o la base. El arranque **no** lo detecta: la conexión se abre por petición, no al bootear |

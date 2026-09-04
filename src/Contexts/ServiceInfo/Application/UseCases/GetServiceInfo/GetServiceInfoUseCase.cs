@@ -3,7 +3,7 @@ using Shared.Results;
 
 namespace ServiceInfo.Application.UseCases.GetServiceInfo;
 
-public sealed class GetServiceInfoUseCase(IServiceInfoPort serviceInfo) : IGetServiceInfoPort
+public sealed class GetServiceInfoUseCase(IServiceInfoPort serviceInfo) : IGetServiceInfoUseCase
 {
     public Task<Result<GetServiceInfoOutputDto>> ExecuteAsync(CancellationToken cancellationToken = default)
     {

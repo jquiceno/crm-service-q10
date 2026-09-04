@@ -431,7 +431,7 @@ El repositorio implementa `IProductRepository` directamente y estampa su propio 
 
 ### 5.4 API — fuera del contexto
 
-Estos archivos viven bajo `Api/`, no bajo `Contexts/Product/`: invocan el caso de uso que la aplicación definió en el paso 5.2, sin conocer su implementación concreta. El detalle completo de este paso, incluyendo los distintos patrones según el tipo de operación, está en [controllers.md](controllers.md) — aquí solo se muestra `Create` para dejar el contexto expuesto de punta a punta.
+Estos archivos viven bajo `Api/` e `Infrastructure/`, no bajo `Contexts/Product/`: invocan el caso de uso que la aplicación definió en el paso 5.2, sin conocer su implementación concreta. El detalle completo de este paso, incluyendo los distintos patrones según el tipo de operación, está en [controllers.md](controllers.md) — aquí solo se muestra `Create` para dejar el contexto expuesto de punta a punta.
 
 #### Controller
 
@@ -469,7 +469,7 @@ Los casos de uso se inyectan en el constructor del controller, no como parámetr
 #### Validador de entrada
 
 ```csharp
-// Api/Validators/CreateProductInputValidator.cs
+// Infrastructure/Validation/FluentValidation/Product/CreateProductInputValidator.cs
 public sealed class CreateProductInputValidator
     : AbstractValidator<CreateProductInputDto>, IStructuralValidator<CreateProductInputDto>
 {

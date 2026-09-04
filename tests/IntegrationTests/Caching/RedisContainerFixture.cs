@@ -11,6 +11,9 @@ public sealed class RedisContainerFixture : IAsyncLifetime
 
     public IConnectionMultiplexer Connection { get; private set; } = null!;
 
+    /// <summary>Endpoint of the container, for anything that configures Redis from a string.</summary>
+    public string ConnectionString => _container.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync().ConfigureAwait(false);

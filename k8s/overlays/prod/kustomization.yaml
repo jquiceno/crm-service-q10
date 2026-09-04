@@ -24,7 +24,6 @@ patches:
         namespace: crm-service
       data:
         ASPNETCORE_ENVIRONMENT: "Production"
-        ASPNETCORE_PATHBASE: "/crm-service"   # URL prefix — must match ingress path
         Sentry__Enabled: "true"
         # Deployment tier, lowercase, same literal every service reports regardless of stack.
         SENTRY_ENVIRONMENT: "prod"

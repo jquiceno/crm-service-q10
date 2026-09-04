@@ -16,7 +16,7 @@ La pregunta clave al integrar cualquier herramienta de observabilidad en una arq
 Sentry se inicializa a nivel de **ASP.NET Core WebHost**, no como un servicio inyectado en los casos de uso:
 
 ```csharp
-// src/Api/Program.cs
+// src/Infrastructure/Extensions/SentryExtensions.cs
 builder.WebHost.UseSentry(options => { ... });
 ```
 

@@ -1,5 +1,6 @@
 using Microsoft.OpenApi;
 using Scalar.AspNetCore;
+using Shared.Presentation.Routing;
 
 namespace Api.DependencyInjection;
 
@@ -49,17 +50,20 @@ public static class OpenApiExtensions
         return services;
     }
 
-    public static WebApplication UseOpenApiDocumentation(this WebApplication app)
+    public static WebApplication UseOpenApiDocumentation(this WebApplication app, string routePrefix = "")
     {
         if (!app.Environment.IsDevelopment())
             return app;
 
-        app.MapOpenApi();
-        app.MapScalarApiReference("/openapi", options =>
+        var basePath = RoutePrefixConfig.BasePath(routePrefix);
+        var jsonPattern = $"{basePath}/openapi/{{documentName}}.json";
+
+        app.MapOpenApi(jsonPattern);
+        app.MapScalarApiReference($"{basePath}/openapi", options =>
         {
-            options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+            options.OpenApiRoutePattern = jsonPattern;
         });
-        app.MapGet("/openapi", () => Results.Redirect("/openapi/v1")).ExcludeFromDescription();
+        app.MapGet($"{basePath}/openapi", () => Results.Redirect($"{basePath}/openapi/v1")).ExcludeFromDescription();
 
         return app;
     }

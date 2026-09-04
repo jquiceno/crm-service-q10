@@ -2,9 +2,9 @@
 # The ALB Controller creates/updates the AWS ALB automatically when applied.
 #
 # Path forwarding note:
-#   The ALB forwards requests preserving the full path. A request to
-#   /crm-service/health/ready arrives at the pod as /crm-service/health/ready.
-#   UsePathBase in Program.cs strips the prefix so ASP.NET Core sees /health/ready.
+#   The ALB forwards the full path; all endpoints (resource, info, health, openapi) are served under
+#   the /crm-service route prefix (config RoutePrefix, applied by GlobalRoutePrefixConvention —
+#   no UsePathBase). The target-group health check therefore hits /crm-service/health/ready.
 #
 # Per-overlay overrides (see each overlay's kustomization.yaml):
 #   - group.name      : dev=q10-dev-internal  qa=q10-qa-internal  prod=q10-prod-internal
@@ -22,7 +22,7 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
     alb.ingress.kubernetes.io/group.name: q10-internal   # overridden per overlay
     # Health check — must match the readiness probe path so the ALB only routes to ready pods.
-    alb.ingress.kubernetes.io/healthcheck-path: /health/ready
+    alb.ingress.kubernetes.io/healthcheck-path: /crm-service/health/ready
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"

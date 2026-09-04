@@ -9,7 +9,7 @@ Cuatro archivos imponen los estándares en toda la solución:
 | `.editorconfig` | Formato (indentación, saltos de línea, charset) y preferencias de estilo C# |
 | `.globalconfig` | Severidades de diagnóstico para reglas CA del SDK y Roslynator |
 | `Directory.Build.props` | Conecta `.globalconfig`, incluye Roslynator y habilita `AnalysisMode=All` |
-| `docs/coding-standards.md` | Este archivo — referencia legible para el equipo |
+| `docs/plantilla/estandares-codigo.md` | Este archivo — referencia legible para el equipo |
 
 Roslynator se incluye únicamente como `<IncludeAssets>analyzers</IncludeAssets>` — sin impacto en tiempo de ejecución ni en los consumidores del proyecto.
 
@@ -129,14 +129,30 @@ El parámetro se llama `cancellationToken` (no `ct`) y se declara al final de la
 
 ### Manejo de excepciones
 
-Nunca capturar `Exception` fuera de los límites de infraestructura. `GlobalExceptionMiddleware` es el único lugar donde se permite un catch-all, suprimido con `#pragma warning disable CA1031`.
+No capturar `Exception` sin un filtro `when` que acote los tipos esperados o preserve la cancelación. La regla `CA1031` se aplica con severidad `warning` (`.globalconfig`) y la solución no contiene supresiones de esta regla.
+
+La captura de `Exception` con filtro se restringe a los límites de infraestructura y del host, y cada uno tiene una salida definida:
+
+| Límite | Ejemplos | Qué hace con la excepción |
+|--------|----------|---------------------------|
+| Persistencia y clientes HTTP | `RepositoryBaseEF`, `UnitOfWorkAdapter`, `TenantResolverServiceClient` | La traduce al patrón `Result` (`PersistenceErrors.Failure(Origin)`, `InternalError`) |
+| Caché | `RedisCacheStore` | Registra un `Warning` y degrada: la lectura devuelve `null` y la escritura se omite |
+| Host / presentación | `ValidateRequestFilter` | La descarta y continúa con la validación de `ModelState` |
+| Host / presentación | `TenantResolverStartupProbe` | La envuelve en `InvalidOperationException` para abortar el arranque |
+
+En todos los casos el filtro `when` es obligatorio: acota los tipos esperados (`ex is JsonException or IOException or NotSupportedException`) o deja pasar la cancelación (`ex is not OperationCanceledException`).
+
+El manejo de excepciones no controladas corresponde a `GlobalExceptionHandler` (`src/Shared/Infrastructure/Presentation/Middleware/GlobalExceptionHandler.cs`), registrado mediante `AddExceptionHandler<GlobalExceptionHandler>()` en `src/Api/DependencyInjection/ErrorHandlingServiceExtensions.cs`. Al implementar `IExceptionHandler`, recibe la excepción como parámetro en lugar de capturarla, por lo que no requiere un bloque catch-all ni supresión alguna.
 
 ```csharp
 // correcto — capturar excepciones específicas
 catch (DomainException ex) { ... }
 catch (OperationCanceledException) when (...) { ... }
 
-// incorrecto — fuera de GlobalExceptionMiddleware
+// correcto — límite de infraestructura, con filtro que preserva la cancelación
+catch (Exception ex) when (ex is not OperationCanceledException) { ... }
+
+// incorrecto — catch-all sin filtro, en cualquier capa
 catch (Exception ex) { ... }
 ```
 

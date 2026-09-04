@@ -9,19 +9,16 @@ namespace Api.DependencyInjection;
 public static class SessionServiceExtensions
 {
     /// <summary>
-    /// Wires per-request tenant resolution when multitenancy is enabled: the tenant-info HTTP client
-    /// (via <c>AddMasterAccess</c>) plus one scoped instance exposed through two segregated interfaces —
+    /// Wires per-request tenant resolution: the tenant-info HTTP client (via <c>AddMasterAccess</c>) plus
+    /// one scoped instance exposed through two segregated interfaces —
     /// <see cref="ITenantConnectionInitializer"/> (the middleware writes) and
-    /// <see cref="IDbConnectionProvider"/> (the per-tenant <c>DbContext</c> reads). A no-op when disabled.
+    /// <see cref="IDbConnectionProvider"/> (the per-tenant <c>DbContext</c> reads). Multitenancy is
+    /// mandatory; <c>AddInfrastructureServices</c> has already aborted the boot if it is off.
     /// </summary>
     public static IServiceCollection AddSessionServices(
         this IServiceCollection services,
-        IConfiguration configuration,
-        bool multitenancyEnabled)
+        IConfiguration configuration)
     {
-        if (!multitenancyEnabled)
-            return services;
-
         services.AddMasterAccess(configuration);
 
         // Hard startup gate: abort boot if the tenant-resolver endpoint is unreachable (runs in
@@ -36,14 +33,12 @@ public static class SessionServiceExtensions
     }
 
     /// <summary>
-    /// Adds the tenant-resolution middleware to the pipeline when multitenancy is enabled; a no-op
-    /// otherwise. Register it after <c>UseCors</c> (so it never blocks a CORS preflight) and before
-    /// the output cache (whose keys vary by tenant).
+    /// Adds the tenant-resolution middleware to the pipeline. Register it after <c>UseCors</c> (so it
+    /// never blocks a CORS preflight) and before the output cache (whose keys vary by tenant).
     /// </summary>
-    public static WebApplication UseTenantResolution(this WebApplication app, bool multitenancyEnabled)
+    public static WebApplication UseTenantResolution(this WebApplication app)
     {
-        if (multitenancyEnabled)
-            app.UseMiddleware<TenantMiddleware>();
+        app.UseMiddleware<TenantMiddleware>();
 
         return app;
     }

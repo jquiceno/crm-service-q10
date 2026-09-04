@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using IntegrationTests.Caching;
 using IntegrationTests.Infrastructure;
 using ServiceInfo.Application.UseCases.GetServiceInfo;
 using Shouldly;
@@ -11,12 +12,12 @@ namespace IntegrationTests.ServiceInfo;
 [Collection(IntegrationTestCollection.Name)]
 public sealed class ServiceInfoEndpointsTests : IntegrationTestBase
 {
-    public ServiceInfoEndpointsTests(SqlServerContainerFixture fixture) : base(fixture) { }
+    public ServiceInfoEndpointsTests(SqlServerContainerFixture fixture, RedisContainerFixture cache) : base(fixture, cache) { }
 
     [Fact]
     public async Task GetInfo_Returns200_WithServiceInfo()
     {
-        var response = await Client.GetAsync("/info");
+        var response = await Client.GetAsync($"/{RoutePrefix}/info");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 

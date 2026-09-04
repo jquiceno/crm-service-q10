@@ -115,7 +115,7 @@ public static Result<ProductAggregate> Create(string name, decimal price)
 }
 ```
 
-Si una propiedad es un Value Object compuesto (por ejemplo, una dirección con varios campos), su error se acumula igual que `Price`, pero anidando los errores internos en `Children` en lugar de un solo mensaje plano — ver el campo `Children` de `ValidationError` en [patron-result.md](patron-result.md).
+Si una propiedad es un Value Object compuesto (por ejemplo, una dirección con varios campos), su error se acumula igual que `Price`, pero anidando los errores internos en `Children` en lugar de un solo mensaje plano — ver el campo `Children` de `ValidationError` en [errores-dominio.md](errores-dominio.md).
 
 > `Property` se asigna en el Aggregate, no en el error estático del Value Object, porque el mismo error puede reutilizarse desde distintos agregados con distintos nombres de propiedad. Ver [patron-result.md](patron-result.md).
 

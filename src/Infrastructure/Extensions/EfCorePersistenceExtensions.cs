@@ -8,6 +8,11 @@ namespace Infrastructure.Extensions;
 
 public static class EfCorePersistenceExtensions
 {
+    /// <summary>
+    /// Registers the only persistence mode the service supports: SQL Server resolved per request from
+    /// <see cref="IDbConnectionProvider"/>. There is deliberately no in-memory fallback — a boot without
+    /// a real database would look healthy while silently dropping every write.
+    /// </summary>
     public static IServiceCollection AddEfCoreSqlServerPerTenant(this IServiceCollection services)
     {
         services.AddDbContext<ApplicationDbContext>((sp, options) =>
@@ -15,23 +20,8 @@ public static class EfCorePersistenceExtensions
                 sp.GetRequiredService<IDbConnectionProvider>().ConnectionString,
                 sqlOptions => sqlOptions.EnableRetryOnFailure(maxRetryCount: 3)));
 
-        RegisterPersistenceServices(services);
-
-        return services;
-    }
-
-    public static IServiceCollection AddEfCoreInMemory(this IServiceCollection services)
-    {
-        services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseInMemoryDatabase("InMemoryDb"));
-
-        RegisterPersistenceServices(services);
-
-        return services;
-    }
-
-    private static void RegisterPersistenceServices(IServiceCollection services)
-    {
         services.AddScoped<IUnitOfWorkPort, UnitOfWorkAdapter>();
+
+        return services;
     }
 }

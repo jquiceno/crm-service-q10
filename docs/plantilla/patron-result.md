@@ -2,7 +2,7 @@
 
 ## Jerarquía de tipos Result
 
-Todos los tipos viven en `Shared.Domain.Result` y heredan de `Result`:
+Todos los tipos viven en `Shared.Results` (proyecto `src/Shared/Results/`) y heredan de `Result`:
 
 ```
 Result

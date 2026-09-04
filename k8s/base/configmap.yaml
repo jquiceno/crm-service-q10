@@ -12,7 +12,9 @@ data:
   # ASP.NET Core
   ASPNETCORE_ENVIRONMENT: "Production"
   ASPNETCORE_URLS: "http://+:8080"
-  ASPNETCORE_PATHBASE: "/crm-service"
+
+  # URL prefix for every endpoint; must match the ingress path and probe/healthcheck paths.
+  RoutePrefix: "/crm-service"
 
   # Service info
   ServiceInfo__Name: "CrmService"

@@ -8,12 +8,9 @@ namespace UnitTests.Infrastructure.Persistence;
 
 public sealed class ApplicationDbContextTests
 {
-    // The template's ApplicationDbContext has no bounded-context entities registered yet
-    // (OnModelCreating only calls ApplyConfigurationsFromAssembly, and no
-    // IEntityTypeConfiguration exists in the assembly for a fresh template). A minimal
-    // test-only entity is registered via a custom IModelCustomizer — the standard EF Core
-    // extension point — so SaveChangesAsync can be exercised through a real persisted row
-    // without modifying the production DbContext.
+    // A minimal test-only entity is registered via a custom IModelCustomizer — the standard EF
+    // Core extension point — so SaveChangesAsync can be exercised through a real persisted row
+    // without coupling this context-agnostic test to any bounded context's entity.
     private sealed class TestEntity
     {
         public int Id { get; set; }
@@ -62,13 +59,11 @@ public sealed class ApplicationDbContextTests
     }
 
     [Fact]
-    public void OnModelCreating_WithNoConfigurationsRegistered_BuildsModelWithoutThrowing()
+    public void OnModelCreating_AppliesTheAssemblyConfigurations_WithoutThrowing()
     {
-        using var context = CreateContext(nameof(OnModelCreating_WithNoConfigurationsRegistered_BuildsModelWithoutThrowing));
+        using var context = CreateContext(nameof(OnModelCreating_AppliesTheAssemblyConfigurations_WithoutThrowing));
 
-        var entityTypeNames = context.Model.GetEntityTypes().Select(e => e.ClrType.Name).ToList();
-
-        entityTypeNames.ShouldNotBeNull();
+        context.Model.GetEntityTypes().ShouldNotBeEmpty();
     }
 
     [Fact]

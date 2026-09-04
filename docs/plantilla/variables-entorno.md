@@ -308,6 +308,14 @@ dotnet user-secrets set --project src/Api "Cache:L2Enabled" "true"
 dotnet user-secrets set --project src/Api "Cache:ConnectionString" "localhost:6379"
 ```
 
+Opcional, solo contra resolvers que enrutan a una base de datos distinta según el entorno cliente
+(por ejemplo un resolver mock local): se agrega como query param `clientEnv` en cada request de
+resolución de tenant, y se omite por completo si no se configura.
+
+```bash
+dotnet user-secrets set --project src/Api "TenantResolverService:ClientEnv" "local"
+```
+
 **Nunca** commitear archivos `.env`, `appsettings.local.json` con credenciales, ni agregar secrets hardcodeados en manifests de Kubernetes.
 
 

@@ -38,8 +38,12 @@ public sealed class TenantResolverServiceClient(
             if (cached is not null)
                 return Decrypt(cached);
 
+            var requestUri = Uri.EscapeDataString(code);
+            if (!string.IsNullOrWhiteSpace(_settings.ClientEnv))
+                requestUri += $"?clientEnv={Uri.EscapeDataString(_settings.ClientEnv)}";
+
             using var response = await httpClient
-                .GetAsync(Uri.EscapeDataString(code), cancellationToken)
+                .GetAsync(requestUri, cancellationToken)
                 .ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)

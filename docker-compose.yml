@@ -11,3 +11,23 @@ services:
       ServiceInfo__Name: CrmService
       ServiceInfo__Version: 1.0.0
       Sentry__Enabled: "false"
+      Cache__Enabled: "true"
+      Cache__L2Enabled: "true"
+      Cache__ConnectionString: redis:6379
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:

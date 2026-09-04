@@ -21,16 +21,10 @@ public sealed class AdsChannelAggregate : AggregateRoot<int>
 
     public static Result<AdsChannelAggregate> Create(CreateAdsChannelArgs input)
     {
-        var errors = new List<ValidationError>();
         var name = input.Name?.Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-            errors.Add(AdsChannelErrors.NameRequired);
-        else if (name.Length > MaxNameLength)
-            errors.Add(AdsChannelErrors.NameTooLong);
-
-        if (errors.Count > 0)
-            return DomainError.FromValidationDomainErrors(errors);
+        var error = ValidateName(name);
+        if (error is not null)
+            return DomainError.FromValidationDomainErrors([error]);
 
         // Not yet persisted: the real value is a SQL Server IDENTITY, assigned only after insert
         // (see AdsChannelRepository.CreateAsync). 0 here is a placeholder, never read before then.
@@ -45,18 +39,23 @@ public sealed class AdsChannelAggregate : AggregateRoot<int>
     public Result Update(UpdateAdsChannelArgs input)
     {
         var name = input.Name?.Trim();
+        var error = ValidateName(name);
+        if (error is not null)
+            return error;
 
-        if (string.IsNullOrWhiteSpace(name))
-            return AdsChannelErrors.NameRequired;
-
-        if (name.Length > MaxNameLength)
-            return AdsChannelErrors.NameTooLong;
-
-        Name = name;
+        Name = name!;
         IsActive = input.IsActive;
         SetUpdatedAt(DateTime.UtcNow);
 
         return Result.Success();
+    }
+
+    private static ValidationError? ValidateName(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return AdsChannelErrors.NameRequired;
+
+        return name.Length > MaxNameLength ? AdsChannelErrors.NameTooLong : null;
     }
 
     protected override void Created()

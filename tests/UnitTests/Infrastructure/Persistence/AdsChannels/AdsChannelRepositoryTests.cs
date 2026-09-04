@@ -116,77 +116,28 @@ public sealed class AdsChannelRepositoryTests
 
     // ── GetAllAsync ───────────────────────────────────────────────────────────
 
-    // This context has no unfiltered listing use case: GetAllAsync is stubbed to fail loudly
-    // rather than silently returning an unfiltered page (see AdsChannelRepository.GetAllAsync).
     [Fact]
-    public async Task GetAllAsync_IsNotSupported_ReturnsFailureAndLogsWarning()
+    public async Task GetAllAsync_DelegatesToGetAsyncWithAnEmptyFilter()
     {
-        using var context = CreateContext(nameof(GetAllAsync_IsNotSupported_ReturnsFailureAndLogsWarning));
-        var logger = Substitute.For<ILoggerPort<AdsChannelRepository>>();
-        var sut = new AdsChannelRepository(context, logger);
+        using var context = CreateContext(nameof(GetAllAsync_DelegatesToGetAsyncWithAnEmptyFilter));
+        context.AdsChannels.AddRange(
+            Document(1, "Google Ads", isActive: true),
+            Document(2, "Meta Ads", isActive: false));
+        await context.SaveChangesAsync();
+        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
 
         var result = await sut.GetAllAsync(new PageQuery(0, 10));
 
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.Internal);
-        logger.Received(1).Warning(Arg.Any<string>());
+        result.IsSuccess.ShouldBeTrue();
+        result.TotalCount.ShouldBe(2);
     }
 
     // ── ExistsByNameAsync ─────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task ExistsByNameAsync_WhenNameExists_ReturnsTrue()
-    {
-        using var context = CreateContext(nameof(ExistsByNameAsync_WhenNameExists_ReturnsTrue));
-        context.AdsChannels.Add(Document(1, "Google Ads"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.ExistsByNameAsync("Google Ads");
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task ExistsByNameAsync_WhenNameDoesNotExist_ReturnsFalse()
-    {
-        using var context = CreateContext(nameof(ExistsByNameAsync_WhenNameDoesNotExist_ReturnsFalse));
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.ExistsByNameAsync("Unknown");
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task ExistsByNameAsync_WhenExcludingTheOnlyMatchingId_ReturnsFalse()
-    {
-        using var context = CreateContext(nameof(ExistsByNameAsync_WhenExcludingTheOnlyMatchingId_ReturnsFalse));
-        context.AdsChannels.Add(Document(1, "Google Ads"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: 1);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task ExistsByNameAsync_WhenExcludingADifferentId_StillReturnsTrue()
-    {
-        using var context = CreateContext(nameof(ExistsByNameAsync_WhenExcludingADifferentId_StillReturnsTrue));
-        context.AdsChannels.Add(Document(1, "Google Ads"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.ExistsByNameAsync("Google Ads", excludingId: 2);
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Value.ShouldBeTrue();
-    }
+    // Success-path behavior (name match, excludingId) lives in
+    // IntegrationTests/Infrastructure/Persistence/AdsChannels/AdsChannelRepositoryTests.cs, against
+    // the real SqlServerContainerFixture — collation affects name comparisons, which InMemory doesn't
+    // reproduce. Only exception handling is verified here.
 
     [Fact]
     public async Task ExistsByNameAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs()
@@ -205,75 +156,10 @@ public sealed class AdsChannelRepositoryTests
 
     // ── GetAsync ──────────────────────────────────────────────────────────────
 
-    [Fact]
-    public async Task GetAsync_WithNameContainsFilter_ReturnsOnlyMatchingItems()
-    {
-        using var context = CreateContext(nameof(GetAsync_WithNameContainsFilter_ReturnsOnlyMatchingItems));
-        context.AdsChannels.AddRange(
-            Document(1, "Google Ads"),
-            Document(2, "Meta Ads"),
-            Document(3, "Google Analytics"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.GetAsync(new AdsChannelFilter("Google", null), new PageQuery(0, 10));
-
-        result.IsSuccess.ShouldBeTrue();
-        result.TotalCount.ShouldBe(2);
-        result.Items.Select(x => x.Name).ShouldBe(["Google Ads", "Google Analytics"]);
-    }
-
-    [Fact]
-    public async Task GetAsync_WithIsActiveFilter_ReturnsOnlyMatchingItems()
-    {
-        using var context = CreateContext(nameof(GetAsync_WithIsActiveFilter_ReturnsOnlyMatchingItems));
-        context.AdsChannels.AddRange(
-            Document(1, "Google Ads", isActive: true),
-            Document(2, "Meta Ads", isActive: false));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.GetAsync(new AdsChannelFilter(null, false), new PageQuery(0, 10));
-
-        result.IsSuccess.ShouldBeTrue();
-        result.TotalCount.ShouldBe(1);
-        result.Items.Single().Name.ShouldBe("Meta Ads");
-    }
-
-    [Fact]
-    public async Task GetAsync_WithoutFilters_ReturnsAllOrderedByNameThenId()
-    {
-        using var context = CreateContext(nameof(GetAsync_WithoutFilters_ReturnsAllOrderedByNameThenId));
-        context.AdsChannels.AddRange(
-            Document(2, "Beta"),
-            Document(1, "Alpha"),
-            Document(3, "Gamma"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var result = await sut.GetAsync(new AdsChannelFilter(null, null), new PageQuery(0, 10));
-
-        result.IsSuccess.ShouldBeTrue();
-        result.Items.Select(x => x.Name).ShouldBe(["Alpha", "Beta", "Gamma"]);
-    }
-
-    [Fact]
-    public async Task GetAsync_Paginates_UsingSkipAndTake()
-    {
-        using var context = CreateContext(nameof(GetAsync_Paginates_UsingSkipAndTake));
-        context.AdsChannels.AddRange(
-            Document(1, "Alpha"),
-            Document(2, "Beta"),
-            Document(3, "Gamma"));
-        await context.SaveChangesAsync();
-        var sut = new AdsChannelRepository(context, Substitute.For<ILoggerPort<AdsChannelRepository>>());
-
-        var secondPage = await sut.GetAsync(new AdsChannelFilter(null, null), new PageQuery(1, 2));
-
-        secondPage.IsSuccess.ShouldBeTrue();
-        secondPage.TotalCount.ShouldBe(3);
-        secondPage.Items.Select(x => x.Name).ShouldBe(["Gamma"]);
-    }
+    // Filtering, ordering, and pagination behavior lives in
+    // IntegrationTests/Infrastructure/Persistence/AdsChannels/AdsChannelRepositoryTests.cs, against
+    // the real SqlServerContainerFixture — collation and OFFSET/FETCH semantics differ from InMemory.
+    // Only exception handling is verified here.
 
     [Fact]
     public async Task GetAsync_WhenExceptionThrown_ReturnsInternalErrorAndLogs()

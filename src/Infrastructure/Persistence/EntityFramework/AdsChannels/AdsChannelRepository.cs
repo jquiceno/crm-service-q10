@@ -59,15 +59,8 @@ public sealed class AdsChannelRepository(
     }
 
     public Task<PagedResult<AdsChannelAggregate>> GetAllAsync(
-        PageQuery page, CancellationToken cancellationToken = default)
-    {
-        // Use cases only ever call GetAsync(filter, page) below, which covers every listing need this
-        // context has (see AdsChannelFilter). Documented per repositorio.md's guidance for a method a
-        // context cannot serve meaningfully, instead of half-implementing an unfiltered listing nobody calls.
-        logger.Warning(
-            "GetAllAsync was called on AdsChannelRepository; use GetAsync(filter, page) instead.");
-        return Task.FromResult<PagedResult<AdsChannelAggregate>>(PersistenceErrors.Failure(Origin));
-    }
+        PageQuery page, CancellationToken cancellationToken = default) =>
+        GetAsync(new AdsChannelFilter(null, null), page, cancellationToken);
 
     public async Task<Result<bool>> ExistsByNameAsync(
         string name, int? excludingId = null, CancellationToken cancellationToken = default)
@@ -93,7 +86,7 @@ public sealed class AdsChannelRepository(
     {
         try
         {
-            var query = _adsChannels.AsNoTracking().AsQueryable();
+            var query = _adsChannels.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(filter.NameContains))
                 query = query.Where(x => x.Name != null && x.Name.Contains(filter.NameContains));
@@ -177,7 +170,10 @@ public sealed class AdsChannelRepository(
             await context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
             // The Id is a SQL Server IDENTITY: only known now, after SaveChangesAsync populated it on
-            // the tracked entity. Re-reconstruct from the entity rather than mutating the input aggregate.
+            // the tracked entity. Re-reconstructing from the entity (rather than the repositorio.md
+            // AssignId pattern) drops the in-memory CreatedAt/UpdatedAt that Create() set; harmless
+            // today because the legacy table has no such columns and no output DTO exposes them — revisit
+            // if either changes.
             return AdsChannelRepositoryMapper.ToDomain(document);
         }
         catch (DbUpdateException ex)

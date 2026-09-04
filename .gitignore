@@ -431,6 +431,11 @@ FodyWeavers.xsd
 skills
 skills*
 
+# Local environment secrets (never commit — see docs/plantilla/variables-entorno.md)
+.env
+**/.env
+!.env.examples
+
 # Terraform
 **/.terraform/*
 *.tfstate

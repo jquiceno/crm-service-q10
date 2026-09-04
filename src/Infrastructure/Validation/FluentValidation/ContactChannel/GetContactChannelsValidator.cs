@@ -6,12 +6,12 @@ namespace Infrastructure.Validation.FluentValidation.ContactChannel;
 public sealed class GetContactChannelsValidator
     : AbstractValidator<GetContactChannelsInputDto>, IStructuralValidator<GetContactChannelsInputDto>
 {
-    public const int SearchNameMaxLength = 200;
+    public const int SearchMaxLength = 200;
 
     public GetContactChannelsValidator()
     {
-        RuleFor(x => x.SearchName)
-            .MaximumLength(SearchNameMaxLength)
-            .WithMessage($"Search name must not exceed {SearchNameMaxLength} characters.");
+        RuleFor(x => x.Search)
+            .MaximumLength(SearchMaxLength)
+            .WithMessage($"Search must not exceed {SearchMaxLength} characters.");
     }
 }

@@ -7,5 +7,6 @@ public sealed record GetContactChannelsInputDto(
         "Filters by active state. When omitted, both active and inactive contact channels are returned.")]
     bool? IsActive,
     [property: Description(
-        "Filters by a fragment of the contact channel name. Maximum 200 characters; a longer value answers 400.")]
-    string? SearchName);
+        "Free-text filter. Matches a fragment of the contact channel name. "
+        + "Maximum 200 characters; a longer value answers 400.")]
+    string? Search);

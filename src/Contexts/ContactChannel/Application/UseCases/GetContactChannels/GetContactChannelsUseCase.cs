@@ -13,7 +13,7 @@ public sealed class GetContactChannelsUseCase(IContactChannelRepository reposito
         PageQuery page,
         CancellationToken cancellationToken = default)
     {
-        var filter = new ContactChannelFilter(input.IsActive, input.SearchName);
+        var filter = new ContactChannelFilter(input.IsActive, input.Search);
 
         var result = await repository
             .GetAsync(filter, page, cancellationToken)

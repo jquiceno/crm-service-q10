@@ -72,7 +72,7 @@ public sealed class ContactChannelsControllerTests
         GetContactChannelsInputDto? filter = null,
         PageQueryInputDto? pagination = null) =>
         CreateController().GetContactChannels(
-            filter ?? new GetContactChannelsInputDto(IsActive: null, SearchName: null),
+            filter ?? new GetContactChannelsInputDto(IsActive: null, Search: null),
             pagination ?? new PageQueryInputDto(),
             CancellationToken.None);
 
@@ -138,10 +138,10 @@ public sealed class ContactChannelsControllerTests
     {
         Returns(PagedResult<GetContactChannelsOutputDto>.Success([], totalCount: 0));
 
-        await InvokeAsync(new GetContactChannelsInputDto(IsActive: false, SearchName: "wha"));
+        await InvokeAsync(new GetContactChannelsInputDto(IsActive: false, Search: "wha"));
 
         await _getContactChannelsUseCase.Received(1).ExecuteAsync(
-            Arg.Is<GetContactChannelsInputDto>(i => i.IsActive == false && i.SearchName == "wha"),
+            Arg.Is<GetContactChannelsInputDto>(i => i.IsActive == false && i.Search == "wha"),
             Arg.Any<PageQuery>(),
             Arg.Any<CancellationToken>());
     }

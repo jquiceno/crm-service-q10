@@ -5,10 +5,10 @@ using FluentValidation;
 
 namespace Infrastructure.Validation.FluentValidation.ContactChannel;
 
-public sealed class UpdateContactChannelValidator
+public sealed class UpdateContactChannelInputValidator
     : AbstractValidator<UpdateContactChannelInputDto>, IStructuralValidator<UpdateContactChannelInputDto>
 {
-    public UpdateContactChannelValidator()
+    public UpdateContactChannelInputValidator()
     {
         RuleFor(x => x.Name)
             .NotEmpty()

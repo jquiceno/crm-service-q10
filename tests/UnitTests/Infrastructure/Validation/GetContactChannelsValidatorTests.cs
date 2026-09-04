@@ -9,37 +9,37 @@ public sealed class GetContactChannelsValidatorTests
 {
     private readonly GetContactChannelsValidator _sut = new();
 
-    private static GetContactChannelsInputDto WithSearchName(string? searchName) =>
-        new(IsActive: null, SearchName: searchName);
+    private static GetContactChannelsInputDto WithSearch(string? search) =>
+        new(IsActive: null, Search: search);
 
     [Fact]
     public void Validate_WithoutFilters_ReturnsValid()
     {
-        var result = _sut.Validate(WithSearchName(null));
+        var result = _sut.Validate(WithSearch(null));
 
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
-    public void Validate_WithSearchNameAtMaxLength_ReturnsValid()
+    public void Validate_WithSearchAtMaxLength_ReturnsValid()
     {
         var result = _sut.Validate(
-            WithSearchName(new string('a', GetContactChannelsValidator.SearchNameMaxLength)));
+            WithSearch(new string('a', GetContactChannelsValidator.SearchMaxLength)));
 
         result.IsValid.ShouldBeTrue();
     }
 
     [Fact]
-    public void Validate_WithSearchNameOverMaxLength_HasErrorOnSearchName()
+    public void Validate_WithSearchOverMaxLength_HasErrorOnSearch()
     {
         var result = _sut.Validate(
-            WithSearchName(new string('a', GetContactChannelsValidator.SearchNameMaxLength + 1)));
+            WithSearch(new string('a', GetContactChannelsValidator.SearchMaxLength + 1)));
 
         result.IsValid.ShouldBeFalse();
         result.Errors.ShouldContain(e =>
-            e.PropertyName == "SearchName"
+            e.PropertyName == nameof(GetContactChannelsInputDto.Search)
             && e.ErrorMessage ==
-                $"Search name must not exceed {GetContactChannelsValidator.SearchNameMaxLength} characters.");
+                $"Search must not exceed {GetContactChannelsValidator.SearchMaxLength} characters.");
     }
 
     [Theory]
@@ -48,7 +48,7 @@ public sealed class GetContactChannelsValidatorTests
     [InlineData(null)]
     public void Validate_AcceptsEveryStateFilter(bool? isActive)
     {
-        var result = _sut.Validate(new GetContactChannelsInputDto(isActive, SearchName: null));
+        var result = _sut.Validate(new GetContactChannelsInputDto(isActive, Search: null));
 
         result.IsValid.ShouldBeTrue();
     }

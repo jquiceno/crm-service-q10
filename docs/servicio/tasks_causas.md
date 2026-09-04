@@ -4,7 +4,7 @@ context: loss-reasons (Causas de pérdida)
 doc: tasks
 status: approved
 source: workplan_causas.md
-updated: 2026-08-21
+updated: 2026-09-04
 equipo: Juan Camilo · Brayan · Juan Esteban
 ---
 
@@ -76,6 +76,8 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 
 `GAP-4` (feature flag) y `GAP-7` (escritura de `neg_cau_consecutivo`) se resolvieron declarándolos fuera del alcance de este plan; nunca bloquearon una tarea de este backlog y siguen listados en §4.
 
+**Un octavo GAP apareció el 2026-08-28, dentro de T11, y quedó cerrado el mismo día:** `GAP-8` — `PagedPayload<T>` era `internal`, así que el listado paginado no podía declarar el `[ProducesResponseType]` de su 200 tal como lo prescriben `controllers.md` §5.5 y el paso `F4.2`. Se pasó a `public` aplicando D11, y ✅ **el tech lead firmó esa solución el 2026-08-28**. Nunca bloqueó a nadie. Queda un pendiente que no es de este backlog: **el arreglo pertenece aguas arriba, en `service-template-dotnet`**, donde hoy ningún servicio puede documentar un endpoint paginado. Detalle en el plan, §9.2 y nota de ejecución de `F4.2`.
+
 > **Un pendiente que no es un bloqueo de este backlog pero condiciona el corte:** con D13, la autorización la ejerce Jack, y las 7 acciones `[AllowAnonymous]` de `EstructuracionComercialController` siguen abiertas allí (riesgo **R9** del plan). Es trabajo del lado del monolito, en `03-flujos.md` — ver `EXT-8` en §2.6.
 
 ## 2. Tabla maestra de tareas
@@ -92,7 +94,7 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 | T8 | **Brayan** | Create loss reason use case | `F3.3`, `F3.8` | `feat/loss-reasons-create` | `feat/loss-reasons` | 3 | T4 | F3 | ✅ **mergeada** a la base — PR #20, merge `56f1eaa`. Validada después del merge: build limpio y 405 tests en verde |
 | T9 | **Brayan** | Update loss reason use case | `F3.4`, `F3.9` | `feat/loss-reasons-update` | `feat/loss-reasons` | 3 | T4 | F4 | ✅ **mergeada** a la base — PR #28, merge `64b0e54`; una ronda de revisión aplicada (texto a inglés). Validada después del merge: build limpio y 415 tests en verde |
 | T10 | **Juan Camilo** | Delete loss reason use case | `F3.5`, `F3.10` | `feat/loss-reasons-delete` | `feat/loss-reasons` | 3 | T4, T5 | F5 | ✅ **ejecutada** — `F3.5` y `F3.10` `done` y verificados (6 tests); una ronda de revisión aplicada; pendiente de merge |
-| T11 | **Juan Camilo** | LossReason API surface | `F4.1`–`F4.4` | `feat/loss-reasons-api` | `feat/loss-reasons` | 5 | T6, T7, T8, T9, T10 | F1–F5 | ⬜ |
+| T11 | **Juan Esteban** *(reasignada de Juan Camilo el 2026-08-28)* | LossReason API surface | `F4.1`–`F4.4` | `feat/loss-reasons-api` | `feat/loss-reasons` | 5 | T6, T7, T8, T9, T10 | F1–F5 | ✅ **ejecutada** — `F4.1`–`F4.4` `done` y verificados: build limpio, 455 tests en verde, cobertura 97,5 %, los 5 verbos probados en caliente. **En revisión** — PR abierto contra la base, una ronda de QA aplicada (466 tests). `GAP-8` ✅ firmado (ver §1) |
 | T12 | **Juan Esteban** | LossReason integration tests and coverage gate | `F5.1`, `F5.2` | `test/loss-reasons-integration` | `feat/loss-reasons` | 5 | T11 | F1–F5 | ⬜ |
 
 **Total: 42 puntos en 11 tareas ejecutables** (T1 se cerró sin PR). **Base `feat/loss-reasons` en todas** — la rama base del contexto, no `main` (ver §0, *Modelo de ramas*).
@@ -114,16 +116,19 @@ Los identificadores son **provisionales** hasta que se escriba `03-flujos.md`; s
 
 El criterio no es repartir puntos parejos, sino que **cada quien sea dueño de una franja coherente del plan**: quien conoce una capa escribe sus tests y responde por ella en la revisión.
 
-#### Juan Esteban — andamiaje, dominio y verificación de extremo a extremo · 15 puntos
+#### Juan Esteban — andamiaje, dominio, superficie HTTP y verificación de extremo a extremo · 20 puntos
 
 | Tarea | Pasos | Fase del plan | Puede empezar cuando |
 |---|---|---|---|
 | **T2** | `F0.3` | Fase 0 | **ya** — no tiene predecesora |
 | **T3** | `F1.1` → `F1.2` → `F1.3` → `F1.4` → `F1.5` → `F1.6`, más `F2.5` | Fase 1 completa (+ el puerto de Fase 2) | T2 mergeada |
 | **T6** | `F3.1`, `F3.6` | Fase 3 | T4 mergeada |
+| **T11** | `F4.1` → `F4.2` → `F4.3` → `F4.4` | Fase 4 completa | T6, T7, T8, T9 y T10 mergeadas |
 | **T12** | `F5.1`, `F5.2` | Fase 5 completa | T11 mergeada |
 
 Es dueño de las **invariantes** (D4, D5: `NameMaxLength` como fuente única del número) y del **contrato observable** (Fase 5 verifica las tres rupturas de paridad de D8/D9 y los dos casos NULL de D6). `F1.1`–`F1.6` es una cadena estricta: cada paso compila contra el anterior, no se paraleliza dentro de T3.
+
+**T11 se le reasignó el 2026-08-28**, cuando la ola 4 cerró. El reparto original la daba a Juan Camilo por coherencia de franja; el cambio la junta con T12, que verifica de extremo a extremo exactamente los endpoints que T11 expone. **Consecuencia que hay que vigilar en la revisión: ahora escribe la superficie HTTP y también los tests de integración que la comprueban**, así que el round-robin de §2.5 importa más, no menos — el revisor de T11 y T12 no puede ser él.
 
 #### Brayan — persistencia y casos de uso de escritura · 14 puntos
 
@@ -137,20 +142,18 @@ Franja coherente: quien mapea la tabla legada escribe después las dos operacion
 
 **Antes de `F2.1`:** leer el dump del esquema con la trampa documentada — en `02-columnas.tsv` **vacío significa `True`**, así que `cau_nombre` y `cau_estado` son NULLABLE. De ahí sale D6 y el `string?`/`bool?` obligatorio de la entidad.
 
-#### Juan Camilo — lectura de la tabla ajena, borrado y superficie HTTP · 13 puntos
+#### Juan Camilo — lectura de la tabla ajena y borrado · 8 puntos
 
 | Tarea | Pasos | Fase del plan | Puede empezar cuando |
 |---|---|---|---|
 | **T5** | `F2.6` | Fase 2 (rama del Reader) | T3 mergeada — **en paralelo con T4** |
 | **T7** | `F3.2`, `F3.7` | Fase 3 | T4 mergeada |
 | **T10** | `F3.5`, `F3.10` | Fase 3 | T4 **y** T5 mergeadas |
-| **T11** | `F4.1` → `F4.2` → `F4.3` → `F4.4` | Fase 4 completa | T6, T7, T8, T9 y T10 mergeadas |
 
-Franja coherente: escribe el Reader (`F2.6`) y después el único caso de uso que lo consume (`F3.5`, el 409 por causa en uso, D7). Cierra con la Fase 4, que es el punto de reunión.
+Franja coherente: escribe el Reader (`F2.6`) y después el único caso de uso que lo consume (`F3.5`, el 409 por causa en uso, D7). **T11 se reasignó a Juan Esteban el 2026-08-28**, así que su franja cierra en la ola 4 y su peso pasa a la revisión de PRs.
 
-Los dos puntos donde su parte se rompe en silencio si se descuida:
-* **Orden en `F3.5`:** primero `ExistsAsync`, después `IsUsedAsync`. Invertirlo hace que cada 404 pague un scan de ~300.000 filas, porque `neg_cau_consecutivo` no está indexado (R2).
-* **Política de caché en `F4.3`:** la política `loss-reasons-list` debe **partir de la base** (conserva `SetVaryByHeader("X-Entity-Code", …)`, que es lo que aísla los tenants) y **añadir** `SetVaryByQuery("name", "isActive", "pageIndex", "pageSize")`. Sin esa variación, el listado sirve el resultado de un filtro para otro: es R8, un fallo de correctitud que se ve como datos equivocados, no como error.
+El punto donde su parte se rompe en silencio si se descuida:
+* **Orden en `F3.5`:** primero `ExistsAsync`, después `IsUsedAsync`. Invertirlo hace que cada 404 pague un scan de ~300.000 filas, porque `neg_cau_consecutivo` no está indexado (R2). *Verificado en el merge de T10: el orden es el correcto.*
 
 ### 2.3 Olas de ejecución
 
@@ -163,7 +166,7 @@ Una ola es un tramo donde nadie espera a nadie dentro de la ola. Se avanza de ol
 | **2 · Dominio** | **T3** (`F1.1`–`F1.6`, `F2.5`) | sin código: preparar `F2.1`–`F2.3` sobre el dump | sin código: leer `cache.md`, `controllers.md`, `validaciones.md` para T11 | T2 mergeada |
 | **3 · Persistencia** | revisión de PRs | **T4** (`F2.1`–`F2.4`, `F2.7`–`F2.9`) | **T5** (`F2.6`) | T3 mergeada |
 | **4 · Aplicación** | **T6** (`F3.1`, `F3.6`) | **T8** (`F3.3`, `F3.8`) y **T9** (`F3.4`, `F3.9`) | **T7** (`F3.2`, `F3.7`) y **T10** (`F3.5`, `F3.10`) | T4 mergeada · T10 además espera T5 |
-| **5 · API** | revisión + preparar el seed de `F5.1` | revisión | **T11** (`F4.1`–`F4.4`) | T6, T7, T8, T9, T10 mergeadas |
+| **5 · API** | **T11** (`F4.1`–`F4.4`) + preparar el seed de `F5.1` | revisión | revisión | T6, T7, T8, T9, T10 mergeadas |
 | **6 · Verificación** | **T12** (`F5.1`, `F5.2`) | revisión | revisión | T11 mergeada |
 
 **Las olas 1 y 2 son de una sola persona y no hay forma de repartirlas.** `F0.3` crea los `.csproj` que todo lo demás referencia, y `F1.1`→`F1.6` es una cadena de compilación. Los otros dos no tienen código que escribir: la ola 0 y las columnas «sin código» de las olas 1–2 existen para que ese tiempo se use en `F0.1` (leer los catorce documentos de `docs/plantilla/`, que el plan exige antes de escribir una línea) y en dejar el entorno listo — `dotnet build Service.slnx -c Release` en verde y **Docker Desktop corriendo**, que T12 va a necesitar con Testcontainers.
@@ -177,16 +180,16 @@ Una ola es un tramo donde nadie espera a nadie dentro de la ola. Se avanza de ol
 ### 2.4 Camino crítico
 
 ```
-   Juan Esteban        Brayan / Juan Camilo              Juan Camilo
-   ────────────        ────────────────────              ───────────
+   Juan Esteban        Brayan / Juan Camilo              Juan Esteban
+   ────────────        ────────────────────              ────────────
    T2 → T3 ──┬── T4 (BR) ─┬─→ T6  (JE) ─┐
              │            ├─→ T7  (JC) ─┤
-             │            ├─→ T8  (BR) ─┼─→ T11 (JC) → T12 (JE)
+             │            ├─→ T8  (BR) ─┼─→ T11 (JE) → T12 (JE)
              │            ├─→ T9  (BR) ─┤
              └── T5 (JC) ─┴─→ T10 (JC) ─┘
 ```
 
-* **Camino crítico:** T2 → T3 → T4 → *(cualquiera de T6–T10)* → T11 → T12 — 6 tareas, **26 de los 42 puntos**. Cruza a las tres personas, así que **cada merge del camino crítico desbloquea a otro**: mergear rápido importa más que empezar rápido.
+* **Camino crítico:** T2 → T3 → T4 → *(cualquiera de T6–T10)* → T11 → T12 — 6 tareas, **26 de los 42 puntos**. Cruzaba a las tres personas, así que **cada merge del camino crítico desbloqueaba a otro**: mergear rápido importaba más que empezar rápido. **Desde el 2026-08-28 su cola es de una sola persona**: con T11 reasignada, T11 → T12 son ambas de Juan Esteban y ya nadie más está en el camino crítico.
 * **T4 y T5** van en paralelo tras T3 (Brayan y Juan Camilo).
 * **T6 a T10** van en paralelo tras T4; T10 además tras T5. Estaban encadenadas en el plan sin razón de código y la enmienda del 2026-08-14 quitó esa serialización.
 * **T11 es el punto de reunión**: el controller inyecta los cinco casos de uso por constructor primario (D11), así que espera a los cinco.
@@ -198,9 +201,11 @@ Round-robin, para que nadie revise lo suyo y las tres capas se conozcan de a dos
 
 | Autor | Revisa |
 |---|---|
-| Juan Esteban (T2, T3, T6, T12) | Brayan |
+| Juan Esteban (T2, T3, T6, **T11**, T12) | Brayan |
 | Brayan (T4, T8, T9) | Juan Camilo |
-| Juan Camilo (T5, T7, T10, T11) | Juan Esteban |
+| Juan Camilo (T5, T7, T10) | Juan Esteban |
+
+Con T11 reasignada, **Juan Esteban escribe la superficie HTTP y también los tests de integración que la verifican** (T12). El round-robin es lo único que impide que ese tramo se autorrevise: **T11 y T12 las revisa Brayan**, y conviene que Juan Camilo mire además la política de caché de `F4.3`, que era suya en el reparto original y es donde vive R8.
 
 Qué mirar en la revisión, además del `Hecho cuando` del paso: que **nada lance** (todo error esperado vuelve como `Result`), que **el `Error.Origin` ajeno no se reescriba** (cada pieza sella solo lo que origina) y que no aparezca un `50` literal donde debe ir `LossReasonAggregate.NameMaxLength`.
 
@@ -235,11 +240,16 @@ Regla R8: el archivo lo crea la primera tarea que lo necesita; las demás solo a
 | `Service.slnx` | T2 · **Juan Esteban** (añade los dos `.csproj`) | — |
 | `src/Infrastructure/Persistence/EntityFramework/ApplicationDbContext.cs` | T4 · **Brayan** (`DbSet` de `LossReason`, paso `F2.7`) | ~~T5 · Juan Camilo~~ — **el choque no llegó a existir**: la revisión del PR de T5 retiró el `DbSet` keyless (nadie lo usaba; el Reader consulta con `context.Set<DealLossReasonUsage>()`), así que `F2.6` no toca este archivo |
 | `src/Infrastructure/Infrastructure.csproj` | T4 · **Brayan** (`ProjectReference` a `LossReason.Application`, para que compile el mapper de `F2.3`) | — · **ya cubre a T5**: la referencia a `Application` arrastra `Domain`, así que `F2.6` no lo toca |
-| `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Camilo** (llamada a `AddLossReasonServices`) | — |
-| `src/Api/DependencyInjection/OutputCacheExtensions.cs` | T11 · **Juan Camilo** (política `loss-reasons-list`, paso `F4.3`) | — |
+| `src/Api/DependencyInjection/ApplicationServiceExtensions.cs` | T11 · **Juan Esteban** (llamada a `AddLossReasonServices`) — hecho, una línea | — |
+| `src/Api/DependencyInjection/OutputCacheExtensions.cs` | ~~T11 · **Juan Esteban** (política `loss-reasons-list`, paso `F4.3`)~~ — **ya no se toca**: la revisión descartó la política nombrada y el archivo salió del PR | — |
+| `src/Shared/Infrastructure/Presentation/Results/HttpOkPagedResult.cs` | T11 · **Juan Esteban** (`PagedPayload<T>` de `internal` a `public`, `GAP-8`) | — · **no estaba declarado y no debería haber hecho falta**: es el primer archivo de `src/Shared` que toca el contexto, contra lo que R5 daba por auditado |
+| `src/Shared/Application/Dtos/ConsecutiveIdInputDto.cs` *(nuevo)* | T11 · **Juan Esteban** (validación del `id` de ruta, por indicación de la revisión) | — · **transversal, no del contexto**: cualquier servicio con un id de ruta lo va a querer, igual que `PageQueryInputDto` |
+| `src/Infrastructure/Validation/FluentValidation/Shared/ConsecutiveIdInputValidator.cs` *(nuevo)* | T11 · **Juan Esteban** (`GreaterThan(0)`, mensaje genérico) | — · vive junto a `PageQueryInputValidator`, no bajo `LossReasons/` |
 | `tests/UnitTests/UnitTests.csproj` | T3 · **Juan Esteban** (`ProjectReference` a `LossReason.Domain`, para que compile el test de `F1.6`) | ~~T6–T10~~ **Ya resuelto: T6 añadió la `ProjectReference` a `LossReason.Application`.** T7–T10 no tienen que tocar el archivo, solo rebasar sobre la base |
 
 Ninguna tarea toca archivos de seguridad ni de configuración de acceso: con D12, D13 y D14 el servicio no implementa autenticación, permisos ni resolución propia de tenant.
+
+**Las tres últimas filas son la sorpresa del backlog, y las tres son de T11.** R5 concluyó en la auditoría del plan §5.5 que `Shared` no se toca, y se sostuvo durante diez tareas; T11 la rompió tres veces: por un `internal` que impedía compilar el `[ProducesResponseType]` del listado paginado (`GAP-8`) y, tras la revisión, por los dos archivos nuevos del `id` de ruta. Ninguna genera choque —ninguna otra tarea toca esos archivos, y dos son adiciones puras— pero **invalidan la afirmación «`Shared` no se toca» de la verificación de R5**, que queda con su matiz al pie. Los dos del `id` son además **candidatos a subir a la plantilla**: nada en ellos es de este servicio.
 
 **El único choque real declarado era `ApplicationDbContext.cs` entre T4 (Brayan) y T5 (Juan Camilo)**, las dos tareas paralelas de la ola 3, y **no llegó a producirse**: la revisión del PR de T5 retiró el `DbSet` keyless por no tener consumidor, así que el archivo quedó con un solo autor, T4. Declararlo de antemano igual valió la pena — es lo que permitió que las dos fueran en paralelo en vez de apilar ramas para evitarlo.
 
@@ -272,7 +282,7 @@ Sin dueño, es trabajo que se pierde: por eso las diez filas lo declaran.
 | R2 | ≤ 400 líneas de diff de producción **o** ≤ 10 archivos de `src/` | ✅ Máximo **5 archivos de `src/`** (T3, T4, T5, T6–T9) y 7 en T11. Es la regla que obligó a dividir las escrituras: agrupadas llegaban a 12 |
 | R3 | Testable sola, con los casos escritos | ✅ Cada tarea de T3 en adelante incluye su paso de test con los casos enumerados en el plan |
 | R4 | Deja el repo compilable y los tests en verde | ✅ Todo paso de §8 tiene `Verificar:` con `dotnet build` o `dotnet test` |
-| R5 | No mezcla capas de riesgo | ✅ T3 dominio + contratos, T4/T5 infraestructura, T6–T10 aplicación, T11 API. **No hay migraciones** (Database First sobre tabla existente) y **`Shared` no se toca**: la auditoría del plan §5.5 concluyó que no falta ninguna capacidad transversal |
+| R5 | No mezcla capas de riesgo | ✅ T3 dominio + contratos, T4/T5 infraestructura, T6–T10 aplicación, T11 API. **No hay migraciones** (Database First sobre tabla existente). ⚠️ **`Shared` sí se tocó, una vez**: T11 cambió `PagedPayload<T>` de `internal` a `public` (`GAP-8`, firmado el 2026-08-28) porque sin eso el listado paginado no podía declarar su `[ProducesResponseType]`. La auditoría del plan §5.5 acertó en que no falta ninguna **capacidad** transversal; lo que faltaba era **visibilidad** de un tipo que ya existía |
 | R6 | Sirve a un flujo, o se declara andamiaje | ✅ T1 y T2 son andamiaje; las diez restantes declaran flujo. Ids provisionales por §0.1 |
 | R7 | Sin dependencias artificiales | ✅ Auditado: se eliminaron las cuatro dependencias encadenadas entre los casos de uso. Las que quedan son de código real, salvo el `depende_de: F2.7` de la ola 4, declarado y razonado en §2.3 |
 | R8 | Archivos compartidos declarados | ✅ Los seis en §3, con el único choque real señalado y sus dos dueños con nombre |
@@ -292,18 +302,23 @@ El documento está listo cuando:
 - [x] Los archivos compartidos están declarados en §3, con dueño y orden de merge.
 - [x] Cada bloqueo previo declara qué tarea bloquea.
 
-**El backlog está en ejecución. Siete tareas dentro de la base** —T2, T3, T4 (PR #5), T5 (PR #18), T6 (PR #19), T7 (PR #36) y T8 (PR #20)— **con la base verde**. La base recibió además un **merge de `main`** (`f3a8590`), que trae la plantilla al día.
+**El backlog está en ejecución. Nueve tareas dentro de la base** —T2, T3, T4 (PR #5), T5 (PR #18), T6 (PR #19), T7 (PR #36), T8 (PR #20), T9 (PR #28) y T10 (PR #45)— **con la base verde**. La base recibió además un **merge de `main`** (`f3a8590`), que trae la plantilla al día.
 
-- **La ola 3 está cerrada:** con T5 dentro (PR #18), **T10 quedó desbloqueada** — era su última dependencia.
-- **Ola 4 cerrada:** T6, T7, T8 y T9 están dentro. Queda **T10** (Juan Camilo), **ejecutada y pendiente de merge**, que ya no tiene espera: T4 y T5 están las dos en la base.
-- **Cuando T10 entre se abre la ola 5**, la superficie HTTP (**T11**), que es el punto de reunión de los cinco casos de uso.
-- **Antes de abrir cualquiera de esas ramas, rebasar sobre la base**: entre T4 y T6 cambiaron `ApplicationDbContext.cs`, `Infrastructure.csproj` y `UnitTests.csproj`, y **los tres quedan resueltos** —T6 dejó puesta la `ProjectReference` a `LossReason.Application` que T7–T10 iban a necesitar—.
-- **T7–T10 se escriben con las reglas que salieron de la revisión de T6:** `Description` de los DTOs **en inglés** y `{X}Mapping.cs` **solo con `ToOutputDto()`/`ToAggregate()`/`ToUpdateArgs()`**, con el objeto de filtro construido inline en el caso de uso (plan §3.1 y §5.6).
+- **Olas 3 y 4 cerradas.** Los cinco casos de uso están dentro, que es lo que T11 esperaba.
+- **Ola 5 ejecutada, sin mergear:** **T11** (reasignada a Juan Esteban) está escrita y verificada en el árbol de trabajo — `F4.1`–`F4.4` `done`, build limpio, 455 tests, cobertura 97,5 %, los 5 verbos probados contra la app corriendo. **Falta commit, PR y revisión.**
+- **Queda solo la ola 6: T12** (`F5.1`, `F5.2`), que arranca cuando T11 entre a la base. Necesita **Docker Desktop corriendo** para los Testcontainers.
+- **T11 no arrastra nada abierto:** `GAP-8` (§1) —el `internal` → `public` de `PagedPayload<T>`, único cambio del contexto sobre `src/Shared`— quedó **firmado el 2026-08-28**.
+- **Antes de abrir la rama de T11, rebasar sobre la base**: T9 y T10 entraron después del último rebase y tocan `src/Contexts/LossReason/Application/`, aunque ninguno de sus archivos coincide con los de T11.
 
 ## Changelog
 
 | Fecha | Cambio |
 |---|---|
+| 2026-09-04 | **La rama base se actualiza con `main`** y se trae a la rama de T11. Tres cosas que cambian cómo se trabaja, no solo el código: **la multitenencia es obligatoria y no hay EF InMemory en el runtime**, así que `dotnet run` aborta sin resolver, clave de cifrado y Redis —la tarea de contenedores pasa de «opcional» a prerrequisito de `F5.1` y del trabajo diario—; **las rutas van bajo `/crm-service`** por un prefijo en proceso que reemplaza a `ASPNETCORE_PATHBASE`, sin tocar controllers; y **la caché pasa a ser opt-in**, lo que cierra `GAP-9`. `main` ya trae `PagedPayload<T>` público, el mismo arreglo de `GAP-8`. **Antes de seguir, todo el mundo rebasa su rama sobre la base**, como manda §0. Base: 445 en verde; rama de T11: 490 |
+| 2026-09-04 | **Segunda ronda de revisión del PR de T11 (#48), la de los cinco comentarios que se habían quedado sin ver.** Con `gh` autenticado se auditaron los 13 hilos del PR contra los 11 commits: 8 ya estaban aplicados, 5 faltaban, y **ninguno estaba marcado como resuelto en GitHub**, así que el estado de la UI no sirve de indicador — el cruce se hizo contra el código. Aplicados cuatro: fuera el comentario que justificaba la duración del caché, la duración sube a **3 días** (`3 * 24 * 60 * 60`), y `IdInputDto`/`IdInputValidator` se renombran (§3) — primero a `Consecutive…`, por el `cau_consecutivoP` del legado, y el 2026-09-04 de vuelta a **`SequenceIdInputDto`/`SequenceIdInputValidator`**, que es lo que pedían los hilos. **El quinto —quitar `VaryByQueryKeys`— se rechazó primero por error y luego se aplicó:** al traer `docs/plantilla/cache.md` desde `main` (commits `JK-11790`) quedó claro que el atributo reaplica `DefaultPolicy` sobre la política base y ya varía por toda la query, así que declarar la lista *restringe* la clave — y es lo que causó el fallo de la ronda anterior, no su ausencia. Aplicado, verificado en caliente y corregida la respuesta en el hilo. **De paso sale `GAP-9`:** el `OutputCacheExtensions.cs` del fork no tiene el `excludeDefaultPolicy: true` de la plantilla, con lo que la caché no es opt-in y se cachean los health checks; lo resolvió el merge de `main`. La segunda mitad —la política `Global`, que no quita la variación por tenant— **queda abierta aguas arriba** por indicación de la revisión, y el tech lead la reporta a la plantilla: mientras siga así, **no usar `PolicyName = "Global"`** en este servicio. Suite: **466 en verde** |
+| 2026-08-28 | **Revisión de QA sobre el PR de T11**, aplicada en la rama. Seis puntos: fuera la política de caché nombrada —el listado pasa a `[OutputCache(Duration = 60, Tags, VaryByQueryKeys)]`, que complementa la política base en vez de reemplazarla, y `OutputCacheExtensions.cs` sale del PR—; el filtro del listado se renombra a **`search`** y su validador cambia el error de dominio por un mensaje propio; **`isActive` del `PUT` pasa a `bool?` obligatorio** en las cuatro capas, igual que el `POST`; el **`id` de ruta se valida con `IdInputDto` + `IdInputValidator` en `Shared`** (§3), porque `ValidateRequestFilter` descarta los tipos simples; fuera el comentario XML de `PagedPayload<T>`; y **datos de prueba a inglés**, la regla de la revisión de T9 que este PR estaba incumpliendo con ocurrencias nuevas. **La ronda encontró un fallo real:** al renombrar el filtro quedó `"name"` en la clave de caché y el listado servía la respuesta de otra búsqueda —R8 materializándose—, que **no vio ningún unitario** sino la verificación en caliente; se corrigió y se cubrió con un test verificado rompiéndolo a propósito. Suite: **466 en verde**, cobertura 97,5 % |
+| 2026-08-28 | **T11 reasignada a Juan Esteban** y **ejecutada completa** (`F4.1`–`F4.4`, rama `feat/loss-reasons-api`, sin commitear aún). Entrega los dos validadores que faltaban —el de crear ya lo había escrito T8—, `LossReasonsController` con sus 5 endpoints, `AddLossReasonServices` y la política de caché `"loss-reasons-list"`, más **34 tests** nuevos (455 en la suite, cobertura **97,5 %**, controller y validadores al 100 %). Los 5 verbos se verificaron **en caliente** contra la app corriendo, no solo por unitarios: incluye que el listado devuelve cuerpos distintos antes y después de un `POST` (la invalidación por tag funciona) y que `?name=` cambia el resultado (la variación por query funciona). Tres desviaciones declaradas, todas en §9.3 del plan: **(a) `GAP-8`** — `PagedPayload<T>` era `internal` y el `[ProducesResponseType]` del listado paginado no compilaba; pasa a `public` por D11, **único toque a `src/Shared` del contexto**, ✅ firmado por el tech lead el mismo día; **(b)** la política nombrada repite también el `SetVaryByQuery("EntityCode")` de la base, que `F4.3` no enumeraba —una política nombrada **reemplaza** a la base, no se apila—, sin lo cual dos tenants que usan ese canal compartirían caché; **(c)** `F4.4` gana un cuarto archivo de test, `LossReasonNameLengthContractTests`, porque su `Hecho cuando` pedía fijar el límite «exacto en 50» y **ningún test escribía el número**: todos lo leen de la constante y seguirían verdes si alguien la cambiara. El reparto de §2.2, las olas de §2.3, el camino crítico de §2.4 y el round-robin de §2.5 se actualizan con la reasignación |
+| 2026-08-28 | **T10 mergeada a la base** (PR #45, merge `6d0470a`), con lo que **la ola 4 queda cerrada de verdad** y **T11 se desbloquea**. Validada después del merge: build limpio y 421 tests en verde. Se verifica en el código mergeado el punto que §2.2 marcaba como «se rompe en silencio»: `DeleteLossReasonUseCase` llama `ExistsAsync` antes que `IsUsedAsync`, que es lo que evita el scan de ~300.000 filas en cada 404 (R2) |
 | 2026-08-28 | **T10 ejecutada** (`F3.5`, `F3.10`, Juan Camilo — rama `feat/loss-reasons-delete`): el borrado con el 409 por uso, en dos archivos y con **6 tests** en verde (417 en la suite). Respeta el orden obligatorio de D7 —`ExistsAsync` primero, Reader después—, que es lo que evita que cada 404 pague el scan de ~300.000 filas de `tbl_opo_negocios` (R2); un test lo fija con un assert de que el 404 **no consulta al Reader**. **Sí declara `Origin`**, al revés que T7: origina `NotFound` e `InUse` y los sella, mientras propaga sin tocar los del repositorio y los del Reader. **No sella `Context`**, siguiendo el precedente del repositorio: en el servicio, `Context` solo va sobre errores de validación del agregado. Es **un test más de los 5 que pedía `F3.10`** —el fallo de `RemoveAsync`, que sin él dejaba una rama descubierta y que además fija que un borrado fallido no llega al commit—, con lo que el caso de uso queda en **100 % de líneas y ramas** y la cobertura global en 97,53 %. T5 entró a la base antes del PR, así que la dependencia declarada `T4, T5` quedó cumplida sin necesidad de enmendar el plan. **Revisión aplicada:** se retiran los dos comentarios del caso de uso a petición del revisor; el porqué del orden y del 409 vive en `F3.5` del plan y en los nombres de los tests, que es donde no estorba |
 | 2026-08-28 | **T9 mergeada a la base** (PR #28, merge `64b0e54`). La revisión pidió un solo cambio: **texto a inglés** en el slice —las cinco `Description` de los DTOs y los datos de prueba (`"Precio"`→`"Price"`, `"Competencia"`→`"Competition"`)—, la regla que salió de la revisión de T6 y que los slices hermanos ya seguían. Las descripciones del output se calcaron de `GetLossReasonsOutputDto` para que el mismo campo se lea igual en todos los slices; la de `IsActive` decía «queda visible en el catálogo» y se traduce como «Whether the loss reason is active.» para no dejar el mismo campo diciendo cosas distintas entre slices. Se registra además el merge de **T5** (PR #18, merge `06e6d84`), que seguía como «pendiente de merge» en §2. Con las dos, **la ola 4 queda cerrada** y **T10 se desbloquea** (T4 y T5 dentro). La base queda con **415 tests en verde**. Queda un follow-up declarado por la revisión y **no incluido** en el PR: los datos de prueba en español ya mergeados en los slices hermanos —41 ocurrencias de `"Precio"`/`"Competencia"` en 6 archivos, el grueso en `LossReasonRepositoryTests` |
 | 2026-08-28 | **Revisión de QA sobre el PR de T7.** El PR queda aprobado; el único hallazgo es **del plan, no del código**: `§5.6` seguía listando `GetLossReasonById` entre los casos de uso que declaran `Origin`, y eso contradice tanto la implementación como el propio plan (§5.6 línea 384, «404 sale del `ErrorType`», y el Detalle de `F3.2`, «propaga tal cual el error del repositorio»). Bajo el diseño real el `NotFound` lo origina y lo sella el **repositorio**, así que un `Origin` en el caso de uso sería código muerto. Se corrige `§5.6` quitándolo de esa lista, para que nadie lo «arregle» después al revés |

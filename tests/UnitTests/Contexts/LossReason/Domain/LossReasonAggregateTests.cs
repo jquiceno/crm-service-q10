@@ -127,6 +127,37 @@ public sealed class LossReasonAggregateTests
     }
 
     [Fact]
+    public void Update_WithNullIsActive_ReturnsIsActiveRequired()
+    {
+        var aggregate = LossReasonAggregate.Reconstruct(7, ValidName, isActive: true);
+
+        var result = aggregate.Update(new UpdateLossReasonArgs("Competition", IsActive: null));
+
+        // Symmetric with Create: an absent flag is a missing field, not a request to deactivate.
+        // Leaving IsActive non-nullable here would let an omitted flag arrive as false through the
+        // CLR default and silently deactivate the reason.
+        result.IsFailure.ShouldBeTrue();
+        MessagesOf(result.Error).ShouldBe([LossReasonErrors.IsActiveRequired.Message]);
+        aggregate.Name.ShouldBe(ValidName);
+        aggregate.IsActive.ShouldBeTrue();
+        aggregate.UpdatedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public void Update_WithEmptyNameAndNullIsActive_AccumulatesBothErrors()
+    {
+        var aggregate = LossReasonAggregate.Reconstruct(7, ValidName, isActive: true);
+
+        var result = aggregate.Update(new UpdateLossReasonArgs(string.Empty, IsActive: null));
+
+        result.IsFailure.ShouldBeTrue();
+        var messages = MessagesOf(result.Error);
+        messages.Count.ShouldBe(2);
+        messages.ShouldContain(LossReasonErrors.NameRequired.Message);
+        messages.ShouldContain(LossReasonErrors.IsActiveRequired.Message);
+    }
+
+    [Fact]
     public void Update_WithValidArgs_SetsUpdatedAt()
     {
         var aggregate = LossReasonAggregate.Reconstruct(7, ValidName, isActive: true);

@@ -12,7 +12,7 @@ public sealed class GetLossReasonsUseCase(ILossReasonRepository repository) : IG
         PageQuery page,
         CancellationToken cancellationToken = default)
     {
-        var filter = new LossReasonFilter(input.Name, input.IsActive);
+        var filter = new LossReasonFilter(input.Search, input.IsActive);
 
         var result = await repository
             .GetAsync(filter, page, cancellationToken)

@@ -23,23 +23,23 @@ public sealed class DeleteContactChannelUseCaseTests
         _usageReader.IsReferencedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Result<bool>.Success(referenced));
 
-    private void DeleteReturns(Result result) =>
-        _repository.DeleteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(result);
+    private void RemoveReturns(Result result) =>
+        _repository.RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(result);
 
     private void CommitReturns(Result result) =>
         _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(result);
 
     [Fact]
-    public async Task ExecuteAsync_WhenTheChannelIsFree_DeletesItAndCommits()
+    public async Task ExecuteAsync_WhenTheChannelIsFree_RemovesItAndCommits()
     {
         IsReferenced(false);
-        DeleteReturns(Result.Success());
+        RemoveReturns(Result.Success());
         CommitReturns(Result.Success());
 
         var result = await CreateUseCase().ExecuteAsync(7);
 
         result.IsSuccess.ShouldBeTrue();
-        await _repository.Received(1).DeleteAsync(7, Arg.Any<CancellationToken>());
+        await _repository.Received(1).RemoveAsync(7, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).CommitAsync(Arg.Any<CancellationToken>());
     }
 
@@ -47,7 +47,7 @@ public sealed class DeleteContactChannelUseCaseTests
     public async Task ExecuteAsync_WithAnUnknownId_SucceedsWithoutCheckingTheExistence()
     {
         IsReferenced(false);
-        DeleteReturns(Result.Success());
+        RemoveReturns(Result.Success());
         CommitReturns(Result.Success());
 
         var result = await CreateUseCase().ExecuteAsync(404);
@@ -55,7 +55,7 @@ public sealed class DeleteContactChannelUseCaseTests
         result.IsSuccess.ShouldBeTrue(
             "an unknown identifier must answer 204, so the endpoint never discloses what exists");
         await _repository.DidNotReceive().ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _repository.Received(1).DeleteAsync(404, Arg.Any<CancellationToken>());
+        await _repository.Received(1).RemoveAsync(404, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class DeleteContactChannelUseCaseTests
 
         await CreateUseCase().ExecuteAsync(7);
 
-        await _repository.DidNotReceive().DeleteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
@@ -87,7 +87,7 @@ public sealed class DeleteContactChannelUseCaseTests
     public async Task ExecuteAsync_ChecksTheUsageOfTheSameIdentifierItWasGiven()
     {
         IsReferenced(false);
-        DeleteReturns(Result.Success());
+        RemoveReturns(Result.Success());
         CommitReturns(Result.Success());
         using var cancellation = new CancellationTokenSource();
 
@@ -108,14 +108,14 @@ public sealed class DeleteContactChannelUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Internal);
         result.Error.Origin.ShouldBe("ContactChannelUsageReader");
-        await _repository.DidNotReceive().DeleteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenTheDeletionFails_PropagatesTheErrorWithoutCommitting()
+    public async Task ExecuteAsync_WhenTheRemovalFails_PropagatesTheErrorWithoutCommitting()
     {
         IsReferenced(false);
-        DeleteReturns(new InternalError("A persistence error occurred.") { Origin = "ContactChannelRepository" });
+        RemoveReturns(new InternalError("A persistence error occurred.") { Origin = "ContactChannelRepository" });
 
         var result = await CreateUseCase().ExecuteAsync(7);
 
@@ -131,7 +131,7 @@ public sealed class DeleteContactChannelUseCaseTests
     public async Task ExecuteAsync_WhenTheForeignKeyFiresAtCommit_PropagatesTheTranslatedConflict()
     {
         IsReferenced(false);
-        DeleteReturns(Result.Success());
+        RemoveReturns(Result.Success());
         CommitReturns(new ConflictError("The operation conflicts with a related record.")
         {
             Origin = "UnitOfWorkAdapter",

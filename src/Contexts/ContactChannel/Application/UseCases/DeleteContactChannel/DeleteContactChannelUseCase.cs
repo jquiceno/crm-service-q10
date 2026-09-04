@@ -23,10 +23,10 @@ public sealed class DeleteContactChannelUseCase(
         if (usageResult.Value)
             return ContactChannelErrors.InUse(id) with { Origin = Origin };
 
-        var deleteResult = await repository.DeleteAsync(id, cancellationToken).ConfigureAwait(false);
+        var removeResult = await repository.RemoveAsync(id, cancellationToken).ConfigureAwait(false);
 
-        if (deleteResult.IsFailure)
-            return deleteResult.Error;
+        if (removeResult.IsFailure)
+            return removeResult.Error;
 
         return await unitOfWork.CommitAsync(cancellationToken).ConfigureAwait(false);
     }

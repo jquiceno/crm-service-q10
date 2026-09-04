@@ -169,31 +169,7 @@ public sealed class ContactChannelRepository(
         }
     }
 
-    async Task<Result> IRootRepository<ContactChannelAggregate, int>.RemoveAsync(
-        int id,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var document = await _contactChannels
-                .FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
-                .ConfigureAwait(false);
-
-            if (document is null)
-                return ContactChannelErrors.NotFound(id) with { Origin = Origin };
-
-            _contactChannels.Remove(document);
-
-            return Result.Success();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger.Error(ex, "Error removing ContactChannel with id {Id}", id);
-            return PersistenceErrors.Failure(Origin);
-        }
-    }
-
-    public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
+    public async Task<Result> RemoveAsync(int id, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -210,7 +186,7 @@ public sealed class ContactChannelRepository(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.Error(ex, "Error deleting ContactChannel with id {Id}", id);
+            logger.Error(ex, "Error removing ContactChannel with id {Id}", id);
             return PersistenceErrors.Failure(Origin);
         }
     }

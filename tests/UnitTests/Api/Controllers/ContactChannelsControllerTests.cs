@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using Api.Controllers;
 using ContactChannel.Application.UseCases.CreateContactChannel;

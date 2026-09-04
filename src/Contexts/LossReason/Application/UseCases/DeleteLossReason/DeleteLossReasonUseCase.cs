@@ -13,15 +13,10 @@ public sealed class DeleteLossReasonUseCase(
 {
     private const string Origin = nameof(DeleteLossReasonUseCase);
 
+    // The delete is idempotent on purpose: an id that is not there deletes nothing and still
+    // answers 204, so existence is never checked — neither here nor in the repository.
     public async Task<Result> ExecuteAsync(int id, CancellationToken cancellationToken = default)
     {
-        var exists = await repository.ExistsAsync(id, cancellationToken).ConfigureAwait(false);
-        if (exists.IsFailure)
-            return exists.Error;
-
-        if (!exists.Value)
-            return LossReasonErrors.NotFound(id) with { Origin = Origin };
-
         var isUsed = await usageReader.IsUsedAsync(id, cancellationToken).ConfigureAwait(false);
         if (isUsed.IsFailure)
             return isUsed.Error;

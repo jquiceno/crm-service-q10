@@ -22,16 +22,14 @@ public sealed class DeleteLossReasonUseCaseTests
 
     private DeleteLossReasonUseCase CreateSut() => new(_repository, _usageReader, _unitOfWork);
 
-    private void ItExists() =>
-        _repository.ExistsAsync(Id, Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Success(true));
+    private void ItIsFree() =>
+        _usageReader.IsUsedAsync(Id, Arg.Any<CancellationToken>())
+            .Returns(Result<bool>.Success(false));
 
     [Fact]
     public async Task ExecuteAsync_WhenTheReasonIsFree_RemovesItAndCommits()
     {
-        ItExists();
-        _usageReader.IsUsedAsync(Id, Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Success(false));
+        ItIsFree();
         _repository.RemoveAsync(Id, Arg.Any<CancellationToken>()).Returns(Result.Success());
         _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(Result.Success());
 
@@ -43,9 +41,23 @@ public sealed class DeleteLossReasonUseCaseTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithAnIdThatIsNotThere_SucceedsWithoutCheckingExistence()
+    {
+        ItIsFree();
+        // The repository deletes by id and reports success even when the row is not there.
+        _repository.RemoveAsync(Id, Arg.Any<CancellationToken>()).Returns(Result.Success());
+        _unitOfWork.CommitAsync(Arg.Any<CancellationToken>()).Returns(Result.Success());
+
+        var result = await CreateSut().ExecuteAsync(Id, CancellationToken.None);
+
+        // The delete is idempotent: a missing id is a 204, not a 404.
+        result.IsSuccess.ShouldBeTrue();
+        await _repository.DidNotReceive().ExistsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenTheReasonIsInUse_ReturnsConflictWithoutRemoving()
     {
-        ItExists();
         _usageReader.IsUsedAsync(Id, Arg.Any<CancellationToken>())
             .Returns(Result<bool>.Success(true));
 
@@ -54,32 +66,14 @@ public sealed class DeleteLossReasonUseCaseTests
         result.IsFailure.ShouldBeTrue();
         result.Error.Type.ShouldBe(ErrorType.Conflict);
 
-        // The FK is NO_ACTION: staging the delete would fail with SQL Server error 547 (D7).
+        // The FK is NO_ACTION: issuing the delete would fail with SQL Server error 547 (D7).
         await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithNonExistentId_ReturnsNotFoundWithoutQueryingTheReader()
-    {
-        _repository.ExistsAsync(Id, Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Success(false));
-
-        var result = await CreateSut().ExecuteAsync(Id, CancellationToken.None);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Type.ShouldBe(ErrorType.NotFound);
-
-        // Existence is checked first on purpose: neg_cau_consecutivo is not indexed, so consulting
-        // the reader here would make every 404 pay a scan of ~300.000 rows (D7, risk R2).
-        await _usageReader.DidNotReceive().IsUsedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _repository.DidNotReceive().RemoveAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
     public async Task ExecuteAsync_WhenTheReaderFails_KeepsTheReaderOrigin()
     {
-        ItExists();
         var readerError = new DomainError("A persistence error occurred.", ErrorType.Internal)
         {
             Origin = ReaderOrigin
@@ -97,11 +91,9 @@ public sealed class DeleteLossReasonUseCaseTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenRemoveFails_DoesNotCommit()
+    public async Task ExecuteAsync_WhenRemoveFails_DoesNotCommitAndKeepsTheRepositoryOrigin()
     {
-        ItExists();
-        _usageReader.IsUsedAsync(Id, Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Success(false));
+        ItIsFree();
         var removeError = new DomainError("A persistence error occurred.", ErrorType.Internal)
         {
             Origin = RepositoryOrigin
@@ -115,26 +107,7 @@ public sealed class DeleteLossReasonUseCaseTests
             RepositoryOrigin,
             "the use case does not replace the origin of the failure");
 
-        // A staged delete that failed must never reach the commit.
+        // A delete that failed must never reach the commit.
         await _unitOfWork.DidNotReceive().CommitAsync(Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenTheRepositoryFails_KeepsTheRepositoryOrigin()
-    {
-        var repositoryError = new DomainError("A persistence error occurred.", ErrorType.Internal)
-        {
-            Origin = RepositoryOrigin
-        };
-        _repository.ExistsAsync(Id, Arg.Any<CancellationToken>())
-            .Returns(Result<bool>.Failure(repositoryError));
-
-        var result = await CreateSut().ExecuteAsync(Id, CancellationToken.None);
-
-        result.IsFailure.ShouldBeTrue();
-        result.Error.Origin.ShouldBe(
-            RepositoryOrigin,
-            "the use case does not replace the origin of the failure");
-        await _usageReader.DidNotReceive().IsUsedAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 }

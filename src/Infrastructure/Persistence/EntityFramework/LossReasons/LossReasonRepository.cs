@@ -1,9 +1,11 @@
+using Infrastructure.Adapters.Persistence.SqlServer;
 using Infrastructure.Persistence.EntityFramework.Common;
 using Infrastructure.Persistence.EntityFramework.LossReasons.Mappers;
 using LossReason.Domain.Aggregates;
 using LossReason.Domain.Errors;
 using LossReason.Domain.Queries;
 using LossReason.Domain.Repositories;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Shared.Application.Ports;
 using Shared.Domain.Pagination;
@@ -167,17 +169,21 @@ public sealed class LossReasonRepository(
     {
         try
         {
-            // Tracked on purpose: the delete is staged here and committed by the unit of work.
-            var document = await _lossReasons
-                .FirstOrDefaultAsync(x => x.Id == id, cancellationToken)
+            // A single DELETE, without loading the row first: existence is not checked here. An id
+            // that is not there affects zero rows, which is a success — the delete is idempotent.
+            await _lossReasons
+                .Where(x => x.Id == id)
+                .ExecuteDeleteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            if (document is null)
-                return LossReasonErrors.NotFound(id) with { Origin = Origin };
-
-            _lossReasons.Remove(document);
-
             return Result.Success();
+        }
+        catch (SqlException ex)
+        {
+            // The DELETE no longer passes through the unit of work, so the 547 of a race lost
+            // against a deal that took the reason has to be classified here to stay a 409 (§6.5).
+            logger.Error(ex, "Error removing loss reason with id {Id}", id);
+            return SqlServerErrorClassifier.Classify(ex, Origin);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
